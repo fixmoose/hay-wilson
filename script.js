@@ -63,6 +63,9 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     });
 });
 
+// ==================== EmailJS Initialization ====================
+emailjs.init('VUZJZTgsB3JI1HLSW');
+
 // ==================== Contact Form Handling ====================
 const contactForm = document.getElementById('contactForm');
 
@@ -73,31 +76,44 @@ contactForm.addEventListener('submit', (e) => {
     const formData = new FormData(contactForm);
     const data = Object.fromEntries(formData);
 
-    // Here you would typically send the data to a server
-    // For now, we'll just show an alert
-    alert('Thank you for your inquiry! We will contact you soon.\n\nNote: This is a demo form. To make it functional, you would need to connect it to a backend service or email API.');
+    // Show loading state
+    const submitBtn = contactForm.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Sending...';
+    submitBtn.disabled = true;
 
-    // Reset form
-    contactForm.reset();
-
-    // In a real implementation, you might do something like:
-    /*
-    fetch('/api/contact', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-    })
-    .then(response => response.json())
-    .then(data => {
-        alert('Message sent successfully!');
+    // Send emails using EmailJS
+    Promise.all([
+        // Send contact email to business
+        emailjs.send('service_wzm6qxt', 'template_ypn5b79', {
+            from_name: data.name,
+            from_email: data.email,
+            phone: data.phone || 'Not provided',
+            service: data.service || 'Not specified',
+            message: data.message,
+        }),
+        // Send auto-reply to customer
+        emailjs.send('service_wzm6qxt', 'template_pu2uzkg', {
+            from_name: data.name,
+            from_email: data.email,
+            phone: data.phone || 'Not provided',
+            service: data.service || 'Not specified',
+            message: data.message,
+        })
+    ])
+    .then(() => {
+        alert('Thank you for your inquiry! We have received your message and will contact you soon.');
         contactForm.reset();
     })
-    .catch(error => {
-        alert('Error sending message. Please try again.');
+    .catch((error) => {
+        console.error('EmailJS error:', error);
+        alert('Sorry, there was an error sending your message. Please try again or contact us directly at info@haywilson.com');
+    })
+    .finally(() => {
+        // Reset button state
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
     });
-    */
 });
 
 // ==================== Intersection Observer for Animations ====================
