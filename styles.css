@@ -368,6 +368,11 @@ body {
     background-color: var(--bg-light);
 }
 
+.about .container {
+    max-width: 95%;
+    padding: 0 2rem;
+}
+
 .about-content {
     max-width: 100%;
     margin: 0 auto;
