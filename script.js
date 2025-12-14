@@ -69,6 +69,13 @@ const contactForm = document.getElementById('contactForm');
 contactForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    // Validate reCAPTCHA
+    const recaptchaResponse = grecaptcha.getResponse();
+    if (!recaptchaResponse) {
+        alert('Please complete the reCAPTCHA verification.');
+        return;
+    }
+
     // Get form data
     const formData = new FormData(contactForm);
     const data = Object.fromEntries(formData);
@@ -107,6 +114,7 @@ contactForm.addEventListener('submit', async (e) => {
 
         alert('Thank you for your inquiry! We have received your message and will contact you soon.');
         contactForm.reset();
+        grecaptcha.reset();
 
     } catch (error) {
         console.error('Form submission error:', error);

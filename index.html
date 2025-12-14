@@ -346,7 +346,7 @@
                         </div>
                         <div class="form-group">
                             <label for="phone">Phone</label>
-                            <input type="tel" id="phone" name="phone">
+                            <input type="tel" id="phone" name="phone" required>
                         </div>
                         <div class="form-group">
                             <label for="service">Service Interested In</label>
@@ -366,6 +366,9 @@
                         <div class="form-group">
                             <label for="message">Message</label>
                             <textarea id="message" name="message" rows="5" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <div class="g-recaptcha" data-sitekey="6LcsESssAAAAAF55bJdu1r8vpW8T_S4QE85mpR-w"></div>
                         </div>
                         <button type="submit" class="btn btn-primary">Send Message</button>
                     </form>
@@ -435,6 +438,9 @@
             </div>
         </div>
     </footer>
+
+    <!-- Google reCAPTCHA -->
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 
     <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
