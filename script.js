@@ -63,13 +63,10 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     });
 });
 
-// ==================== EmailJS Initialization ====================
-emailjs.init('VUZJZTgsB3JI1HLSW');
-
-// ==================== Contact Form Handling ====================
+// ==================== Contact Form Handling with Supabase ====================
 const contactForm = document.getElementById('contactForm');
 
-contactForm.addEventListener('submit', (e) => {
+contactForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     // Get form data
@@ -82,38 +79,43 @@ contactForm.addEventListener('submit', (e) => {
     submitBtn.textContent = 'Sending...';
     submitBtn.disabled = true;
 
-    // Send emails using EmailJS
-    Promise.all([
-        // Send contact email to business
-        emailjs.send('service_wzm6qxt', 'template_ypn5b79', {
-            from_name: data.name,
-            from_email: data.email,
-            phone: data.phone || 'Not provided',
-            service: data.service || 'Not specified',
+    try {
+        // Initialize Supabase client
+        const supabase = window.supabase.createClient(
+            HW_SUPABASE_CONFIG.url,
+            HW_SUPABASE_CONFIG.anonKey
+        );
+
+        // Prepare message data
+        const messageData = {
+            name: data.name,
+            email: data.email,
+            phone: data.phone || null,
+            service: data.service || null,
             message: data.message,
-        }),
-        // Send auto-reply to customer
-        emailjs.send('service_wzm6qxt', 'template_pu2uzkg', {
-            from_name: data.name,
-            from_email: data.email,
-            phone: data.phone || 'Not provided',
-            service: data.service || 'Not specified',
-            message: data.message,
-        })
-    ])
-    .then(() => {
+            created_at: new Date().toISOString()
+        };
+
+        // Insert into Supabase
+        const { error } = await supabase
+            .from(HW_MESSAGES_TABLE)
+            .insert([messageData]);
+
+        if (error) {
+            throw error;
+        }
+
         alert('Thank you for your inquiry! We have received your message and will contact you soon.');
         contactForm.reset();
-    })
-    .catch((error) => {
-        console.error('EmailJS error:', error);
+
+    } catch (error) {
+        console.error('Form submission error:', error);
         alert('Sorry, there was an error sending your message. Please try again or contact us directly at info@haywilson.com');
-    })
-    .finally(() => {
+    } finally {
         // Reset button state
         submitBtn.textContent = originalText;
         submitBtn.disabled = false;
-    });
+    }
 });
 
 // ==================== Intersection Observer for Animations ====================
