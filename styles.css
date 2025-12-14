@@ -369,7 +369,7 @@ body {
 }
 
 .about-content {
-    max-width: 900px;
+    max-width: 1200px;
     margin: 0 auto;
 }
 
@@ -381,7 +381,7 @@ body {
 }
 
 .about-text p {
-    font-size: 1.125rem;
+    font-size: 0.9rem;
     color: var(--text-light);
     margin-bottom: 1.5rem;
     line-height: 1.8;
