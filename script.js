@@ -66,7 +66,8 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 // ==================== Contact Form Handling with Supabase ====================
 const contactForm = document.getElementById('contactForm');
 
-contactForm.addEventListener('submit', async (e) => {
+if (contactForm) {
+    contactForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     // Validate reCAPTCHA
@@ -124,7 +125,8 @@ contactForm.addEventListener('submit', async (e) => {
         submitBtn.textContent = originalText;
         submitBtn.disabled = false;
     }
-});
+    });
+}
 
 // ==================== Intersection Observer for Animations ====================
 const observerOptions = {
@@ -242,12 +244,9 @@ document.addEventListener('click', (e) => {
 // ==================== FAQ Accordion Functionality ====================
 function initFAQ() {
     const faqQuestions = document.querySelectorAll('.faq-question');
-    console.log('Found FAQ questions:', faqQuestions.length);
 
-    faqQuestions.forEach((question, index) => {
-        console.log('Attaching click to question', index);
+    faqQuestions.forEach((question) => {
         question.addEventListener('click', function(e) {
-            console.log('Question clicked', index);
             const faqItem = this.parentElement;
             const isActive = faqItem.classList.contains('active');
 
