@@ -242,9 +242,13 @@ document.addEventListener('click', (e) => {
 // ==================== FAQ Accordion Functionality ====================
 function initFAQ() {
     const faqQuestions = document.querySelectorAll('.faq-question');
-    faqQuestions.forEach(question => {
-        question.addEventListener('click', () => {
-            const faqItem = question.parentElement;
+    console.log('Found FAQ questions:', faqQuestions.length);
+
+    faqQuestions.forEach((question, index) => {
+        console.log('Attaching click to question', index);
+        question.addEventListener('click', function(e) {
+            console.log('Question clicked', index);
+            const faqItem = this.parentElement;
             const isActive = faqItem.classList.contains('active');
 
             // Close all other FAQ items
