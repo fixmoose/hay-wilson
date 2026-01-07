@@ -239,22 +239,8 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// ==================== Initialize ====================
-document.addEventListener('DOMContentLoaded', () => {
-    // Add smooth fade-in for hero content
-    const heroContent = document.querySelector('.hero-content');
-    if (heroContent) {
-        heroContent.style.opacity = '0';
-        heroContent.style.transform = 'translateY(30px)';
-
-        setTimeout(() => {
-            heroContent.style.transition = 'opacity 1s ease-out, transform 1s ease-out';
-            heroContent.style.opacity = '1';
-            heroContent.style.transform = 'translateY(0)';
-        }, 200);
-    }
-
-    // FAQ Accordion Functionality
+// ==================== FAQ Accordion Functionality ====================
+function initFAQ() {
     const faqQuestions = document.querySelectorAll('.faq-question');
     faqQuestions.forEach(question => {
         question.addEventListener('click', () => {
@@ -276,7 +262,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+}
+
+// ==================== Initialize ====================
+document.addEventListener('DOMContentLoaded', () => {
+    // Add smooth fade-in for hero content
+    const heroContent = document.querySelector('.hero-content');
+    if (heroContent) {
+        heroContent.style.opacity = '0';
+        heroContent.style.transform = 'translateY(30px)';
+
+        setTimeout(() => {
+            heroContent.style.transition = 'opacity 1s ease-out, transform 1s ease-out';
+            heroContent.style.opacity = '1';
+            heroContent.style.transform = 'translateY(0)';
+        }, 200);
+    }
+
+    // Initialize FAQ accordion
+    initFAQ();
 });
+
+// Also initialize immediately in case DOM is already loaded
+if (document.readyState === 'loading') {
+    // DOM is still loading, wait for DOMContentLoaded
+} else {
+    // DOM is already loaded, initialize immediately
+    initFAQ();
+}
 
 // ==================== Performance: Lazy Load Images ====================
 if ('IntersectionObserver' in window) {
