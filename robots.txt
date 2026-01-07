@@ -1,4 +1,5 @@
 User-agent: *
-Disallow:
+Disallow: /*?s=*
+Disallow: /*?search*
 
 Sitemap: https://haywilson.com/sitemap.xml
