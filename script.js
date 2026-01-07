@@ -253,32 +253,9 @@ document.addEventListener('DOMContentLoaded', () => {
             heroContent.style.transform = 'translateY(0)';
         }, 200);
     }
-});
 
-// ==================== Performance: Lazy Load Images ====================
-if ('IntersectionObserver' in window) {
-    const imageObserver = new IntersectionObserver((entries, observer) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const img = entry.target;
-                if (img.dataset.src) {
-                    img.src = img.dataset.src;
-                    img.removeAttribute('data-src');
-                    observer.unobserve(img);
-                }
-            }
-        });
-    });
-
-    document.querySelectorAll('img[data-src]').forEach(img => {
-        imageObserver.observe(img);
-    });
-}
-
-// ==================== FAQ Accordion Functionality ====================
-document.addEventListener('DOMContentLoaded', () => {
+    // FAQ Accordion Functionality
     const faqQuestions = document.querySelectorAll('.faq-question');
-
     faqQuestions.forEach(question => {
         question.addEventListener('click', () => {
             const faqItem = question.parentElement;
@@ -300,3 +277,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+
+// ==================== Performance: Lazy Load Images ====================
+if ('IntersectionObserver' in window) {
+    const imageObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const img = entry.target;
+                if (img.dataset.src) {
+                    img.src = img.dataset.src;
+                    img.removeAttribute('data-src');
+                    observer.unobserve(img);
+                }
+            }
+        });
+    });
+
+    document.querySelectorAll('img[data-src]').forEach(img => {
+        imageObserver.observe(img);
+    });
+}
