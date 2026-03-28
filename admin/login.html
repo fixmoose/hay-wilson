@@ -7,7 +7,7 @@
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/admin/admin-styles.css?v=4">
+    <link rel="stylesheet" href="/admin/admin-styles.css">
 </head>
 <body>
     <div class="login-page">
@@ -30,17 +30,16 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.body.innerHTML='<h1 style=padding:2rem>Supabase CDN blocked. Disable ad-blocker or check internet.</h1>'"></script>
-    <script>document.write('<scr'+'ipt src="/admin/hw.js?_='+Date.now()+'"></scr'+'ipt>');</script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+        const sb = window.supabase.createClient(
+            'https://mxxabikquupnwvlspzyz.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14eGFiaWtxdXVwbnd2bHNwenl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDMwNTgsImV4cCI6MjA3NzIxOTA1OH0.WC_mupqYMneJnYmr9vmDZd0vXroBnaLwZlYX44J_HFQ'
+        );
+
         (async () => {
-            initSupabase();
-            // If already logged in, redirect to dashboard
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                window.location.href = '/admin/';
-                return;
-            }
+            const { data: { session } } = await sb.auth.getSession();
+            if (session) { window.location.href = '/admin/'; return; }
 
             const form = document.getElementById('loginForm');
             const errorEl = document.getElementById('loginError');
@@ -52,10 +51,10 @@
                 loginBtn.disabled = true;
                 loginBtn.textContent = 'Signing in...';
 
-                const email = document.getElementById('email').value;
-                const password = document.getElementById('password').value;
-
-                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                const { error } = await sb.auth.signInWithPassword({
+                    email: document.getElementById('email').value,
+                    password: document.getElementById('password').value
+                });
 
                 if (error) {
                     errorEl.textContent = error.message;

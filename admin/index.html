@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - H&W Admin</title>
+    <title>Dashboard - H&amp;W Admin</title>
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/admin/admin-styles.css?v=4">
+    <link rel="stylesheet" href="/admin/admin-styles.css">
 </head>
 <body>
     <div class="admin-topbar">
@@ -20,269 +20,99 @@
             <button class="btn-logout" id="logoutBtn">Logout</button>
         </div>
     </div>
-    <aside class="admin-sidebar" id="adminSidebar"></aside>
+
+    <aside class="admin-sidebar" id="adminSidebar">
+        <ul class="admin-nav">
+            <li><a href="/admin/" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Dashboard</a></li>
+            <li><a href="/admin/jobs.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Jobs</a></li>
+            <li><a href="/admin/clients.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Clients</a></li>
+            <li><a href="/admin/invoices.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Invoices</a></li>
+            <li><a href="/admin/documents.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Documents</a></li>
+            <li><div class="nav-divider"></div></li>
+            <li><a href="/" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>View Site</a></li>
+        </ul>
+    </aside>
+
     <main class="admin-main">
         <div class="admin-page-header">
             <h2>Dashboard</h2>
         </div>
 
-        <!-- Summary Cards -->
-        <div class="stats-grid" id="statsGrid">
-            <div class="stat-card">
-                <div class="stat-card-label">Outstanding Balance</div>
-                <div class="stat-card-value money" id="statOutstanding">-</div>
-                <div class="stat-card-sub" id="statOutstandingSub"></div>
-            </div>
+        <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-card-label">Active Jobs</div>
-                <div class="stat-card-value" id="statActiveJobs">-</div>
-                <div class="stat-card-sub">Pending + In Progress</div>
+                <div class="stat-card-value">0</div>
+                <div class="stat-card-sub">No jobs yet</div>
             </div>
             <div class="stat-card">
-                <div class="stat-card-label">Completed (Unbilled)</div>
-                <div class="stat-card-value warning" id="statUnbilled">-</div>
-                <div class="stat-card-sub">Ready to invoice</div>
+                <div class="stat-card-label">Clients</div>
+                <div class="stat-card-value">0</div>
+                <div class="stat-card-sub">No clients yet</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-label">Outstanding</div>
+                <div class="stat-card-value money">$0.00</div>
+                <div class="stat-card-sub">No unpaid invoices</div>
             </div>
             <div class="stat-card">
                 <div class="stat-card-label">Revenue This Month</div>
-                <div class="stat-card-value money" id="statRevenue">-</div>
-                <div class="stat-card-sub" id="statRevenueSub"></div>
+                <div class="stat-card-value money">$0.00</div>
+                <div class="stat-card-sub">March 2026</div>
             </div>
         </div>
 
-        <!-- Who Owes Money -->
         <div class="admin-card">
             <div class="admin-card-header">
-                <h3>Who Owes Money</h3>
+                <h3>Welcome</h3>
             </div>
-            <div class="admin-table-wrap">
-                <table class="admin-table" id="owesTable">
-                    <thead>
-                        <tr>
-                            <th>Customer</th>
-                            <th>Job</th>
-                            <th>Amount</th>
-                            <th>Sent</th>
-                            <th>Days Outstanding</th>
-                        </tr>
-                    </thead>
-                    <tbody id="owesBody">
-                        <tr><td colspan="5" class="loading"><div class="spinner"></div></td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Active Jobs -->
-        <div class="admin-card">
-            <div class="admin-card-header">
-                <h3>Active Jobs</h3>
-                <a href="/admin/jobs.html" class="btn btn-outline btn-sm">View All</a>
-            </div>
-            <div class="admin-table-wrap">
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Job</th>
-                            <th>Customer</th>
-                            <th>Status</th>
-                            <th>Started</th>
-                        </tr>
-                    </thead>
-                    <tbody id="activeJobsBody">
-                        <tr><td colspan="4" class="loading"><div class="spinner"></div></td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Recent Messages -->
-        <div class="admin-card">
-            <div class="admin-card-header">
-                <h3>Recent Messages</h3>
-                <a href="/admin/messages.html" class="btn btn-outline btn-sm">View All</a>
-            </div>
-            <div class="admin-table-wrap">
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Service</th>
-                            <th>Date</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="messagesBody">
-                        <tr><td colspan="4" class="loading"><div class="spinner"></div></td></tr>
-                    </tbody>
-                </table>
+            <div style="padding:1.25rem;">
+                <p style="color:var(--text-light);line-height:1.8;">
+                    Your admin panel is ready. Pages coming soon:
+                </p>
+                <ul style="margin-top:1rem;color:var(--text-light);line-height:2;">
+                    <li><strong>Jobs</strong> — Track jobs from start to payment</li>
+                    <li><strong>Clients</strong> — Customer directory with contact info</li>
+                    <li><strong>Invoices</strong> — Create and send invoices via Stripe</li>
+                    <li><strong>Documents</strong> — Receipt scanning and expense tracking</li>
+                </ul>
             </div>
         </div>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.body.innerHTML='<h1 style=padding:2rem>Supabase CDN blocked. Disable ad-blocker or check internet.</h1>'"></script>
-    <script>document.write('<scr'+'ipt src="/admin/hw.js?_='+Date.now()+'"></scr'+'ipt>');</script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-    (async () => {
-        const session = await initAdminPage('dashboard');
-        if (!session) return;
+        const sb = window.supabase.createClient(
+            'https://mxxabikquupnwvlspzyz.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14eGFiaWtxdXVwbnd2bHNwenl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDMwNTgsImV4cCI6MjA3NzIxOTA1OH0.WC_mupqYMneJnYmr9vmDZd0vXroBnaLwZlYX44J_HFQ'
+        );
 
-        // Load all sections - each handles its own errors
-        loadStats();
-        loadOwes();
-        loadActiveJobs();
-        loadMessages();
-    })();
-
-    async function loadStats() {
-        try {
-            // Outstanding balance (sent invoices)
-            const { data: sentInvoices, error: e1 } = await supabase
-                .from('hw_invoices')
-                .select('amount')
-                .eq('status', 'sent');
-            if (e1) throw e1;
-            const outstanding = (sentInvoices || []).reduce((s, i) => s + parseFloat(i.amount), 0);
-            document.getElementById('statOutstanding').textContent = formatCurrency(outstanding);
-            document.getElementById('statOutstandingSub').textContent =
-                `${(sentInvoices || []).length} unpaid invoice${(sentInvoices || []).length !== 1 ? 's' : ''}`;
-
-            // Active jobs
-            const { count: activeCount, error: e2 } = await supabase
-                .from('hw_jobs')
-                .select('*', { count: 'exact', head: true })
-                .in('status', ['pending', 'in_progress']);
-            if (e2) throw e2;
-            document.getElementById('statActiveJobs').textContent = activeCount || 0;
-
-            // Completed unbilled
-            const { count: unbilledCount, error: e3 } = await supabase
-                .from('hw_jobs')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', 'completed');
-            if (e3) throw e3;
-            document.getElementById('statUnbilled').textContent = unbilledCount || 0;
-
-            // Revenue this month
-            const now = new Date();
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-            const { data: paidInvoices, error: e4 } = await supabase
-                .from('hw_invoices')
-                .select('amount')
-                .eq('status', 'paid')
-                .gte('paid_at', startOfMonth);
-            if (e4) throw e4;
-            const revenue = (paidInvoices || []).reduce((s, i) => s + parseFloat(i.amount), 0);
-            document.getElementById('statRevenue').textContent = formatCurrency(revenue);
-            const monthName = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-            document.getElementById('statRevenueSub').textContent = monthName;
-        } catch (err) {
-            console.error('Dashboard stats error:', err);
-            document.getElementById('statOutstanding').textContent = '$0.00';
-            document.getElementById('statOutstandingSub').textContent = '0 unpaid invoices';
-            document.getElementById('statActiveJobs').textContent = '0';
-            document.getElementById('statUnbilled').textContent = '0';
-            document.getElementById('statRevenue').textContent = '$0.00';
-        }
-    }
-
-    async function loadOwes() {
-        const tbody = document.getElementById('owesBody');
-        try {
-            const { data: invoices, error } = await supabase
-                .from('hw_invoices')
-                .select('*, job:hw_jobs(name, customer:hw_customers(name))')
-                .eq('status', 'sent')
-                .order('created_at', { ascending: true });
-
-            if (error) throw error;
-
-            if (!invoices || invoices.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><p>All paid up! No outstanding invoices.</p></div></td></tr>';
+        (async () => {
+            // Auth guard
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) {
+                window.location.href = '/admin/login.html';
                 return;
             }
 
-            tbody.innerHTML = invoices.map(inv => {
-                const days = daysBetween(inv.created_at);
-                let rowClass = '';
-                if (days > 60) rowClass = 'row-overdue-60';
-                else if (days > 30) rowClass = 'row-overdue-30';
-                const jobName = inv.job?.name || '-';
-                const customerName = inv.job?.customer?.name || '-';
-                return `<tr class="clickable ${rowClass}" onclick="window.location.href='/admin/job-detail.html?id=${inv.job_id}'">
-                    <td><strong>${escapeHtml(customerName)}</strong></td>
-                    <td>${escapeHtml(jobName)}</td>
-                    <td><strong>${formatCurrency(inv.amount)}</strong></td>
-                    <td>${formatDateShort(inv.created_at)}</td>
-                    <td>${days} day${days !== 1 ? 's' : ''}</td>
-                </tr>`;
-            }).join('');
-        } catch (err) {
-            console.error('Load owes error:', err);
-            tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><p>All paid up! No outstanding invoices.</p></div></td></tr>';
-        }
-    }
+            // Show user email
+            document.getElementById('adminUser').textContent = session.user.email;
 
-    async function loadActiveJobs() {
-        const tbody = document.getElementById('activeJobsBody');
-        try {
-            const { data: jobs, error } = await supabase
-                .from('hw_jobs')
-                .select('*, customer:hw_customers(name)')
-                .in('status', ['pending', 'in_progress'])
-                .order('created_at', { ascending: false })
-                .limit(10);
+            // Logout
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                await sb.auth.signOut();
+                window.location.href = '/admin/login.html';
+            });
 
-            if (error) throw error;
-
-            if (!jobs || jobs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><p>No active jobs yet. <a href="/admin/jobs.html">Add your first job</a></p></div></td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = jobs.map(job => `
-                <tr class="clickable" onclick="window.location.href='/admin/job-detail.html?id=${job.id}'">
-                    <td><strong>${escapeHtml(job.name)}</strong></td>
-                    <td>${escapeHtml(job.customer?.name || '-')}</td>
-                    <td>${statusBadge(job.status)}</td>
-                    <td>${formatDateShort(job.start_date)}</td>
-                </tr>
-            `).join('');
-        } catch (err) {
-            console.error('Load active jobs error:', err);
-            tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><p>No active jobs yet. <a href="/admin/jobs.html">Add your first job</a></p></div></td></tr>';
-        }
-    }
-
-    async function loadMessages() {
-        const tbody = document.getElementById('messagesBody');
-        try {
-            const { data: messages, error } = await supabase
-                .from('hw_contact_messages')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(5);
-
-            if (error) throw error;
-
-            if (!messages || messages.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><p>No messages yet</p></div></td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = messages.map(msg => `
-                <tr class="clickable" onclick="window.location.href='/admin/messages.html'">
-                    <td><strong>${escapeHtml(msg.name)}</strong></td>
-                    <td>${escapeHtml(msg.service || '-')}</td>
-                    <td>${formatDateShort(msg.created_at)}</td>
-                    <td>${msg.read ? '<span class="badge badge-read">Read</span>' : '<span class="badge badge-unread">New</span>'}</td>
-                </tr>
-            `).join('');
-        } catch (err) {
-            console.error('Load messages error:', err);
-            tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><p>No messages yet</p></div></td></tr>';
-        }
-    }
+            // Mobile sidebar toggle
+            const sidebar = document.getElementById('adminSidebar');
+            const toggle = document.getElementById('sidebarToggle');
+            toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+            document.addEventListener('click', (e) => {
+                if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggle.contains(e.target)) {
+                    sidebar.classList.remove('open');
+                }
+            });
+        })();
     </script>
 </body>
 </html>
