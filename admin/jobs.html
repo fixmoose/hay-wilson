@@ -186,7 +186,7 @@
             tbody.innerHTML = filtered.map(job => `
                 <tr class="clickable" onclick="window.location.href='/admin/job-detail.html?id=${job.id}'">
                     <td><strong>${escapeHtml(job.name)}</strong></td>
-                    <td>${escapeHtml(job.hw_customers?.parent_gc ? '(' + job.hw_customers.parent_gc.name.split(' ').map(w => w[0]).join('').toUpperCase() + ') ' + job.hw_customers.name : (job.hw_customers?.name || '-'))}</td>
+                    <td>${escapeHtml(job.hw_customers?.parent_gc?.name ? '(' + job.hw_customers.parent_gc.name.split(' ').map(w => w[0]).join('').toUpperCase() + ') ' + job.hw_customers.name : (job.hw_customers?.name || '-'))}</td>
                     <td>${statusBadge(job.status)}</td>
                     <td>${formatDate(job.start_date)}</td>
                     <td>${formatDate(job.end_date)}</td>

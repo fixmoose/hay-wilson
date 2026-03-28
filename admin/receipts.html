@@ -543,7 +543,7 @@
             const job = allJobs.find(j => j.id === folder);
             if (!job) return 'Job ' + folder.substring(0, 8);
             const gc = job.hw_customers?.parent_gc;
-            const prefix = gc ? '(' + gc.name.split(' ').map(w => w[0]).join('').toUpperCase() + ') ' : '';
+            const prefix = gc && gc.name ? '(' + gc.name.split(' ').map(w => w[0]).join('').toUpperCase() + ') ' : '';
             return prefix + job.name;
         }
 

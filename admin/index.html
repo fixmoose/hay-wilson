@@ -177,7 +177,7 @@
                 activeJobsBody.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:0.9rem;">' +
                     activeJobs.map(j => {
                         const gc = j.hw_customers?.parent_gc;
-                        const prefix = gc ? '(' + gc.name.split(' ').map(w => w[0]).join('').toUpperCase() + ') ' : '';
+                        const prefix = gc && gc.name ? '(' + gc.name.split(' ').map(w => w[0]).join('').toUpperCase() + ') ' : '';
                         const clientName = j.hw_customers ? prefix + j.hw_customers.name : '-';
                         const statusClass = j.status === 'in_progress' ? 'badge-in_progress' : 'badge-pending';
                         return '<tr style="cursor:pointer;" onclick="window.location.href=\'/admin/job-detail.html?id=' + j.id + '\'">' +

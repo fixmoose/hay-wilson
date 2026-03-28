@@ -301,7 +301,7 @@
             if (job.hw_customers) {
                 const cust = job.hw_customers;
                 let displayName = cust.name;
-                if (cust.parent_gc) {
+                if (cust.parent_gc && cust.parent_gc.name) {
                     const initials = cust.parent_gc.name.split(' ').map(w => w[0]).join('').toUpperCase();
                     displayName = '(' + initials + ') ' + cust.name;
                 }
