@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - Hay &amp; Wilson Electric</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/admin/admin-styles.css">
+</head>
+<body>
+    <div class="login-page">
+        <div class="login-card">
+            <img src="/assets/hay-wilson-logo.png" alt="Hay &amp; Wilson Electric">
+            <h2>Admin Panel</h2>
+            <p>Sign in to manage your business</p>
+            <div class="login-error" id="loginError"></div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" class="form-control" required autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" class="form-control" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg" id="loginBtn">Sign In</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/admin/admin-app.js"></script>
+    <script>
+        (async () => {
+            initSupabase();
+            // If already logged in, redirect to dashboard
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                window.location.href = '/admin/';
+                return;
+            }
+
+            const form = document.getElementById('loginForm');
+            const errorEl = document.getElementById('loginError');
+            const loginBtn = document.getElementById('loginBtn');
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                errorEl.style.display = 'none';
+                loginBtn.disabled = true;
+                loginBtn.textContent = 'Signing in...';
+
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+                if (error) {
+                    errorEl.textContent = error.message;
+                    errorEl.style.display = 'block';
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Sign In';
+                } else {
+                    window.location.href = '/admin/';
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

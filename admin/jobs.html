@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jobs - H&amp;W Admin</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/admin/admin-styles.css">
+</head>
+<body>
+    <div class="admin-topbar">
+        <div class="admin-topbar-left">
+            <button class="mobile-sidebar-toggle" id="sidebarToggle">&#9776;</button>
+            <h1>H&W <span>Admin</span></h1>
+        </div>
+        <div class="admin-topbar-right">
+            <span class="admin-user" id="adminUser"></span>
+            <button class="btn-logout" id="logoutBtn">Logout</button>
+        </div>
+    </div>
+    <aside class="admin-sidebar" id="adminSidebar"></aside>
+    <main class="admin-main">
+        <div class="admin-page-header">
+            <h2>Jobs</h2>
+            <button class="btn btn-primary" id="addJobBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Job
+            </button>
+        </div>
+
+        <div class="filter-tabs" id="filterTabs">
+            <button class="filter-tab active" data-filter="all">All</button>
+            <button class="filter-tab" data-filter="pending">Pending</button>
+            <button class="filter-tab" data-filter="in_progress">In Progress</button>
+            <button class="filter-tab" data-filter="completed">Completed</button>
+            <button class="filter-tab" data-filter="invoiced">Invoiced</button>
+            <button class="filter-tab" data-filter="paid">Paid</button>
+        </div>
+
+        <div class="admin-card">
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Job Name</th>
+                            <th>Customer</th>
+                            <th>Status</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobsTableBody">
+                        <tr><td colspan="5"><div class="loading"><div class="spinner"></div></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add Job Modal -->
+    <div class="modal-overlay" id="addJobModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Add Job</h3>
+                <button class="modal-close" id="closeAddJob">&times;</button>
+            </div>
+            <form id="addJobForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="jobCustomer">Customer</label>
+                        <select id="jobCustomer" class="form-control" required>
+                            <option value="">Select a customer...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="jobName">Job Name *</label>
+                        <input type="text" id="jobName" class="form-control" required placeholder="e.g. Panel Upgrade - 200A">
+                    </div>
+                    <div class="form-group">
+                        <label for="jobDescription">Description</label>
+                        <textarea id="jobDescription" class="form-control" rows="3" placeholder="Job details..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="jobStartDate">Start Date</label>
+                        <input type="date" id="jobStartDate" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" id="cancelAddJob">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="submitAddJob">Create Job</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/admin/admin-app.js"></script>
+    <script>
+        let allJobs = [];
+        let currentFilter = 'all';
+
+        (async () => {
+            const session = await initAdminPage('jobs');
+            if (!session) return;
+
+            await loadJobs();
+            setupFilters();
+            setupModal();
+        })();
+
+        async function loadJobs() {
+            const { data, error } = await supabase
+                .from('hw_jobs')
+                .select('id, name, status, start_date, end_date, customer_id, hw_customers(name)')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                showToast('Failed to load jobs', 'error');
+                console.error(error);
+                return;
+            }
+
+            allJobs = data || [];
+            renderJobs();
+        }
+
+        function renderJobs() {
+            const tbody = document.getElementById('jobsTableBody');
+            const filtered = currentFilter === 'all'
+                ? allJobs
+                : allJobs.filter(j => j.status === currentFilter);
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr><td colspan="5">
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                            <p>No jobs found</p>
+                        </div>
+                    </td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(job => `
+                <tr class="clickable" onclick="window.location.href='job-detail.html?id=${job.id}'">
+                    <td><strong>${escapeHtml(job.name)}</strong></td>
+                    <td>${escapeHtml(job.hw_customers?.name || '-')}</td>
+                    <td>${statusBadge(job.status)}</td>
+                    <td>${formatDate(job.start_date)}</td>
+                    <td>${formatDate(job.end_date)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function setupFilters() {
+            const tabs = document.getElementById('filterTabs');
+            tabs.addEventListener('click', (e) => {
+                const tab = e.target.closest('.filter-tab');
+                if (!tab) return;
+                tabs.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentFilter = tab.dataset.filter;
+                renderJobs();
+            });
+        }
+
+        function setupModal() {
+            const modal = document.getElementById('addJobModal');
+            const openBtn = document.getElementById('addJobBtn');
+            const closeBtn = document.getElementById('closeAddJob');
+            const cancelBtn = document.getElementById('cancelAddJob');
+            const form = document.getElementById('addJobForm');
+
+            openBtn.addEventListener('click', async () => {
+                modal.classList.add('active');
+                await loadCustomerDropdown();
+            });
+
+            closeBtn.addEventListener('click', () => modal.classList.remove('active'));
+            cancelBtn.addEventListener('click', () => modal.classList.remove('active'));
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.classList.remove('active');
+            });
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const submitBtn = document.getElementById('submitAddJob');
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Creating...';
+
+                const jobData = {
+                    customer_id: document.getElementById('jobCustomer').value || null,
+                    name: document.getElementById('jobName').value.trim(),
+                    description: document.getElementById('jobDescription').value.trim() || null,
+                    start_date: document.getElementById('jobStartDate').value || null,
+                    status: 'pending'
+                };
+
+                const { error } = await supabase.from('hw_jobs').insert([jobData]);
+
+                if (error) {
+                    showToast('Failed to create job: ' + error.message, 'error');
+                    console.error(error);
+                } else {
+                    showToast('Job created');
+                    modal.classList.remove('active');
+                    form.reset();
+                    await loadJobs();
+                }
+
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Job';
+            });
+        }
+
+        async function loadCustomerDropdown() {
+            const select = document.getElementById('jobCustomer');
+            const { data, error } = await supabase
+                .from('hw_customers')
+                .select('id, name')
+                .order('name');
+
+            if (error) {
+                console.error(error);
+                return;
+            }
+
+            select.innerHTML = '<option value="">Select a customer...</option>' +
+                (data || []).map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customers - H&amp;W Admin</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/admin/admin-styles.css">
+</head>
+<body>
+    <div class="admin-topbar">
+        <div class="admin-topbar-left">
+            <button class="mobile-sidebar-toggle" id="sidebarToggle">&#9776;</button>
+            <h1>H&W <span>Admin</span></h1>
+        </div>
+        <div class="admin-topbar-right">
+            <span class="admin-user" id="adminUser"></span>
+            <button class="btn-logout" id="logoutBtn">Logout</button>
+        </div>
+    </div>
+    <aside class="admin-sidebar" id="adminSidebar"></aside>
+    <main class="admin-main">
+        <div class="admin-page-header">
+            <h2>Customers</h2>
+            <button class="btn btn-primary" id="addCustomerBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Customer
+            </button>
+        </div>
+
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h3>All Customers</h3>
+                <div class="search-bar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" id="searchInput" placeholder="Search name, email, phone...">
+                </div>
+            </div>
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th>Jobs</th>
+                            <th>Total Billed</th>
+                            <th>Balance Owed</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customersTableBody">
+                        <tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add/Edit Customer Modal -->
+    <div class="modal-overlay" id="customerModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add Customer</h3>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="customerForm">
+                    <input type="hidden" id="customerId">
+                    <div class="form-group">
+                        <label for="customerName">Name *</label>
+                        <input type="text" id="customerName" class="form-control" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="customerEmail">Email</label>
+                            <input type="email" id="customerEmail" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="customerPhone">Phone</label>
+                            <input type="tel" id="customerPhone" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="customerAddress">Address</label>
+                        <input type="text" id="customerAddress" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="customerNotes">Notes</label>
+                        <textarea id="customerNotes" class="form-control" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="modalCancelBtn">Cancel</button>
+                <button class="btn btn-danger" id="deleteCustomerBtn" style="display:none;">Delete</button>
+                <button class="btn btn-primary" id="saveCustomerBtn">Save Customer</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/admin/admin-app.js"></script>
+    <script>
+        (async () => {
+            const session = await initAdminPage('customers');
+            if (!session) return;
+
+            // State
+            let allCustomers = [];
+
+            // DOM refs
+            const tbody = document.getElementById('customersTableBody');
+            const searchInput = document.getElementById('searchInput');
+            const modal = document.getElementById('customerModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const form = document.getElementById('customerForm');
+            const deleteBtn = document.getElementById('deleteCustomerBtn');
+
+            // ==================== Load Customers ====================
+            async function loadCustomers() {
+                try {
+                    // Fetch customers
+                    const { data: customers, error } = await supabase
+                        .from('hw_customers')
+                        .select('*')
+                        .order('name');
+
+                    if (error) throw error;
+
+                    // Fetch job counts per customer
+                    const { data: jobs, error: jobsErr } = await supabase
+                        .from('hw_jobs')
+                        .select('id, customer_id');
+
+                    if (jobsErr) throw jobsErr;
+
+                    // Fetch invoices for billing totals
+                    const { data: invoices, error: invErr } = await supabase
+                        .from('hw_invoices')
+                        .select('id, job_id, amount, status');
+
+                    if (invErr) throw invErr;
+
+                    // Build job-to-customer map
+                    const jobCustomerMap = {};
+                    const customerJobCount = {};
+                    (jobs || []).forEach(j => {
+                        jobCustomerMap[j.id] = j.customer_id;
+                        customerJobCount[j.customer_id] = (customerJobCount[j.customer_id] || 0) + 1;
+                    });
+
+                    // Aggregate invoice totals per customer
+                    const customerBilled = {};
+                    const customerPaid = {};
+                    (invoices || []).forEach(inv => {
+                        if (inv.status === 'void') return;
+                        const custId = jobCustomerMap[inv.job_id];
+                        if (!custId) return;
+                        const amt = parseFloat(inv.amount) || 0;
+                        customerBilled[custId] = (customerBilled[custId] || 0) + amt;
+                        if (inv.status === 'paid') customerPaid[custId] = (customerPaid[custId] || 0) + amt;
+                    });
+
+                    // Combine data
+                    allCustomers = (customers || []).map(c => ({
+                        ...c,
+                        job_count: customerJobCount[c.id] || 0,
+                        total_billed: customerBilled[c.id] || 0,
+                        total_paid: customerPaid[c.id] || 0,
+                        balance_owed: (customerBilled[c.id] || 0) - (customerPaid[c.id] || 0)
+                    }));
+
+                    renderTable(allCustomers);
+                } catch (err) {
+                    console.error('Error loading customers:', err);
+                    showToast('Failed to load customers', 'error');
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><p>Error loading customers</p></td></tr>';
+                }
+            }
+
+            // ==================== Render Table ====================
+            function renderTable(customers) {
+                if (!customers.length) {
+                    tbody.innerHTML = `
+                        <tr><td colspan="6">
+                            <div class="empty-state">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                                <p>No customers found</p>
+                            </div>
+                        </td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = customers.map(c => `
+                    <tr class="clickable" data-id="${c.id}">
+                        <td><strong>${escapeHtml(c.name)}</strong></td>
+                        <td>${escapeHtml(c.phone) || '-'}</td>
+                        <td>${escapeHtml(c.email) || '-'}</td>
+                        <td>${c.job_count}</td>
+                        <td>${formatCurrency(c.total_billed)}</td>
+                        <td style="${c.balance_owed > 0 ? 'color:var(--danger);font-weight:600;' : ''}">${formatCurrency(c.balance_owed)}</td>
+                    </tr>
+                `).join('');
+
+                // Row click -> detail page
+                tbody.querySelectorAll('tr.clickable').forEach(row => {
+                    row.addEventListener('click', () => {
+                        window.location.href = `/admin/customer-detail.html?id=${row.dataset.id}`;
+                    });
+                });
+            }
+
+            // ==================== Search ====================
+            searchInput.addEventListener('input', () => {
+                const q = searchInput.value.toLowerCase().trim();
+                if (!q) {
+                    renderTable(allCustomers);
+                    return;
+                }
+                const filtered = allCustomers.filter(c =>
+                    (c.name || '').toLowerCase().includes(q) ||
+                    (c.email || '').toLowerCase().includes(q) ||
+                    (c.phone || '').toLowerCase().includes(q)
+                );
+                renderTable(filtered);
+            });
+
+            // ==================== Modal Helpers ====================
+            function openModal(customer = null) {
+                form.reset();
+                document.getElementById('customerId').value = '';
+
+                if (customer) {
+                    modalTitle.textContent = 'Edit Customer';
+                    document.getElementById('customerId').value = customer.id;
+                    document.getElementById('customerName').value = customer.name || '';
+                    document.getElementById('customerEmail').value = customer.email || '';
+                    document.getElementById('customerPhone').value = customer.phone || '';
+                    document.getElementById('customerAddress').value = customer.address || '';
+                    document.getElementById('customerNotes').value = customer.notes || '';
+                    deleteBtn.style.display = 'inline-flex';
+                } else {
+                    modalTitle.textContent = 'Add Customer';
+                    deleteBtn.style.display = 'none';
+                }
+
+                modal.classList.add('active');
+            }
+
+            function closeModal() {
+                modal.classList.remove('active');
+            }
+
+            // ==================== Event Listeners ====================
+            document.getElementById('addCustomerBtn').addEventListener('click', () => openModal());
+            document.getElementById('modalClose').addEventListener('click', closeModal);
+            document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+
+            // Save
+            document.getElementById('saveCustomerBtn').addEventListener('click', async () => {
+                const name = document.getElementById('customerName').value.trim();
+                if (!name) {
+                    showToast('Customer name is required', 'error');
+                    return;
+                }
+
+                const payload = {
+                    name,
+                    email: document.getElementById('customerEmail').value.trim() || null,
+                    phone: document.getElementById('customerPhone').value.trim() || null,
+                    address: document.getElementById('customerAddress').value.trim() || null,
+                    notes: document.getElementById('customerNotes').value.trim() || null
+                };
+
+                const id = document.getElementById('customerId').value;
+
+                try {
+                    if (id) {
+                        const { error } = await supabase.from('hw_customers').update(payload).eq('id', id);
+                        if (error) throw error;
+                        showToast('Customer updated');
+                    } else {
+                        const { error } = await supabase.from('hw_customers').insert(payload);
+                        if (error) throw error;
+                        showToast('Customer added');
+                    }
+                    closeModal();
+                    await loadCustomers();
+                } catch (err) {
+                    console.error('Save error:', err);
+                    showToast('Failed to save customer: ' + err.message, 'error');
+                }
+            });
+
+            // Delete
+            deleteBtn.addEventListener('click', async () => {
+                const id = document.getElementById('customerId').value;
+                if (!id) return;
+
+                if (!confirmAction('Delete this customer? This cannot be undone. Jobs and invoices linked to this customer will remain.')) return;
+
+                try {
+                    const { error } = await supabase.from('hw_customers').delete().eq('id', id);
+                    if (error) throw error;
+                    showToast('Customer deleted');
+                    closeModal();
+                    await loadCustomers();
+                } catch (err) {
+                    console.error('Delete error:', err);
+                    showToast('Failed to delete customer: ' + err.message, 'error');
+                }
+            });
+
+            // ==================== Init ====================
+            await loadCustomers();
+        })();
+    </script>
+</body>
+</html>

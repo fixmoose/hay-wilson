@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Detail - H&amp;W Admin</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/admin/admin-styles.css">
+</head>
+<body>
+    <div class="admin-topbar">
+        <div class="admin-topbar-left">
+            <button class="mobile-sidebar-toggle" id="sidebarToggle">&#9776;</button>
+            <h1>H&W <span>Admin</span></h1>
+        </div>
+        <div class="admin-topbar-right">
+            <span class="admin-user" id="adminUser"></span>
+            <button class="btn-logout" id="logoutBtn">Logout</button>
+        </div>
+    </div>
+    <aside class="admin-sidebar" id="adminSidebar"></aside>
+    <main class="admin-main">
+        <a href="/admin/customers.html" class="back-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
+            Back to Customers
+        </a>
+
+        <div id="pageLoading" class="loading"><div class="spinner"></div></div>
+
+        <div id="pageContent" style="display:none;">
+            <!-- Customer Info Card -->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h3 id="customerName">Customer</h3>
+                    <button class="btn btn-outline btn-sm" id="editCustomerBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        Edit
+                    </button>
+                </div>
+                <div class="detail-info-grid" id="customerInfo">
+                </div>
+            </div>
+
+            <!-- Financial Summary -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-card-label">Total Invoiced</div>
+                    <div class="stat-card-value money" id="totalInvoiced">$0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-label">Total Paid</div>
+                    <div class="stat-card-value money" id="totalPaid">$0.00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-label">Outstanding Balance</div>
+                    <div class="stat-card-value" id="outstandingBalance">$0.00</div>
+                </div>
+            </div>
+
+            <!-- Jobs Table -->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h3>Jobs</h3>
+                    <button class="btn btn-primary btn-sm" id="addJobBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Add Job
+                    </button>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Job Name</th>
+                                <th>Status</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="jobsTableBody">
+                            <tr><td colspan="4"><div class="loading"><div class="spinner"></div></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Edit Customer Modal -->
+    <div class="modal-overlay" id="customerModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Edit Customer</h3>
+                <button class="modal-close" id="customerModalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="customerForm">
+                    <div class="form-group">
+                        <label for="editName">Name *</label>
+                        <input type="text" id="editName" class="form-control" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editEmail">Email</label>
+                            <input type="email" id="editEmail" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="editPhone">Phone</label>
+                            <input type="tel" id="editPhone" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="editAddress">Address</label>
+                        <input type="text" id="editAddress" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="editNotes">Notes</label>
+                        <textarea id="editNotes" class="form-control" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="customerCancelBtn">Cancel</button>
+                <button class="btn btn-primary" id="saveCustomerBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Job Modal -->
+    <div class="modal-overlay" id="jobModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Add Job</h3>
+                <button class="modal-close" id="jobModalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="jobForm">
+                    <div class="form-group">
+                        <label for="jobName">Job Name *</label>
+                        <input type="text" id="jobName" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="jobDescription">Description</label>
+                        <textarea id="jobDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="jobStartDate">Start Date</label>
+                        <input type="date" id="jobStartDate" class="form-control">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="jobCancelBtn">Cancel</button>
+                <button class="btn btn-primary" id="saveJobBtn">Create Job</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/admin/admin-app.js"></script>
+    <script>
+        (async () => {
+            const session = await initAdminPage('customers');
+            if (!session) return;
+
+            const customerId = getUrlParam('id');
+            if (!customerId) {
+                window.location.href = '/admin/customers.html';
+                return;
+            }
+
+            // DOM refs
+            const pageLoading = document.getElementById('pageLoading');
+            const pageContent = document.getElementById('pageContent');
+            const customerNameEl = document.getElementById('customerName');
+            const customerInfoEl = document.getElementById('customerInfo');
+            const jobsTbody = document.getElementById('jobsTableBody');
+
+            const customerModal = document.getElementById('customerModal');
+            const jobModal = document.getElementById('jobModal');
+
+            let customer = null;
+
+            // ==================== Load Customer ====================
+            async function loadCustomer() {
+                try {
+                    const { data, error } = await supabase
+                        .from('hw_customers')
+                        .select('*')
+                        .eq('id', customerId)
+                        .single();
+
+                    if (error) throw error;
+                    if (!data) {
+                        showToast('Customer not found', 'error');
+                        window.location.href = '/admin/customers.html';
+                        return;
+                    }
+
+                    customer = data;
+                    document.title = `${customer.name} - H&W Admin`;
+                    customerNameEl.textContent = customer.name;
+
+                    customerInfoEl.innerHTML = `
+                        <div class="detail-info-item">
+                            <label>Email</label>
+                            <p>${customer.email ? `<a href="mailto:${escapeHtml(customer.email)}">${escapeHtml(customer.email)}</a>` : '-'}</p>
+                        </div>
+                        <div class="detail-info-item">
+                            <label>Phone</label>
+                            <p>${customer.phone ? `<a href="tel:${escapeHtml(customer.phone)}">${escapeHtml(customer.phone)}</a>` : '-'}</p>
+                        </div>
+                        <div class="detail-info-item">
+                            <label>Address</label>
+                            <p>${escapeHtml(customer.address) || '-'}</p>
+                        </div>
+                        <div class="detail-info-item">
+                            <label>Notes</label>
+                            <p>${escapeHtml(customer.notes) || '-'}</p>
+                        </div>
+                    `;
+
+                    pageLoading.style.display = 'none';
+                    pageContent.style.display = 'block';
+                } catch (err) {
+                    console.error('Error loading customer:', err);
+                    showToast('Failed to load customer', 'error');
+                }
+            }
+
+            // ==================== Load Jobs & Financials ====================
+            async function loadJobs() {
+                try {
+                    const { data: jobs, error } = await supabase
+                        .from('hw_jobs')
+                        .select('*')
+                        .eq('customer_id', customerId)
+                        .order('created_at', { ascending: false });
+
+                    if (error) throw error;
+
+                    // Get invoice data for these jobs
+                    const jobIds = (jobs || []).map(j => j.id);
+                    let invoices = [];
+                    if (jobIds.length > 0) {
+                        const { data: invData, error: invErr } = await supabase
+                            .from('hw_invoices')
+                            .select('job_id, amount, status')
+                            .in('job_id', jobIds);
+
+                        if (invErr) throw invErr;
+                        invoices = invData || [];
+                    }
+
+                    // Calculate financials
+                    let totalInvoiced = 0;
+                    let totalPaid = 0;
+                    invoices.forEach(inv => {
+                        if (inv.status === 'void') return;
+                        const amt = parseFloat(inv.amount) || 0;
+                        totalInvoiced += amt;
+                        if (inv.status === 'paid') totalPaid += amt;
+                    });
+
+                    const balance = totalInvoiced - totalPaid;
+
+                    document.getElementById('totalInvoiced').textContent = formatCurrency(totalInvoiced);
+                    document.getElementById('totalPaid').textContent = formatCurrency(totalPaid);
+
+                    const balanceEl = document.getElementById('outstandingBalance');
+                    balanceEl.textContent = formatCurrency(balance);
+                    balanceEl.className = 'stat-card-value' + (balance > 0 ? ' danger' : ' money');
+
+                    // Render jobs table
+                    renderJobs(jobs || []);
+                } catch (err) {
+                    console.error('Error loading jobs:', err);
+                    showToast('Failed to load jobs', 'error');
+                }
+            }
+
+            function renderJobs(jobs) {
+                if (!jobs.length) {
+                    jobsTbody.innerHTML = `
+                        <tr><td colspan="4">
+                            <div class="empty-state">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                                <p>No jobs yet</p>
+                            </div>
+                        </td></tr>`;
+                    return;
+                }
+
+                jobsTbody.innerHTML = jobs.map(j => `
+                    <tr class="clickable" data-id="${j.id}">
+                        <td><strong>${escapeHtml(j.name)}</strong></td>
+                        <td>${statusBadge(j.status || 'pending')}</td>
+                        <td>${formatDate(j.start_date)}</td>
+                        <td>${formatDate(j.end_date)}</td>
+                    </tr>
+                `).join('');
+
+                jobsTbody.querySelectorAll('tr.clickable').forEach(row => {
+                    row.addEventListener('click', () => {
+                        window.location.href = `/admin/job-detail.html?id=${row.dataset.id}`;
+                    });
+                });
+            }
+
+            // ==================== Edit Customer Modal ====================
+            document.getElementById('editCustomerBtn').addEventListener('click', () => {
+                if (!customer) return;
+                document.getElementById('editName').value = customer.name || '';
+                document.getElementById('editEmail').value = customer.email || '';
+                document.getElementById('editPhone').value = customer.phone || '';
+                document.getElementById('editAddress').value = customer.address || '';
+                document.getElementById('editNotes').value = customer.notes || '';
+                customerModal.classList.add('active');
+            });
+
+            function closeCustomerModal() { customerModal.classList.remove('active'); }
+            document.getElementById('customerModalClose').addEventListener('click', closeCustomerModal);
+            document.getElementById('customerCancelBtn').addEventListener('click', closeCustomerModal);
+            customerModal.addEventListener('click', (e) => { if (e.target === customerModal) closeCustomerModal(); });
+
+            document.getElementById('saveCustomerBtn').addEventListener('click', async () => {
+                const name = document.getElementById('editName').value.trim();
+                if (!name) {
+                    showToast('Customer name is required', 'error');
+                    return;
+                }
+
+                const payload = {
+                    name,
+                    email: document.getElementById('editEmail').value.trim() || null,
+                    phone: document.getElementById('editPhone').value.trim() || null,
+                    address: document.getElementById('editAddress').value.trim() || null,
+                    notes: document.getElementById('editNotes').value.trim() || null
+                };
+
+                try {
+                    const { error } = await supabase.from('hw_customers').update(payload).eq('id', customerId);
+                    if (error) throw error;
+                    showToast('Customer updated');
+                    closeCustomerModal();
+                    await loadCustomer();
+                } catch (err) {
+                    console.error('Update error:', err);
+                    showToast('Failed to update customer: ' + err.message, 'error');
+                }
+            });
+
+            // ==================== Add Job Modal ====================
+            document.getElementById('addJobBtn').addEventListener('click', () => {
+                document.getElementById('jobForm').reset();
+                jobModal.classList.add('active');
+            });
+
+            function closeJobModal() { jobModal.classList.remove('active'); }
+            document.getElementById('jobModalClose').addEventListener('click', closeJobModal);
+            document.getElementById('jobCancelBtn').addEventListener('click', closeJobModal);
+            jobModal.addEventListener('click', (e) => { if (e.target === jobModal) closeJobModal(); });
+
+            document.getElementById('saveJobBtn').addEventListener('click', async () => {
+                const name = document.getElementById('jobName').value.trim();
+                if (!name) {
+                    showToast('Job name is required', 'error');
+                    return;
+                }
+
+                const payload = {
+                    customer_id: customerId,
+                    name,
+                    description: document.getElementById('jobDescription').value.trim() || null,
+                    start_date: document.getElementById('jobStartDate').value || null,
+                    status: 'pending'
+                };
+
+                try {
+                    const { data, error } = await supabase.from('hw_jobs').insert(payload).select().single();
+                    if (error) throw error;
+                    showToast('Job created');
+                    closeJobModal();
+                    await loadJobs();
+                } catch (err) {
+                    console.error('Create job error:', err);
+                    showToast('Failed to create job: ' + err.message, 'error');
+                }
+            });
+
+            // ==================== Init ====================
+            await loadCustomer();
+            await loadJobs();
+        })();
+    </script>
+</body>
+</html>

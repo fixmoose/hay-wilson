@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Detail - H&amp;W Admin</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/admin/admin-styles.css">
+</head>
+<body>
+    <div class="admin-topbar">
+        <div class="admin-topbar-left">
+            <button class="mobile-sidebar-toggle" id="sidebarToggle">&#9776;</button>
+            <h1>H&W <span>Admin</span></h1>
+        </div>
+        <div class="admin-topbar-right">
+            <span class="admin-user" id="adminUser"></span>
+            <button class="btn-logout" id="logoutBtn">Logout</button>
+        </div>
+    </div>
+    <aside class="admin-sidebar" id="adminSidebar"></aside>
+    <main class="admin-main">
+        <a href="jobs.html" class="back-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
+            Back to Jobs
+        </a>
+
+        <div id="pageLoading" class="loading"><div class="spinner"></div></div>
+
+        <div id="pageContent" style="display:none;">
+            <!-- Job Info Card -->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h3 id="jobTitle">Job Details</h3>
+                    <button class="btn btn-outline btn-sm" id="editJobBtn">Edit</button>
+                </div>
+                <div class="detail-info-grid" id="jobInfoGrid">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+            <!-- Expenses Section -->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h3>Expenses</h3>
+                    <button class="btn btn-primary btn-sm" id="addExpenseBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Add Expense
+                    </button>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Vendor</th>
+                                <th>Description</th>
+                                <th>Amount</th>
+                                <th>Date</th>
+                                <th>Receipt</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expensesTableBody">
+                            <tr><td colspan="5"><div class="loading"><div class="spinner"></div></div></td></tr>
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="2" style="text-align:right;font-weight:600;">Total</td>
+                                <td style="font-weight:700;" id="expensesTotal">$0.00</td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Invoice Section -->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h3>Invoice</h3>
+                </div>
+                <div class="modal-body" id="invoiceSection">
+                    <div class="loading"><div class="spinner"></div></div>
+                </div>
+            </div>
+
+            <!-- Profit Summary -->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h3>Profit Summary</h3>
+                </div>
+                <div class="profit-summary" id="profitSummary">
+                    <div class="profit-item">
+                        <label>Invoice Total</label>
+                        <div class="value money" id="profitInvoice">$0.00</div>
+                    </div>
+                    <div class="profit-item">
+                        <label>Expenses Total</label>
+                        <div class="value danger" id="profitExpenses">$0.00</div>
+                    </div>
+                    <div class="profit-item">
+                        <label>Profit</label>
+                        <div class="value" id="profitNet">$0.00</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Edit Job Modal -->
+    <div class="modal-overlay" id="editJobModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Edit Job</h3>
+                <button class="modal-close" id="closeEditJob">&times;</button>
+            </div>
+            <form id="editJobForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="editJobName">Job Name *</label>
+                        <input type="text" id="editJobName" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editJobDescription">Description</label>
+                        <textarea id="editJobDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editJobStartDate">Start Date</label>
+                            <input type="date" id="editJobStartDate" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="editJobEndDate">End Date</label>
+                            <input type="date" id="editJobEndDate" class="form-control">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" id="cancelEditJob">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="submitEditJob">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Expense Modal -->
+    <div class="modal-overlay" id="addExpenseModal">
+        <div class="modal" style="max-width:550px;">
+            <div class="modal-header">
+                <h3>Add Expense</h3>
+                <button class="modal-close" id="closeAddExpense">&times;</button>
+            </div>
+            <form id="addExpenseForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Receipt (optional)</label>
+                        <div style="display:flex;gap:0.5rem;align-items:center;">
+                            <button type="button" class="btn btn-outline btn-sm" id="scanReceiptBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
+                                Scan Receipt
+                            </button>
+                            <span id="receiptFileName" style="font-size:0.8rem;color:var(--text-light);"></span>
+                        </div>
+                        <input type="file" id="receiptFileInput" accept="image/*" capture="environment" style="display:none;">
+                        <img id="receiptPreview" class="receipt-preview" style="display:none;">
+                    </div>
+                    <div class="ocr-progress" id="ocrProgress" style="display:none;">
+                        <div class="ocr-progress-bar">
+                            <div class="ocr-progress-fill" id="ocrProgressFill"></div>
+                        </div>
+                        <div class="ocr-progress-text" id="ocrProgressText">Scanning...</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="expenseVendor">Vendor</label>
+                        <input type="text" id="expenseVendor" class="form-control" placeholder="e.g. Home Depot">
+                    </div>
+                    <div class="form-group">
+                        <label for="expenseDescription">Description</label>
+                        <input type="text" id="expenseDescription" class="form-control" placeholder="e.g. Wire, breakers, panel">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="expenseAmount">Amount *</label>
+                            <input type="number" id="expenseAmount" class="form-control" step="0.01" min="0" required placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="expenseDate">Date</label>
+                            <input type="date" id="expenseDate" class="form-control">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" id="cancelAddExpense">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="submitAddExpense">Add Expense</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Receipt Viewer Modal -->
+    <div class="modal-overlay" id="receiptViewerModal">
+        <div class="modal" style="max-width:700px;">
+            <div class="modal-header">
+                <h3>Receipt</h3>
+                <button class="modal-close" id="closeReceiptViewer">&times;</button>
+            </div>
+            <div class="modal-body" style="text-align:center;">
+                <img id="receiptViewerImg" style="max-width:100%;max-height:70vh;border-radius:8px;">
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="/admin/admin-app.js"></script>
+    <script>
+        const jobId = getUrlParam('id');
+        let job = null;
+        let expenses = [];
+        let invoice = null;
+        let receiptFile = null;
+        let ocrRawText = null;
+
+        (async () => {
+            if (!jobId) {
+                window.location.href = 'jobs.html';
+                return;
+            }
+            const session = await initAdminPage('jobs');
+            if (!session) return;
+
+            await loadJob();
+            setupEditModal();
+            setupExpenseModal();
+            setupReceiptViewer();
+        })();
+
+        // ==================== Load Job ====================
+        async function loadJob() {
+            const { data, error } = await supabase
+                .from('hw_jobs')
+                .select('*, hw_customers(id, name)')
+                .eq('id', jobId)
+                .single();
+
+            if (error || !data) {
+                showToast('Job not found', 'error');
+                setTimeout(() => window.location.href = 'jobs.html', 1500);
+                return;
+            }
+
+            job = data;
+            document.title = job.name + ' - H&W Admin';
+            renderJobInfo();
+
+            document.getElementById('pageLoading').style.display = 'none';
+            document.getElementById('pageContent').style.display = 'block';
+
+            await Promise.all([loadExpenses(), loadInvoice()]);
+            updateProfitSummary();
+        }
+
+        function renderJobInfo() {
+            document.getElementById('jobTitle').textContent = job.name;
+
+            const customerLink = job.hw_customers
+                ? `<a href="customer-detail.html?id=${job.hw_customers.id}" style="color:var(--primary-light);text-decoration:none;">${escapeHtml(job.hw_customers.name)}</a>`
+                : '-';
+
+            document.getElementById('jobInfoGrid').innerHTML = `
+                <div class="detail-info-item">
+                    <label>Customer</label>
+                    <p>${customerLink}</p>
+                </div>
+                <div class="detail-info-item">
+                    <label>Status</label>
+                    <p>
+                        <select class="form-control" id="statusDropdown" style="display:inline-block;width:auto;padding:0.3rem 2rem 0.3rem 0.5rem;font-size:0.85rem;">
+                            <option value="pending" ${job.status === 'pending' ? 'selected' : ''}>Pending</option>
+                            <option value="in_progress" ${job.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                            <option value="completed" ${job.status === 'completed' ? 'selected' : ''}>Completed</option>
+                            <option value="invoiced" ${job.status === 'invoiced' ? 'selected' : ''}>Invoiced</option>
+                            <option value="paid" ${job.status === 'paid' ? 'selected' : ''}>Paid</option>
+                        </select>
+                    </p>
+                </div>
+                <div class="detail-info-item">
+                    <label>Start Date</label>
+                    <p>${formatDate(job.start_date)}</p>
+                </div>
+                <div class="detail-info-item">
+                    <label>End Date</label>
+                    <p>${formatDate(job.end_date)}</p>
+                </div>
+                <div class="detail-info-item" style="grid-column:1/-1;">
+                    <label>Description</label>
+                    <p>${escapeHtml(job.description) || '<span style="color:var(--text-light);">No description</span>'}</p>
+                </div>
+            `;
+
+            // Status change handler
+            document.getElementById('statusDropdown').addEventListener('change', async (e) => {
+                const newStatus = e.target.value;
+                const { error } = await supabase
+                    .from('hw_jobs')
+                    .update({ status: newStatus })
+                    .eq('id', jobId);
+
+                if (error) {
+                    showToast('Failed to update status', 'error');
+                    e.target.value = job.status;
+                } else {
+                    job.status = newStatus;
+                    showToast('Status updated');
+                }
+            });
+        }
+
+        // ==================== Edit Job Modal ====================
+        function setupEditModal() {
+            const modal = document.getElementById('editJobModal');
+            const openBtn = document.getElementById('editJobBtn');
+            const closeBtn = document.getElementById('closeEditJob');
+            const cancelBtn = document.getElementById('cancelEditJob');
+            const form = document.getElementById('editJobForm');
+
+            openBtn.addEventListener('click', () => {
+                document.getElementById('editJobName').value = job.name;
+                document.getElementById('editJobDescription').value = job.description || '';
+                document.getElementById('editJobStartDate').value = formatDateInput(job.start_date);
+                document.getElementById('editJobEndDate').value = formatDateInput(job.end_date);
+                modal.classList.add('active');
+            });
+
+            closeBtn.addEventListener('click', () => modal.classList.remove('active'));
+            cancelBtn.addEventListener('click', () => modal.classList.remove('active'));
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('submitEditJob');
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+
+                const updates = {
+                    name: document.getElementById('editJobName').value.trim(),
+                    description: document.getElementById('editJobDescription').value.trim() || null,
+                    start_date: document.getElementById('editJobStartDate').value || null,
+                    end_date: document.getElementById('editJobEndDate').value || null,
+                };
+
+                const { error } = await supabase.from('hw_jobs').update(updates).eq('id', jobId);
+
+                if (error) {
+                    showToast('Failed to save: ' + error.message, 'error');
+                } else {
+                    Object.assign(job, updates);
+                    renderJobInfo();
+                    modal.classList.remove('active');
+                    showToast('Job updated');
+                }
+
+                btn.disabled = false;
+                btn.textContent = 'Save Changes';
+            });
+        }
+
+        // ==================== Expenses ====================
+        async function loadExpenses() {
+            const { data, error } = await supabase
+                .from('hw_expenses')
+                .select('*')
+                .eq('job_id', jobId)
+                .order('expense_date', { ascending: false });
+
+            if (error) {
+                showToast('Failed to load expenses', 'error');
+                return;
+            }
+
+            expenses = data || [];
+            renderExpenses();
+        }
+
+        function getReceiptUrl(receiptPath) {
+            if (!receiptPath) return null;
+            const { data } = supabase.storage.from('hw-receipts').getPublicUrl(receiptPath);
+            return data?.publicUrl || null;
+        }
+
+        function renderExpenses() {
+            const tbody = document.getElementById('expensesTableBody');
+            const total = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+            document.getElementById('expensesTotal').textContent = formatCurrency(total);
+
+            if (expenses.length === 0) {
+                tbody.innerHTML = `
+                    <tr><td colspan="5">
+                        <div class="empty-state">
+                            <p>No expenses yet</p>
+                        </div>
+                    </td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = expenses.map(exp => {
+                const receiptUrl = getReceiptUrl(exp.receipt_path);
+                const receiptHtml = receiptUrl
+                    ? `<img src="${receiptUrl}" class="receipt-thumb" onclick="viewReceipt('${receiptUrl}')" alt="Receipt">`
+                    : '<span style="color:var(--text-light);font-size:0.8rem;">-</span>';
+
+                return `
+                    <tr>
+                        <td>${escapeHtml(exp.vendor) || '-'}</td>
+                        <td>${escapeHtml(exp.description) || '-'}</td>
+                        <td><strong>${formatCurrency(exp.amount)}</strong></td>
+                        <td>${formatDate(exp.expense_date)}</td>
+                        <td>${receiptHtml}</td>
+                    </tr>`;
+            }).join('');
+        }
+
+        // ==================== Add Expense Modal ====================
+        function setupExpenseModal() {
+            const modal = document.getElementById('addExpenseModal');
+            const openBtn = document.getElementById('addExpenseBtn');
+            const closeBtn = document.getElementById('closeAddExpense');
+            const cancelBtn = document.getElementById('cancelAddExpense');
+            const form = document.getElementById('addExpenseForm');
+            const fileInput = document.getElementById('receiptFileInput');
+            const scanBtn = document.getElementById('scanReceiptBtn');
+            const preview = document.getElementById('receiptPreview');
+
+            openBtn.addEventListener('click', () => {
+                form.reset();
+                preview.style.display = 'none';
+                document.getElementById('receiptFileName').textContent = '';
+                document.getElementById('ocrProgress').style.display = 'none';
+                document.getElementById('ocrProgressFill').style.width = '0%';
+                receiptFile = null;
+                ocrRawText = null;
+                document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
+                modal.classList.add('active');
+            });
+
+            closeBtn.addEventListener('click', () => modal.classList.remove('active'));
+            cancelBtn.addEventListener('click', () => modal.classList.remove('active'));
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+
+            scanBtn.addEventListener('click', () => fileInput.click());
+
+            fileInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                receiptFile = file;
+                document.getElementById('receiptFileName').textContent = file.name;
+
+                // Show preview
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    preview.src = ev.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+
+                // Run OCR
+                try {
+                    const result = await scanReceipt(file);
+                    ocrRawText = result.rawText;
+
+                    if (result.amount && !document.getElementById('expenseAmount').value) {
+                        document.getElementById('expenseAmount').value = result.amount.toFixed(2);
+                    }
+                    if (result.vendor && !document.getElementById('expenseVendor').value) {
+                        document.getElementById('expenseVendor').value = result.vendor;
+                    }
+                    if (result.date && !document.getElementById('expenseDate').value) {
+                        // Try to parse the date into YYYY-MM-DD
+                        const parsed = parseReceiptDate(result.date);
+                        if (parsed) document.getElementById('expenseDate').value = parsed;
+                    }
+                } catch (err) {
+                    console.error('OCR failed:', err);
+                    document.getElementById('ocrProgressText').textContent = 'OCR failed - fill in manually';
+                }
+            });
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('submitAddExpense');
+                btn.disabled = true;
+                btn.textContent = 'Adding...';
+
+                try {
+                    // Insert expense record first
+                    const expenseData = {
+                        job_id: jobId,
+                        vendor: document.getElementById('expenseVendor').value.trim() || null,
+                        description: document.getElementById('expenseDescription').value.trim() || null,
+                        amount: parseFloat(document.getElementById('expenseAmount').value),
+                        expense_date: document.getElementById('expenseDate').value || null,
+                        ocr_raw_text: ocrRawText || null,
+                    };
+
+                    const { data: inserted, error } = await supabase
+                        .from('hw_expenses')
+                        .insert([expenseData])
+                        .select()
+                        .single();
+
+                    if (error) throw error;
+
+                    // Upload receipt if present
+                    if (receiptFile && inserted) {
+                        try {
+                            const path = await uploadReceipt(receiptFile, jobId, inserted.id);
+                            await supabase
+                                .from('hw_expenses')
+                                .update({ receipt_path: path })
+                                .eq('id', inserted.id);
+                        } catch (uploadErr) {
+                            console.error('Receipt upload failed:', uploadErr);
+                            showToast('Expense saved but receipt upload failed', 'info');
+                        }
+                    }
+
+                    showToast('Expense added');
+                    modal.classList.remove('active');
+                    await loadExpenses();
+                    updateProfitSummary();
+                } catch (err) {
+                    showToast('Failed to add expense: ' + err.message, 'error');
+                }
+
+                btn.disabled = false;
+                btn.textContent = 'Add Expense';
+            });
+        }
+
+        // ==================== Receipt Upload ====================
+        async function uploadReceipt(file, jobId, expenseId) {
+            const ext = file.name.split('.').pop();
+            const path = `${jobId}/${expenseId}.${ext}`;
+            const { error } = await supabase.storage.from('hw-receipts').upload(path, file);
+            if (error) throw error;
+            return path;
+        }
+
+        // ==================== OCR with Tesseract.js ====================
+        async function scanReceipt(file) {
+            const progressBar = document.getElementById('ocrProgressFill');
+            const progressText = document.getElementById('ocrProgressText');
+            const progressWrap = document.getElementById('ocrProgress');
+            progressWrap.style.display = 'block';
+
+            const worker = await Tesseract.createWorker('eng', 1, {
+                logger: m => {
+                    if (m.status === 'recognizing text') {
+                        const pct = Math.round(m.progress * 100);
+                        progressBar.style.width = pct + '%';
+                        progressText.textContent = 'Scanning... ' + pct + '%';
+                    }
+                }
+            });
+
+            const { data: { text } } = await worker.recognize(file);
+            await worker.terminate();
+
+            progressText.textContent = 'Done!';
+
+            // Parse receipt
+            const amounts = text.match(/\$?\d+\.\d{2}/g);
+            const amount = amounts ? Math.max(...amounts.map(m => parseFloat(m.replace('$', '')))) : null;
+            const dateMatch = text.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/);
+            const date = dateMatch ? dateMatch[1] : null;
+            const lines = text.split('\n').filter(l => l.trim().length > 2);
+            const vendor = lines[0]?.trim() || null;
+
+            return { amount, date, vendor, rawText: text };
+        }
+
+        function parseReceiptDate(dateStr) {
+            // Try to convert MM/DD/YYYY or MM-DD-YYYY to YYYY-MM-DD
+            const parts = dateStr.split(/[\/\-]/);
+            if (parts.length !== 3) return null;
+            let [m, d, y] = parts;
+            if (y.length === 2) y = '20' + y;
+            m = m.padStart(2, '0');
+            d = d.padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        // ==================== Receipt Viewer ====================
+        function setupReceiptViewer() {
+            const modal = document.getElementById('receiptViewerModal');
+            const closeBtn = document.getElementById('closeReceiptViewer');
+            closeBtn.addEventListener('click', () => modal.classList.remove('active'));
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+        }
+
+        function viewReceipt(url) {
+            document.getElementById('receiptViewerImg').src = url;
+            document.getElementById('receiptViewerModal').classList.add('active');
+        }
+
+        // ==================== Invoice Section ====================
+        async function loadInvoice() {
+            const { data, error } = await supabase
+                .from('hw_invoices')
+                .select('*')
+                .eq('job_id', jobId)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (error) {
+                console.error(error);
+            }
+
+            invoice = data;
+            renderInvoice();
+        }
+
+        function renderInvoice() {
+            const section = document.getElementById('invoiceSection');
+            const expensesTotal = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+
+            if (!invoice) {
+                // No invoice - show create form
+                const defaultAmount = expensesTotal > 0 ? expensesTotal.toFixed(2) : '';
+                const defaultDesc = job.name || '';
+                const due = new Date();
+                due.setDate(due.getDate() + 30);
+                const dueDate = due.toISOString().split('T')[0];
+
+                section.innerHTML = `
+                    <p style="color:var(--text-light);margin-bottom:1rem;">No invoice created yet.</p>
+                    <form id="createInvoiceForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="invoiceAmount">Amount *</label>
+                                <input type="number" id="invoiceAmount" class="form-control" step="0.01" min="0" required value="${defaultAmount}" placeholder="0.00">
+                            </div>
+                            <div class="form-group">
+                                <label for="invoiceDueDate">Due Date</label>
+                                <input type="date" id="invoiceDueDate" class="form-control" value="${dueDate}">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="invoiceDescription">Description</label>
+                            <input type="text" id="invoiceDescription" class="form-control" value="${escapeHtml(defaultDesc)}">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary" id="createInvoiceBtn">Create Invoice</button>
+                        </div>
+                    </form>
+                `;
+
+                document.getElementById('createInvoiceForm').addEventListener('submit', handleCreateInvoice);
+                return;
+            }
+
+            // Invoice exists - render based on status
+            const statusClass = invoice.status;
+            let content = '';
+
+            if (invoice.status === 'draft') {
+                content = `
+                    <div class="invoice-status-card draft">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+                            <div>
+                                <strong>Draft Invoice</strong> ${statusBadge('draft')}
+                                <div style="margin-top:0.5rem;color:var(--text-light);font-size:0.9rem;">
+                                    Amount: <strong>${formatCurrency(invoice.amount)}</strong>
+                                    ${invoice.due_date ? ' &middot; Due: ' + formatDate(invoice.due_date) : ''}
+                                </div>
+                                ${invoice.stripe_invoice_url ? `<a href="${invoice.stripe_invoice_url}" target="_blank" style="font-size:0.85rem;color:var(--primary-light);">View in Stripe</a>` : ''}
+                            </div>
+                            <div style="display:flex;gap:0.5rem;">
+                                <button class="btn btn-primary btn-sm" onclick="handleSendInvoice()">Send Invoice</button>
+                                <button class="btn btn-danger btn-sm" onclick="handleVoidInvoice()">Void</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (invoice.status === 'sent') {
+                const daysOut = invoice.due_date ? daysBetween(invoice.due_date) : null;
+                const overdue = daysOut !== null && daysOut > 0;
+                content = `
+                    <div class="invoice-status-card sent">
+                        <div>
+                            <strong>Invoice Sent</strong> ${statusBadge('sent')}
+                            <div style="margin-top:0.5rem;color:var(--text-light);font-size:0.9rem;">
+                                Amount: <strong>${formatCurrency(invoice.amount)}</strong>
+                                ${invoice.due_date ? ' &middot; Due: ' + formatDate(invoice.due_date) : ''}
+                                ${overdue ? ` &middot; <span style="color:var(--danger);font-weight:600;">${daysOut} days overdue</span>` : ''}
+                                ${(!overdue && daysOut !== null) ? ` &middot; <span style="color:var(--text-light);">Due in ${Math.abs(daysOut)} days</span>` : ''}
+                            </div>
+                            ${invoice.stripe_invoice_url ? `<a href="${invoice.stripe_invoice_url}" target="_blank" style="font-size:0.85rem;color:var(--primary-light);">View in Stripe</a>` : ''}
+                        </div>
+                    </div>
+                `;
+            } else if (invoice.status === 'paid') {
+                content = `
+                    <div class="invoice-status-card paid">
+                        <div style="display:flex;align-items:center;gap:0.75rem;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5" width="28" height="28"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            <div>
+                                <strong>Paid</strong> ${statusBadge('paid')}
+                                <div style="margin-top:0.5rem;color:var(--text-light);font-size:0.9rem;">
+                                    Amount: <strong>${formatCurrency(invoice.amount)}</strong>
+                                    ${invoice.paid_at ? ' &middot; Paid: ' + formatDate(invoice.paid_at) : ''}
+                                </div>
+                                ${invoice.stripe_invoice_url ? `<a href="${invoice.stripe_invoice_url}" target="_blank" style="font-size:0.85rem;color:var(--primary-light);">View in Stripe</a>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (invoice.status === 'void') {
+                content = `
+                    <div class="invoice-status-card void">
+                        <div>
+                            <strong>Invoice Voided</strong> ${statusBadge('void')}
+                            <div style="margin-top:0.5rem;color:var(--text-light);font-size:0.9rem;">
+                                Amount: <strong>${formatCurrency(invoice.amount)}</strong>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            section.innerHTML = content;
+        }
+
+        async function handleCreateInvoice(e) {
+            e.preventDefault();
+            const btn = document.getElementById('createInvoiceBtn');
+            btn.disabled = true;
+            btn.textContent = 'Creating...';
+
+            try {
+                const result = await callApi('/api/stripe-create-invoice', {
+                    job_id: jobId,
+                    customer_id: job.customer_id,
+                    amount: parseFloat(document.getElementById('invoiceAmount').value),
+                    description: document.getElementById('invoiceDescription').value.trim(),
+                    due_date: document.getElementById('invoiceDueDate').value || null,
+                });
+
+                showToast('Invoice created');
+                await loadInvoice();
+                updateProfitSummary();
+            } catch (err) {
+                showToast('Failed to create invoice: ' + err.message, 'error');
+                btn.disabled = false;
+                btn.textContent = 'Create Invoice';
+            }
+        }
+
+        async function handleSendInvoice() {
+            if (!confirmAction('Send this invoice to the customer?')) return;
+
+            try {
+                await callApi('/api/stripe-send-invoice', {
+                    invoice_id: invoice.id,
+                    stripe_invoice_id: invoice.stripe_invoice_id,
+                });
+
+                showToast('Invoice sent');
+                await loadInvoice();
+
+                // Update job status to invoiced
+                await supabase.from('hw_jobs').update({ status: 'invoiced' }).eq('id', jobId);
+                job.status = 'invoiced';
+                renderJobInfo();
+            } catch (err) {
+                showToast('Failed to send invoice: ' + err.message, 'error');
+            }
+        }
+
+        async function handleVoidInvoice() {
+            if (!confirmAction('Void this invoice? This cannot be undone.')) return;
+
+            try {
+                await callApi('/api/stripe-void-invoice', {
+                    invoice_id: invoice.id,
+                    stripe_invoice_id: invoice.stripe_invoice_id,
+                });
+
+                showToast('Invoice voided');
+                await loadInvoice();
+                updateProfitSummary();
+            } catch (err) {
+                showToast('Failed to void invoice: ' + err.message, 'error');
+            }
+        }
+
+        // ==================== Profit Summary ====================
+        function updateProfitSummary() {
+            const expTotal = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+            const invTotal = (invoice && invoice.status !== 'void') ? (parseFloat(invoice.amount) || 0) : 0;
+            const profit = invTotal - expTotal;
+
+            document.getElementById('profitInvoice').textContent = formatCurrency(invTotal);
+            document.getElementById('profitExpenses').textContent = formatCurrency(expTotal);
+
+            const profitEl = document.getElementById('profitNet');
+            profitEl.textContent = formatCurrency(profit);
+            profitEl.className = 'value ' + (profit >= 0 ? 'money' : 'danger');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messages - H&W Admin</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/admin/admin-styles.css">
+</head>
+<body>
+    <div class="admin-topbar">
+        <div class="admin-topbar-left">
+            <button class="mobile-sidebar-toggle" id="sidebarToggle">&#9776;</button>
+            <h1>H&W <span>Admin</span></h1>
+        </div>
+        <div class="admin-topbar-right">
+            <span class="admin-user" id="adminUser"></span>
+            <button class="btn-logout" id="logoutBtn">Logout</button>
+        </div>
+    </div>
+    <aside class="admin-sidebar" id="adminSidebar"></aside>
+    <main class="admin-main">
+        <div class="admin-page-header">
+            <h2>Messages</h2>
+            <div class="filter-tabs">
+                <button class="filter-tab active" data-filter="all">All</button>
+                <button class="filter-tab" data-filter="unread">Unread</button>
+                <button class="filter-tab" data-filter="read">Read</button>
+            </div>
+        </div>
+
+        <div class="admin-card">
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Service</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="messagesBody">
+                        <tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Message Detail Expand Area -->
+        <div class="admin-card" id="messageDetail" style="display:none;">
+            <div class="admin-card-header">
+                <h3 id="messageDetailName"></h3>
+                <button class="btn btn-sm btn-outline" id="closeDetail">Close</button>
+            </div>
+            <div style="padding: 1.25rem;">
+                <div class="detail-info-grid" style="margin-bottom: 1rem;">
+                    <div class="detail-info-item">
+                        <label>Email</label>
+                        <p id="messageDetailEmail"></p>
+                    </div>
+                    <div class="detail-info-item">
+                        <label>Phone</label>
+                        <p id="messageDetailPhone"></p>
+                    </div>
+                    <div class="detail-info-item">
+                        <label>Service</label>
+                        <p id="messageDetailService"></p>
+                    </div>
+                    <div class="detail-info-item">
+                        <label>Date</label>
+                        <p id="messageDetailDate"></p>
+                    </div>
+                </div>
+                <div style="background: var(--bg-light); padding: 1rem; border-radius: 8px;">
+                    <label style="font-size: 0.75rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.05em;">Message</label>
+                    <p id="messageDetailText" style="margin-top: 0.5rem; white-space: pre-wrap; line-height: 1.7;"></p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/admin/admin-app.js"></script>
+    <script>
+    let allMessages = [];
+    let currentFilter = 'all';
+
+    (async () => {
+        const session = await initAdminPage('messages');
+        if (!session) return;
+        await loadMessages();
+        setupFilters();
+        document.getElementById('closeDetail').addEventListener('click', () => {
+            document.getElementById('messageDetail').style.display = 'none';
+        });
+    })();
+
+    async function loadMessages() {
+        const { data, error } = await supabase
+            .from('hw_contact_messages')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            showToast('Failed to load messages', 'error');
+            return;
+        }
+        allMessages = data || [];
+        renderMessages();
+    }
+
+    function renderMessages() {
+        const filtered = currentFilter === 'all' ? allMessages :
+            currentFilter === 'unread' ? allMessages.filter(m => !m.read) :
+            allMessages.filter(m => m.read);
+
+        const tbody = document.getElementById('messagesBody');
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><p>${
+                currentFilter === 'unread' ? 'No unread messages' :
+                currentFilter === 'read' ? 'No read messages' :
+                'No messages yet'
+            }</p></div></td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(msg => `
+            <tr>
+                <td>${msg.read ? '<span class="badge badge-read">Read</span>' : '<span class="badge badge-unread">New</span>'}</td>
+                <td><strong style="cursor:pointer;color:var(--primary-color);" onclick="viewMessage('${msg.id}')">${escapeHtml(msg.name)}</strong></td>
+                <td>${escapeHtml(msg.email || '-')}</td>
+                <td>${escapeHtml(msg.phone || '-')}</td>
+                <td>${escapeHtml(msg.service || '-')}</td>
+                <td>${formatDateShort(msg.created_at)}</td>
+                <td>
+                    <button class="btn btn-sm ${msg.read ? 'btn-outline' : 'btn-primary'}" onclick="toggleRead('${msg.id}', ${!msg.read})">
+                        ${msg.read ? 'Mark Unread' : 'Mark Read'}
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteMessage('${msg.id}')">Delete</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function setupFilters() {
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentFilter = tab.dataset.filter;
+                renderMessages();
+            });
+        });
+    }
+
+    async function viewMessage(id) {
+        const msg = allMessages.find(m => m.id === id);
+        if (!msg) return;
+
+        document.getElementById('messageDetailName').textContent = msg.name;
+        document.getElementById('messageDetailEmail').textContent = msg.email || '-';
+        document.getElementById('messageDetailPhone').textContent = msg.phone || '-';
+        document.getElementById('messageDetailService').textContent = msg.service || '-';
+        document.getElementById('messageDetailDate').textContent = formatDate(msg.created_at);
+        document.getElementById('messageDetailText').textContent = msg.message || '';
+        document.getElementById('messageDetail').style.display = 'block';
+        document.getElementById('messageDetail').scrollIntoView({ behavior: 'smooth' });
+
+        // Auto mark as read
+        if (!msg.read) {
+            await toggleRead(id, true);
+        }
+    }
+
+    async function toggleRead(id, read) {
+        const { error } = await supabase
+            .from('hw_contact_messages')
+            .update({ read })
+            .eq('id', id);
+
+        if (error) {
+            showToast('Failed to update', 'error');
+            return;
+        }
+
+        const msg = allMessages.find(m => m.id === id);
+        if (msg) msg.read = read;
+        renderMessages();
+    }
+
+    async function deleteMessage(id) {
+        if (!confirmAction('Delete this message? This cannot be undone.')) return;
+
+        const { error } = await supabase
+            .from('hw_contact_messages')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            showToast('Failed to delete', 'error');
+            return;
+        }
+
+        allMessages = allMessages.filter(m => m.id !== id);
+        renderMessages();
+        showToast('Message deleted');
+        document.getElementById('messageDetail').style.display = 'none';
+    }
+    </script>
+</body>
+</html>
