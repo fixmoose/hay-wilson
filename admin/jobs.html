@@ -7,7 +7,7 @@
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/admin/admin-styles.css?v=4">
+    <link rel="stylesheet" href="/admin/admin-styles.css">
 </head>
 <body>
     <div class="admin-topbar">
@@ -20,8 +20,25 @@
             <button class="btn-logout" id="logoutBtn">Logout</button>
         </div>
     </div>
-    <aside class="admin-sidebar" id="adminSidebar"></aside>
+
+    <aside class="admin-sidebar" id="adminSidebar">
+        <ul class="admin-nav">
+            <li><a href="/admin/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Dashboard</a></li>
+            <li><a href="/admin/jobs.html" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Jobs</a></li>
+            <li><a href="/admin/clients.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Clients</a></li>
+            <li><a href="/admin/invoices.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Invoices</a></li>
+            <li><a href="/admin/documents.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Documents</a></li>
+            <li><div class="nav-divider"></div></li>
+            <li><a href="/" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>View Site</a></li>
+        </ul>
+    </aside>
+
     <main class="admin-main">
+        <a href="/admin/" class="back-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
+            Back to Dashboard
+        </a>
+
         <div class="admin-page-header">
             <h2>Jobs</h2>
             <button class="btn btn-primary" id="addJobBtn">
@@ -95,15 +112,46 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.body.innerHTML='<h1 style=padding:2rem>Supabase CDN blocked. Disable ad-blocker or check internet.</h1>'"></script>
-    <script>document.write('<scr'+'ipt src="/admin/hw.js?_='+Date.now()+'"></scr'+'ipt>');</script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+        const sb = window.supabase.createClient(
+            'https://mxxabikquupnwvlspzyz.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14eGFiaWtxdXVwbnd2bHNwenl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDMwNTgsImV4cCI6MjA3NzIxOTA1OH0.WC_mupqYMneJnYmr9vmDZd0vXroBnaLwZlYX44J_HFQ'
+        );
+
+        // Helpers
+        function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function formatDate(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+        function statusBadge(s) { return '<span class="badge badge-' + s + '">' + s.replace('_', ' ') + '</span>'; }
+        function showToast(msg, type) {
+            type = type || 'success';
+            let c = document.querySelector('.toast-container');
+            if (!c) { c = document.createElement('div'); c.className = 'toast-container'; document.body.appendChild(c); }
+            const t = document.createElement('div'); t.className = 'toast toast-' + type; t.textContent = msg; c.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(100%)'; setTimeout(() => t.remove(), 300); }, 3000);
+        }
+
         let allJobs = [];
         let currentFilter = 'all';
 
         (async () => {
-            const session = await initAdminPage('jobs');
-            if (!session) return;
+            // Auth guard
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) { window.location.href = '/admin/login.html'; return; }
+
+            document.getElementById('adminUser').textContent = session.user.email;
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                await sb.auth.signOut();
+                window.location.href = '/admin/login.html';
+            });
+
+            // Mobile sidebar
+            const sidebar = document.getElementById('adminSidebar');
+            const toggle = document.getElementById('sidebarToggle');
+            toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+            document.addEventListener('click', (e) => {
+                if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggle.contains(e.target)) sidebar.classList.remove('open');
+            });
 
             await loadJobs();
             setupFilters();
@@ -111,13 +159,12 @@
         })();
 
         async function loadJobs() {
-            const { data, error } = await supabase
+            const { data, error } = await sb
                 .from('hw_jobs')
                 .select('id, name, status, start_date, end_date, customer_id, hw_customers(name)')
                 .order('created_at', { ascending: false });
 
             if (error) {
-                showToast('Failed to load jobs', 'error');
                 console.error(error);
                 allJobs = [];
             } else {
@@ -128,18 +175,10 @@
 
         function renderJobs() {
             const tbody = document.getElementById('jobsTableBody');
-            const filtered = currentFilter === 'all'
-                ? allJobs
-                : allJobs.filter(j => j.status === currentFilter);
+            const filtered = currentFilter === 'all' ? allJobs : allJobs.filter(j => j.status === currentFilter);
 
             if (filtered.length === 0) {
-                tbody.innerHTML = `
-                    <tr><td colspan="5">
-                        <div class="empty-state">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                            <p>No jobs found</p>
-                        </div>
-                    </td></tr>`;
+                tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><p>No jobs found</p></div></td></tr>';
                 return;
             }
 
@@ -155,11 +194,10 @@
         }
 
         function setupFilters() {
-            const tabs = document.getElementById('filterTabs');
-            tabs.addEventListener('click', (e) => {
+            document.getElementById('filterTabs').addEventListener('click', (e) => {
                 const tab = e.target.closest('.filter-tab');
                 if (!tab) return;
-                tabs.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
                 currentFilter = tab.dataset.filter;
                 renderJobs();
@@ -168,41 +206,37 @@
 
         function setupModal() {
             const modal = document.getElementById('addJobModal');
-            const openBtn = document.getElementById('addJobBtn');
-            const closeBtn = document.getElementById('closeAddJob');
-            const cancelBtn = document.getElementById('cancelAddJob');
             const form = document.getElementById('addJobForm');
 
-            openBtn.addEventListener('click', async () => {
+            document.getElementById('addJobBtn').addEventListener('click', async () => {
                 modal.classList.add('active');
-                await loadCustomerDropdown();
+                // Load customers for dropdown
+                const { data } = await sb.from('hw_customers').select('id, name').order('name');
+                const select = document.getElementById('jobCustomer');
+                select.innerHTML = '<option value="">Select a customer...</option>' +
+                    (data || []).map(c => '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>').join('');
             });
 
-            closeBtn.addEventListener('click', () => modal.classList.remove('active'));
-            cancelBtn.addEventListener('click', () => modal.classList.remove('active'));
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) modal.classList.remove('active');
-            });
+            document.getElementById('closeAddJob').addEventListener('click', () => modal.classList.remove('active'));
+            document.getElementById('cancelAddJob').addEventListener('click', () => modal.classList.remove('active'));
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
 
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const submitBtn = document.getElementById('submitAddJob');
-                submitBtn.disabled = true;
-                submitBtn.textContent = 'Creating...';
+                const btn = document.getElementById('submitAddJob');
+                btn.disabled = true;
+                btn.textContent = 'Creating...';
 
-                const jobData = {
+                const { error } = await sb.from('hw_jobs').insert([{
                     customer_id: document.getElementById('jobCustomer').value || null,
                     name: document.getElementById('jobName').value.trim(),
                     description: document.getElementById('jobDescription').value.trim() || null,
                     start_date: document.getElementById('jobStartDate').value || null,
                     status: 'pending'
-                };
-
-                const { error } = await supabase.from('hw_jobs').insert([jobData]);
+                }]);
 
                 if (error) {
                     showToast('Failed to create job: ' + error.message, 'error');
-                    console.error(error);
                 } else {
                     showToast('Job created');
                     modal.classList.remove('active');
@@ -210,25 +244,9 @@
                     await loadJobs();
                 }
 
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Create Job';
+                btn.disabled = false;
+                btn.textContent = 'Create Job';
             });
-        }
-
-        async function loadCustomerDropdown() {
-            const select = document.getElementById('jobCustomer');
-            const { data, error } = await supabase
-                .from('hw_customers')
-                .select('id, name')
-                .order('name');
-
-            if (error) {
-                console.error(error);
-                return;
-            }
-
-            select.innerHTML = '<option value="">Select a customer...</option>' +
-                (data || []).map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
         }
     </script>
 </body>
