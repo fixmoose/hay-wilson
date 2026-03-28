@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receipts - H&amp;W Admin</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/admin/admin-styles.css">
+    <style>
+        .receipt-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:1rem; margin-top:1rem; }
+        .receipt-card { background:white; border-radius:10px; border:1px solid var(--border-color); overflow:hidden; cursor:pointer; transition:box-shadow 0.2s; position:relative; }
+        .receipt-card:hover { box-shadow:0 4px 12px rgba(0,0,0,0.1); }
+        .receipt-card-thumb { width:100%; height:160px; object-fit:cover; display:block; background:var(--bg-light); }
+        .receipt-card-pdf { width:100%; height:160px; display:flex; align-items:center; justify-content:center; background:var(--bg-light); color:var(--text-light); flex-direction:column; gap:0.25rem; }
+        .receipt-card-info { padding:0.75rem; }
+        .receipt-card-name { font-size:0.85rem; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:0.25rem; }
+        .receipt-card-job { font-size:0.75rem; color:var(--primary-light); }
+        .receipt-card-date { font-size:0.7rem; color:var(--text-light); margin-top:0.15rem; }
+        .receipt-card-delete { position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; background:rgba(0,0,0,0.6); color:white; border:none; cursor:pointer; font-size:16px; display:none; align-items:center; justify-content:center; line-height:1; }
+        .receipt-card:hover .receipt-card-delete { display:flex; }
+        .upload-area { border:2px dashed var(--border-color); border-radius:10px; padding:2rem; text-align:center; color:var(--text-light); cursor:pointer; transition:border-color 0.2s, background 0.2s; margin-bottom:1rem; }
+        .upload-area:hover, .upload-area.dragover { border-color:var(--primary-light); background:rgba(37,99,235,0.04); }
+        .upload-area input { display:none; }
+        .upload-bar { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; }
+        .upload-bar select { padding:0.5rem 2rem 0.5rem 0.75rem; border-radius:6px; border:1px solid var(--border-color); font-size:0.85rem; background:white; }
+        .filter-row { display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap; margin-bottom:1rem; }
+        .filter-row select { padding:0.4rem 2rem 0.4rem 0.6rem; border-radius:6px; border:1px solid var(--border-color); font-size:0.85rem; background:white; }
+        .receipt-count { font-size:0.85rem; color:var(--text-light); }
+    </style>
+</head>
+<body>
+    <div class="admin-topbar">
+        <div class="admin-topbar-left">
+            <button class="mobile-sidebar-toggle" id="sidebarToggle">&#9776;</button>
+            <h1>H&W <span>Admin</span></h1>
+        </div>
+        <div class="admin-topbar-right">
+            <span class="admin-user" id="adminUser"></span>
+            <button class="btn-logout" id="logoutBtn">Logout</button>
+        </div>
+    </div>
+
+    <aside class="admin-sidebar" id="adminSidebar">
+        <ul class="admin-nav">
+            <li><a href="/admin/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Dashboard</a></li>
+            <li><a href="/admin/jobs.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Jobs</a></li>
+            <li><a href="/admin/clients.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Clients</a></li>
+            <li><a href="/admin/invoices.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Invoices</a></li>
+            <li><a href="/admin/documents.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Documents</a></li>
+            <li><a href="/admin/receipts.html" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>Receipts</a></li>
+            <li><div class="nav-divider"></div></li>
+            <li><a href="/" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>View Site</a></li>
+        </ul>
+    </aside>
+
+    <main class="admin-main">
+        <a href="/admin/" class="back-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
+            Back to Dashboard
+        </a>
+
+        <div class="admin-page-header">
+            <h2>Receipts</h2>
+        </div>
+
+        <!-- Upload Area -->
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h3>Upload Receipts</h3>
+            </div>
+            <div style="padding:1.25rem;">
+                <div class="upload-bar" style="margin-bottom:1rem;">
+                    <label style="font-size:0.85rem;color:var(--text-light);">Assign to job:</label>
+                    <select id="uploadJobSelect">
+                        <option value="_unassigned">No job (general)</option>
+                    </select>
+                </div>
+                <div class="upload-area" id="uploadDropZone">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36" style="margin-bottom:0.5rem;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <p style="margin:0;font-size:0.95rem;">Tap to upload or drag & drop</p>
+                    <p style="margin:0.25rem 0 0;font-size:0.8rem;">Upload multiple images or PDFs at once</p>
+                    <input type="file" id="fileInput" multiple accept="image/*,.pdf">
+                </div>
+            </div>
+        </div>
+
+        <!-- All Receipts -->
+        <div class="admin-card" style="margin-top:1.25rem;">
+            <div class="admin-card-header">
+                <h3>All Receipts</h3>
+                <span class="receipt-count" id="receiptCount"></span>
+            </div>
+            <div style="padding:1.25rem;">
+                <div class="filter-row">
+                    <label style="font-size:0.85rem;color:var(--text-light);">Filter by job:</label>
+                    <select id="filterJobSelect">
+                        <option value="all">All receipts</option>
+                        <option value="_unassigned">Unassigned</option>
+                    </select>
+                </div>
+                <div id="loadingState" class="loading"><div class="spinner"></div></div>
+                <div class="receipt-grid" id="receiptGrid" style="display:none;"></div>
+                <div id="emptyState" style="display:none;text-align:center;padding:2rem;color:var(--text-light);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" style="margin-bottom:0.5rem;"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>
+                    <p>No receipts yet</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const sb = window.supabase.createClient(
+            'https://mxxabikquupnwvlspzyz.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14eGFiaWtxdXVwbnd2bHNwenl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDMwNTgsImV4cCI6MjA3NzIxOTA1OH0.WC_mupqYMneJnYmr9vmDZd0vXroBnaLwZlYX44J_HFQ'
+        );
+
+        function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function showToast(msg, type) {
+            type = type || 'success';
+            let c = document.querySelector('.toast-container');
+            if (!c) { c = document.createElement('div'); c.className = 'toast-container'; document.body.appendChild(c); }
+            const t = document.createElement('div'); t.className = 'toast toast-' + type; t.textContent = msg; c.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(100%)'; setTimeout(() => t.remove(), 300); }, 3000);
+        }
+
+        let allJobs = [];
+        let allReceipts = []; // { path, name, folder, created_at }
+        let currentFilter = 'all';
+
+        (async () => {
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) { window.location.href = '/admin/login.html'; return; }
+            document.getElementById('adminUser').textContent = session.user.email;
+            document.getElementById('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); window.location.href = '/admin/login.html'; });
+
+            const sidebar = document.getElementById('adminSidebar');
+            const toggle = document.getElementById('sidebarToggle');
+            toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+            document.addEventListener('click', (e) => { if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggle.contains(e.target)) sidebar.classList.remove('open'); });
+
+            await loadJobs();
+            await loadAllReceipts();
+            setupUpload();
+            setupFilter();
+        })();
+
+        async function loadJobs() {
+            const { data } = await sb.from('hw_jobs').select('id, name').order('name');
+            allJobs = data || [];
+
+            const uploadSelect = document.getElementById('uploadJobSelect');
+            const filterSelect = document.getElementById('filterJobSelect');
+
+            const jobOptions = allJobs.map(j => '<option value="' + j.id + '">' + escapeHtml(j.name) + '</option>').join('');
+            uploadSelect.innerHTML = '<option value="_unassigned">No job (general)</option>' + jobOptions;
+            filterSelect.innerHTML = '<option value="all">All receipts</option><option value="_unassigned">Unassigned</option>' + jobOptions;
+        }
+
+        async function loadAllReceipts() {
+            document.getElementById('loadingState').style.display = 'flex';
+            document.getElementById('receiptGrid').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'none';
+
+            allReceipts = [];
+
+            // List all folders (job IDs + _unassigned)
+            const { data: folders, error } = await sb.storage.from('hw-receipts').list('', { limit: 1000 });
+            if (error) { console.error(error); document.getElementById('loadingState').style.display = 'none'; return; }
+
+            // For each folder, list files
+            const folderNames = (folders || []).filter(f => f.id === null).map(f => f.name); // folders have id=null
+            const fileFolders = (folders || []).filter(f => f.id !== null); // files at root level
+
+            // Root-level files go to _unassigned
+            fileFolders.forEach(f => {
+                allReceipts.push({ path: f.name, name: f.name, folder: '_unassigned', created_at: f.created_at });
+            });
+
+            // List each subfolder
+            for (const folder of folderNames) {
+                const { data: files } = await sb.storage.from('hw-receipts').list(folder + '/', { limit: 1000, sortBy: { column: 'created_at', order: 'desc' } });
+                if (files) {
+                    files.forEach(f => {
+                        if (f.id !== null) { // skip nested folders
+                            allReceipts.push({ path: folder + '/' + f.name, name: f.name, folder: folder, created_at: f.created_at });
+                        }
+                    });
+                }
+            }
+
+            // Sort newest first
+            allReceipts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            document.getElementById('loadingState').style.display = 'none';
+            renderReceipts();
+        }
+
+        function renderReceipts() {
+            const grid = document.getElementById('receiptGrid');
+            const empty = document.getElementById('emptyState');
+            const count = document.getElementById('receiptCount');
+
+            const filtered = currentFilter === 'all' ? allReceipts : allReceipts.filter(r => r.folder === currentFilter);
+
+            count.textContent = filtered.length + ' receipt' + (filtered.length !== 1 ? 's' : '');
+
+            if (filtered.length === 0) {
+                grid.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            grid.style.display = 'grid';
+
+            grid.innerHTML = filtered.map(r => {
+                const isPdf = r.name.toLowerCase().endsWith('.pdf');
+                const jobName = getJobName(r.folder);
+                const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
+                return `<div class="receipt-card" data-path="${escapeHtml(r.path)}" data-name="${escapeHtml(r.name)}">
+                    ${isPdf
+                        ? '<div class="receipt-card-pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</div>'
+                        : '<img class="receipt-card-thumb" src="" alt="" data-path="' + escapeHtml(r.path) + '">'
+                    }
+                    <div class="receipt-card-info">
+                        <div class="receipt-card-name" title="${escapeHtml(r.name)}">${escapeHtml(cleanName(r.name))}</div>
+                        <div class="receipt-card-job">${escapeHtml(jobName)}</div>
+                        <div class="receipt-card-date">${dateStr}</div>
+                    </div>
+                    <button class="receipt-card-delete" title="Delete">&times;</button>
+                </div>`;
+            }).join('');
+
+            // Load signed image URLs
+            grid.querySelectorAll('img.receipt-card-thumb').forEach(async (img) => {
+                const { data } = await sb.storage.from('hw-receipts').createSignedUrl(img.dataset.path, 3600);
+                if (data) img.src = data.signedUrl;
+            });
+
+            // Click to view full size
+            grid.querySelectorAll('.receipt-card').forEach(card => {
+                card.addEventListener('click', async (e) => {
+                    if (e.target.closest('.receipt-card-delete')) return;
+                    const { data } = await sb.storage.from('hw-receipts').createSignedUrl(card.dataset.path, 3600);
+                    if (data) window.open(data.signedUrl, '_blank');
+                });
+            });
+
+            // Delete
+            grid.querySelectorAll('.receipt-card-delete').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const card = btn.closest('.receipt-card');
+                    if (!confirm('Delete ' + card.dataset.name + '?')) return;
+                    const { error } = await sb.storage.from('hw-receipts').remove([card.dataset.path]);
+                    if (error) { showToast('Failed to delete', 'error'); return; }
+                    allReceipts = allReceipts.filter(r => r.path !== card.dataset.path);
+                    renderReceipts();
+                    showToast('Receipt deleted');
+                });
+            });
+        }
+
+        function getJobName(folder) {
+            if (folder === '_unassigned') return 'Unassigned';
+            const job = allJobs.find(j => j.id === folder);
+            return job ? job.name : 'Job ' + folder.substring(0, 8);
+        }
+
+        function cleanName(name) {
+            // Strip timestamp prefix like "1234567890_"
+            return name.replace(/^\d+_/, '');
+        }
+
+        function setupFilter() {
+            document.getElementById('filterJobSelect').addEventListener('change', (e) => {
+                currentFilter = e.target.value;
+                renderReceipts();
+            });
+        }
+
+        function setupUpload() {
+            const dropZone = document.getElementById('uploadDropZone');
+            const fileInput = document.getElementById('fileInput');
+
+            dropZone.addEventListener('click', () => fileInput.click());
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
+            });
+
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length) uploadFiles(fileInput.files);
+                fileInput.value = '';
+            });
+        }
+
+        async function uploadFiles(files) {
+            const dropZone = document.getElementById('uploadDropZone');
+            const origHtml = dropZone.innerHTML;
+            const folder = document.getElementById('uploadJobSelect').value;
+            let uploaded = 0;
+
+            for (const file of files) {
+                dropZone.innerHTML = '<p style="margin:0;font-size:0.95rem;">Uploading ' + (uploaded + 1) + ' of ' + files.length + '...</p>';
+
+                const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const filePath = folder + '/' + Date.now() + '_' + safeName;
+
+                const { error } = await sb.storage.from('hw-receipts').upload(filePath, file, { cacheControl: '3600' });
+                if (error) {
+                    showToast('Failed: ' + file.name + ' - ' + error.message, 'error');
+                } else {
+                    uploaded++;
+                }
+            }
+
+            dropZone.innerHTML = origHtml;
+            dropZone.querySelector('input').addEventListener('change', () => {});
+            // Rebind click
+            const newInput = document.getElementById('fileInput');
+            dropZone.addEventListener('click', () => newInput.click());
+
+            if (uploaded > 0) {
+                showToast(uploaded + ' receipt' + (uploaded > 1 ? 's' : '') + ' uploaded');
+                await loadAllReceipts();
+            }
+        }
+    </script>
+</body>
+</html>
