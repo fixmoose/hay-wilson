@@ -38,16 +38,87 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
             Back to Dashboard
         </a>
+
         <div class="admin-page-header">
             <h2>Clients</h2>
+            <button class="btn btn-primary" id="addClientBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Client
+            </button>
         </div>
+
         <div class="admin-card">
-            <div style="padding:2rem;text-align:center;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-light)" stroke-width="1.5" width="48" height="48" style="margin-bottom:1rem;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                <p style="color:var(--text-light);font-size:1.1rem;">Clients page coming soon.</p>
+            <div class="admin-card-header">
+                <h3>All Clients</h3>
+                <div class="search-bar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" id="searchInput" placeholder="Search name, email, phone...">
+                </div>
+            </div>
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th>Address</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientsBody">
+                        <tr><td colspan="4"><div class="loading"><div class="spinner"></div></div></td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </main>
+
+    <!-- Add/Edit Client Modal -->
+    <div class="modal-overlay" id="clientModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add Client</h3>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+            <form id="clientForm">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="firstName">First Name *</label>
+                            <input type="text" id="firstName" class="form-control" required placeholder="John">
+                        </div>
+                        <div class="form-group">
+                            <label for="lastName">Last Name *</label>
+                            <input type="text" id="lastName" class="form-control" required placeholder="Smith">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="clientPhone">Phone</label>
+                            <input type="tel" id="clientPhone" class="form-control" placeholder="(775) 555-1234">
+                        </div>
+                        <div class="form-group">
+                            <label for="clientEmail">Email</label>
+                            <input type="email" id="clientEmail" class="form-control" placeholder="john@example.com">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="clientAddress">Home Address</label>
+                        <input type="text" id="clientAddress" class="form-control" placeholder="123 Main St, Reno, NV 89501">
+                    </div>
+                    <div class="form-group">
+                        <label for="clientNotes">Notes</label>
+                        <textarea id="clientNotes" class="form-control" rows="2" placeholder="Gate code, dog, preferred contact time..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" id="modalCancel">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="deleteClientBtn" style="display:none;">Delete</button>
+                    <button type="submit" class="btn btn-primary" id="saveClientBtn">Save Client</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
@@ -55,16 +126,188 @@
             'https://mxxabikquupnwvlspzyz.supabase.co',
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14eGFiaWtxdXVwbnd2bHNwenl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDMwNTgsImV4cCI6MjA3NzIxOTA1OH0.WC_mupqYMneJnYmr9vmDZd0vXroBnaLwZlYX44J_HFQ'
         );
+
+        // Helpers
+        function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function showToast(msg, type) {
+            type = type || 'success';
+            let c = document.querySelector('.toast-container');
+            if (!c) { c = document.createElement('div'); c.className = 'toast-container'; document.body.appendChild(c); }
+            const t = document.createElement('div'); t.className = 'toast toast-' + type; t.textContent = msg; c.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(100%)'; setTimeout(() => t.remove(), 300); }, 3000);
+        }
+
+        let allClients = [];
+        let editingId = null;
+
         (async () => {
+            // Auth guard
             const { data: { session } } = await sb.auth.getSession();
             if (!session) { window.location.href = '/admin/login.html'; return; }
+
             document.getElementById('adminUser').textContent = session.user.email;
             document.getElementById('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); window.location.href = '/admin/login.html'; });
+
+            // Mobile sidebar
             const sidebar = document.getElementById('adminSidebar');
             const toggle = document.getElementById('sidebarToggle');
             toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
             document.addEventListener('click', (e) => { if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggle.contains(e.target)) sidebar.classList.remove('open'); });
+
+            await loadClients();
+            setupModal();
+            setupSearch();
         })();
+
+        // ==================== Load & Render ====================
+        async function loadClients() {
+            const { data, error } = await sb
+                .from('hw_customers')
+                .select('*')
+                .order('name');
+
+            if (error) {
+                console.error(error);
+                allClients = [];
+            } else {
+                allClients = data || [];
+            }
+            renderClients(allClients);
+        }
+
+        function renderClients(clients) {
+            const tbody = document.getElementById('clientsBody');
+
+            if (clients.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>No clients yet</p></div></td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = clients.map(c => `
+                <tr class="clickable" data-id="${c.id}">
+                    <td><strong>${escapeHtml(c.name)}</strong></td>
+                    <td>${escapeHtml(c.phone) || '-'}</td>
+                    <td>${escapeHtml(c.email) || '-'}</td>
+                    <td>${escapeHtml(c.address) || '-'}</td>
+                </tr>
+            `).join('');
+
+            // Click to edit
+            tbody.querySelectorAll('tr.clickable').forEach(row => {
+                row.addEventListener('click', () => {
+                    const client = allClients.find(c => c.id === row.dataset.id);
+                    if (client) openModal(client);
+                });
+            });
+        }
+
+        // ==================== Search ====================
+        function setupSearch() {
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                const q = e.target.value.toLowerCase().trim();
+                if (!q) { renderClients(allClients); return; }
+                renderClients(allClients.filter(c =>
+                    (c.name || '').toLowerCase().includes(q) ||
+                    (c.email || '').toLowerCase().includes(q) ||
+                    (c.phone || '').toLowerCase().includes(q) ||
+                    (c.address || '').toLowerCase().includes(q)
+                ));
+            });
+        }
+
+        // ==================== Modal ====================
+        function setupModal() {
+            const modal = document.getElementById('clientModal');
+            const form = document.getElementById('clientForm');
+
+            document.getElementById('addClientBtn').addEventListener('click', () => openModal());
+            document.getElementById('modalClose').addEventListener('click', closeModal);
+            document.getElementById('modalCancel').addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('saveClientBtn');
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+
+                const first = document.getElementById('firstName').value.trim();
+                const last = document.getElementById('lastName').value.trim();
+                if (!first || !last) { showToast('First and last name required', 'error'); btn.disabled = false; btn.textContent = 'Save Client'; return; }
+
+                const payload = {
+                    name: first + ' ' + last,
+                    phone: document.getElementById('clientPhone').value.trim() || null,
+                    email: document.getElementById('clientEmail').value.trim() || null,
+                    address: document.getElementById('clientAddress').value.trim() || null,
+                    notes: document.getElementById('clientNotes').value.trim() || null
+                };
+
+                try {
+                    if (editingId) {
+                        const { error } = await sb.from('hw_customers').update(payload).eq('id', editingId);
+                        if (error) throw error;
+                        showToast('Client updated');
+                    } else {
+                        const { error } = await sb.from('hw_customers').insert(payload);
+                        if (error) throw error;
+                        showToast('Client added');
+                    }
+                    closeModal();
+                    await loadClients();
+                } catch (err) {
+                    showToast('Failed to save: ' + err.message, 'error');
+                }
+
+                btn.disabled = false;
+                btn.textContent = 'Save Client';
+            });
+
+            // Delete
+            document.getElementById('deleteClientBtn').addEventListener('click', async () => {
+                if (!editingId) return;
+                if (!confirm('Delete this client? This cannot be undone.')) return;
+
+                try {
+                    const { error } = await sb.from('hw_customers').delete().eq('id', editingId);
+                    if (error) throw error;
+                    showToast('Client deleted');
+                    closeModal();
+                    await loadClients();
+                } catch (err) {
+                    showToast('Failed to delete: ' + err.message, 'error');
+                }
+            });
+        }
+
+        function openModal(client) {
+            editingId = null;
+            document.getElementById('clientForm').reset();
+
+            if (client) {
+                editingId = client.id;
+                document.getElementById('modalTitle').textContent = 'Edit Client';
+                // Split name into first/last
+                const parts = (client.name || '').split(' ');
+                document.getElementById('firstName').value = parts[0] || '';
+                document.getElementById('lastName').value = parts.slice(1).join(' ') || '';
+                document.getElementById('clientPhone').value = client.phone || '';
+                document.getElementById('clientEmail').value = client.email || '';
+                document.getElementById('clientAddress').value = client.address || '';
+                document.getElementById('clientNotes').value = client.notes || '';
+                document.getElementById('deleteClientBtn').style.display = 'inline-flex';
+            } else {
+                document.getElementById('modalTitle').textContent = 'Add Client';
+                document.getElementById('deleteClientBtn').style.display = 'none';
+            }
+
+            document.getElementById('clientModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('clientModal').classList.remove('active');
+            editingId = null;
+        }
     </script>
 </body>
 </html>
