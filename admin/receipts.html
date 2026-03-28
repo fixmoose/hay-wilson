@@ -336,9 +336,12 @@
                     </div>
                 </div>
             </div>
-            <div class="ai-modal-footer">
-                <button class="btn btn-outline" id="editCancel">Cancel</button>
-                <button class="btn btn-primary" id="editSave">Save Changes</button>
+            <div class="ai-modal-footer" style="justify-content:space-between;">
+                <button class="btn btn-outline" id="editDownloadReceipt" style="display:none;" title="Download receipt">⬇ Receipt</button>
+                <div style="display:flex;gap:0.5rem;">
+                    <button class="btn btn-outline" id="editCancel">Cancel</button>
+                    <button class="btn btn-primary" id="editSave">Save Changes</button>
+                </div>
             </div>
         </div>
     </div>
@@ -368,24 +371,31 @@
         let authToken = null;
 
         (async () => {
-            const { data: { session } } = await sb.auth.getSession();
-            if (!session) { window.location.href = '/admin/login.html'; return; }
-            authToken = session.access_token;
-            document.getElementById('adminUser').textContent = session.user.email;
-            document.getElementById('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); window.location.href = '/admin/login.html'; });
+            try {
+                const { data: { session } } = await sb.auth.getSession();
+                if (!session) { window.location.href = '/admin/login.html'; return; }
+                authToken = session.access_token;
+                document.getElementById('adminUser').textContent = session.user.email;
+                document.getElementById('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); window.location.href = '/admin/login.html'; });
 
-            const sidebar = document.getElementById('adminSidebar');
-            const toggle = document.getElementById('sidebarToggle');
-            toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
-            document.addEventListener('click', (e) => { if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggle.contains(e.target)) sidebar.classList.remove('open'); });
+                const sidebar = document.getElementById('adminSidebar');
+                const toggle = document.getElementById('sidebarToggle');
+                toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+                document.addEventListener('click', (e) => { if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggle.contains(e.target)) sidebar.classList.remove('open'); });
 
-            await loadJobs();
-            await Promise.all([loadAllReceipts(), loadExpenses()]);
-            setupUpload();
-            setupFilter();
-            setupQrCode();
-            setupAiModal();
-            setupEditModal();
+                // Setup edit modal FIRST so buttons work even if data loading fails
+                setupEditModal();
+
+                await loadJobs();
+                await Promise.all([loadAllReceipts(), loadExpenses()]);
+                setupUpload();
+                setupFilter();
+                setupQrCode();
+                setupAiModal();
+            } catch (err) {
+                console.error('Init error:', err);
+                showToast('Page init error: ' + err.message, 'error');
+            }
         })();
 
         // ==================== Jobs ====================
@@ -903,6 +913,15 @@
             // Show/hide reimbursed section based on reimbursable
             toggleReimbursedSection();
 
+            // Show download button if receipt exists
+            const dlBtn = document.getElementById('editDownloadReceipt');
+            if (expense.receipt_path) {
+                dlBtn.style.display = '';
+                dlBtn.dataset.path = expense.receipt_path;
+            } else {
+                dlBtn.style.display = 'none';
+            }
+
             document.getElementById('editModal').classList.add('active');
         }
 
@@ -930,6 +949,15 @@
             document.getElementById('editModalClose').addEventListener('click', () => modal.classList.remove('active'));
             document.getElementById('editCancel').addEventListener('click', () => modal.classList.remove('active'));
             modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+
+            // Download receipt
+            document.getElementById('editDownloadReceipt').addEventListener('click', async () => {
+                const path = document.getElementById('editDownloadReceipt').dataset.path;
+                if (!path) return;
+                const { data } = await sb.storage.from('hw-receipts').createSignedUrl(path, 300);
+                if (!data) { showToast('Download failed', 'error'); return; }
+                const a = document.createElement('a'); a.href = data.signedUrl; a.download = path.split('/').pop(); a.target = '_blank'; document.body.appendChild(a); a.click(); a.remove();
+            });
 
             // Toggle reimbursed section visibility
             document.getElementById('editReimbursable').addEventListener('change', toggleReimbursedSection);
