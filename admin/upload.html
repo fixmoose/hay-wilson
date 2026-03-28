@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Upload Receipts - H&amp;W</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#f8fafc; min-height:100vh; display:flex; flex-direction:column; color:#1e293b; }
+        .header { background:#1e293b; color:white; padding:1rem 1.25rem; text-align:center; }
+        .header h1 { font-size:1.1rem; font-weight:600; }
+        .header h1 span { color:#60a5fa; }
+        .header p { font-size:0.8rem; color:rgba(255,255,255,0.6); margin-top:0.25rem; }
+        .content { flex:1; padding:1.25rem; max-width:600px; margin:0 auto; width:100%; }
+        .upload-btn { width:100%; padding:2.5rem 1rem; border:3px dashed #cbd5e1; border-radius:16px; background:white; text-align:center; cursor:pointer; transition:all 0.2s; margin-bottom:1rem; }
+        .upload-btn:hover, .upload-btn:active { border-color:#2563eb; background:rgba(37,99,235,0.03); }
+        .upload-btn svg { margin-bottom:0.5rem; color:#94a3b8; }
+        .upload-btn p { color:#64748b; }
+        .upload-btn .main-text { font-size:1.1rem; font-weight:500; color:#1e293b; }
+        .upload-btn input { display:none; }
+        .preview-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:0.75rem; margin-bottom:1rem; }
+        .preview-item { position:relative; border-radius:10px; overflow:hidden; border:1px solid #e2e8f0; background:white; }
+        .preview-item img { width:100%; height:100px; object-fit:cover; display:block; }
+        .preview-item .pdf-thumb { width:100%; height:100px; display:flex; align-items:center; justify-content:center; background:#f1f5f9; color:#94a3b8; font-size:0.75rem; flex-direction:column; }
+        .preview-item .name { padding:0.3rem 0.5rem; font-size:0.65rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#64748b; }
+        .preview-remove { position:absolute; top:3px; right:3px; width:22px; height:22px; border-radius:50%; background:rgba(0,0,0,0.6); color:white; border:none; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; }
+        .send-btn { width:100%; padding:1rem; border:none; border-radius:12px; background:#2563eb; color:white; font-size:1.1rem; font-weight:600; cursor:pointer; transition:background 0.2s; }
+        .send-btn:hover { background:#1d4ed8; }
+        .send-btn:disabled { background:#94a3b8; cursor:not-allowed; }
+        .status { text-align:center; padding:1rem; color:#64748b; font-size:0.9rem; }
+        .status.error { color:#dc2626; }
+        .status.success { color:#16a34a; }
+        .done-screen { text-align:center; padding:3rem 1rem; }
+        .done-screen svg { color:#16a34a; margin-bottom:1rem; }
+        .done-screen h2 { margin-bottom:0.5rem; }
+        .done-screen p { color:#64748b; margin-bottom:1.5rem; }
+        .done-screen button { padding:0.75rem 2rem; border-radius:10px; border:1px solid #e2e8f0; background:white; font-size:1rem; cursor:pointer; }
+        .expired-screen { text-align:center; padding:3rem 1rem; }
+        .expired-screen svg { color:#dc2626; margin-bottom:1rem; }
+        .expired-screen h2 { margin-bottom:0.5rem; }
+        .expired-screen p { color:#64748b; }
+        .progress-bar { width:100%; height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden; margin:1rem 0; }
+        .progress-fill { height:100%; background:#2563eb; border-radius:3px; transition:width 0.3s; width:0%; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>H&W <span>Receipt Upload</span></h1>
+        <p id="headerSub">Select photos to upload</p>
+    </div>
+
+    <div class="content">
+        <!-- Upload State -->
+        <div id="uploadState">
+            <div class="upload-btn" id="uploadBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <p class="main-text">Tap to Select Photos</p>
+                <p style="font-size:0.8rem;margin-top:0.25rem;">Select multiple receipts from your camera roll</p>
+                <input type="file" id="fileInput" multiple accept="image/*,.pdf">
+            </div>
+
+            <div class="preview-grid" id="previewGrid" style="display:none;"></div>
+
+            <button class="send-btn" id="sendBtn" style="display:none;">Upload Receipts</button>
+
+            <div class="progress-bar" id="progressBar" style="display:none;">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <div class="status" id="statusMsg"></div>
+        </div>
+
+        <!-- Done State -->
+        <div id="doneState" class="done-screen" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="64" height="64"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <h2 id="doneTitle">Uploaded!</h2>
+            <p id="doneMsg">Your receipts have been uploaded.</p>
+            <button id="uploadMoreBtn">Upload More</button>
+        </div>
+
+        <!-- Expired State -->
+        <div id="expiredState" class="expired-screen" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="64" height="64"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <h2>Link Expired</h2>
+            <p>This upload link has expired. Open a new QR code from the admin panel.</p>
+        </div>
+    </div>
+
+    <script>
+        const token = new URLSearchParams(window.location.search).get('t');
+        let selectedFiles = [];
+
+        if (!token) {
+            document.getElementById('uploadState').style.display = 'none';
+            document.getElementById('expiredState').style.display = 'block';
+        } else {
+            setupUpload();
+        }
+
+        function setupUpload() {
+            const uploadBtn = document.getElementById('uploadBtn');
+            const fileInput = document.getElementById('fileInput');
+            const sendBtn = document.getElementById('sendBtn');
+
+            uploadBtn.addEventListener('click', () => fileInput.click());
+
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length) {
+                    // Add to selected files
+                    for (const f of fileInput.files) {
+                        selectedFiles.push(f);
+                    }
+                    renderPreviews();
+                    fileInput.value = '';
+                }
+            });
+
+            sendBtn.addEventListener('click', doUpload);
+
+            document.getElementById('uploadMoreBtn').addEventListener('click', () => {
+                selectedFiles = [];
+                document.getElementById('doneState').style.display = 'none';
+                document.getElementById('uploadState').style.display = 'block';
+                document.getElementById('previewGrid').style.display = 'none';
+                document.getElementById('sendBtn').style.display = 'none';
+                document.getElementById('statusMsg').textContent = '';
+                document.getElementById('headerSub').textContent = 'Select photos to upload';
+            });
+        }
+
+        function renderPreviews() {
+            const grid = document.getElementById('previewGrid');
+            const sendBtn = document.getElementById('sendBtn');
+
+            if (selectedFiles.length === 0) {
+                grid.style.display = 'none';
+                sendBtn.style.display = 'none';
+                return;
+            }
+
+            grid.style.display = 'grid';
+            sendBtn.style.display = 'block';
+            sendBtn.textContent = 'Upload ' + selectedFiles.length + ' Receipt' + (selectedFiles.length > 1 ? 's' : '');
+
+            grid.innerHTML = '';
+            selectedFiles.forEach((file, i) => {
+                const item = document.createElement('div');
+                item.className = 'preview-item';
+
+                const isPdf = file.name.toLowerCase().endsWith('.pdf');
+
+                if (isPdf) {
+                    item.innerHTML = '<div class="pdf-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</div>';
+                } else {
+                    const img = document.createElement('img');
+                    const reader = new FileReader();
+                    reader.onload = (e) => { img.src = e.target.result; };
+                    reader.readAsDataURL(file);
+                    item.appendChild(img);
+                }
+
+                const name = document.createElement('div');
+                name.className = 'name';
+                name.textContent = file.name;
+                item.appendChild(name);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'preview-remove';
+                removeBtn.innerHTML = '&times;';
+                removeBtn.addEventListener('click', () => {
+                    selectedFiles.splice(i, 1);
+                    renderPreviews();
+                });
+                item.appendChild(removeBtn);
+
+                grid.appendChild(item);
+            });
+        }
+
+        async function doUpload() {
+            const sendBtn = document.getElementById('sendBtn');
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+            const statusMsg = document.getElementById('statusMsg');
+
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Uploading...';
+            progressBar.style.display = 'block';
+            statusMsg.textContent = '';
+            statusMsg.className = 'status';
+
+            // Convert files to base64
+            const fileData = [];
+            for (let i = 0; i < selectedFiles.length; i++) {
+                progressFill.style.width = ((i / selectedFiles.length) * 50) + '%';
+                statusMsg.textContent = 'Preparing file ' + (i + 1) + ' of ' + selectedFiles.length + '...';
+
+                const file = selectedFiles[i];
+                const base64 = await fileToBase64(file);
+                fileData.push({
+                    name: file.name,
+                    data: base64,
+                    type: file.type
+                });
+            }
+
+            progressFill.style.width = '60%';
+            statusMsg.textContent = 'Uploading to server...';
+
+            try {
+                // Send in batches of 5 to avoid payload limits
+                let totalUploaded = 0;
+                const batchSize = 3;
+
+                for (let i = 0; i < fileData.length; i += batchSize) {
+                    const batch = fileData.slice(i, i + batchSize);
+                    const progress = 60 + ((i / fileData.length) * 35);
+                    progressFill.style.width = progress + '%';
+                    statusMsg.textContent = 'Uploading batch ' + (Math.floor(i / batchSize) + 1) + '...';
+
+                    const res = await fetch('/api/upload-receipt-file', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token, files: batch })
+                    });
+
+                    const result = await res.json();
+
+                    if (!res.ok) {
+                        if (res.status === 401) {
+                            document.getElementById('uploadState').style.display = 'none';
+                            document.getElementById('expiredState').style.display = 'block';
+                            return;
+                        }
+                        throw new Error(result.error || 'Upload failed');
+                    }
+
+                    totalUploaded += result.uploaded;
+                }
+
+                progressFill.style.width = '100%';
+
+                // Show done screen
+                setTimeout(() => {
+                    document.getElementById('uploadState').style.display = 'none';
+                    document.getElementById('doneState').style.display = 'block';
+                    document.getElementById('doneTitle').textContent = totalUploaded + ' Receipt' + (totalUploaded > 1 ? 's' : '') + ' Uploaded!';
+                    document.getElementById('doneMsg').textContent = 'They will appear in your admin panel.';
+                    selectedFiles = [];
+                }, 500);
+
+            } catch (err) {
+                statusMsg.textContent = 'Error: ' + err.message;
+                statusMsg.className = 'status error';
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Try Again';
+                progressBar.style.display = 'none';
+            }
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+    </script>
+</body>
+</html>

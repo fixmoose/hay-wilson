@@ -183,8 +183,8 @@
     <!-- QR Code Modal -->
     <div class="qr-modal" id="qrModal">
         <div class="qr-modal-content">
-            <h3>Scan to Upload from Phone</h3>
-            <p>Open your phone camera and scan this code to upload receipts directly.</p>
+            <h3>Upload from Phone</h3>
+            <p>Scan this QR code with your phone camera. No login needed -- just select photos and upload.</p>
             <canvas id="qrCanvas"></canvas>
             <button class="qr-close" id="qrClose">Close</button>
         </div>
@@ -504,38 +504,85 @@
         // ==================== QR Code ====================
         function setupQrCode() {
             const modal = document.getElementById('qrModal');
-            document.getElementById('showQrBtn').addEventListener('click', () => {
-                generateQrCode();
+            document.getElementById('showQrBtn').addEventListener('click', async () => {
+                await generateUploadLink();
                 modal.classList.add('active');
             });
             document.getElementById('qrClose').addEventListener('click', () => modal.classList.remove('active'));
             modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
         }
 
-        function generateQrCode() {
+        async function generateUploadLink() {
             const canvas = document.getElementById('qrCanvas');
-            const url = window.location.href;
             const ctx = canvas.getContext('2d');
-            const size = 200;
+            const size = 250;
             canvas.width = size;
             canvas.height = size;
 
-            // Simple QR encoding using canvas - we'll use the QR Server API as image source
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => { ctx.drawImage(img, 0, 0, size, size); };
-            img.onerror = () => {
-                // Fallback: show URL as text
+            // Show loading
+            ctx.fillStyle = '#f5f5f5';
+            ctx.fillRect(0, 0, size, size);
+            ctx.fillStyle = '#666';
+            ctx.font = '14px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Generating link...', size/2, size/2);
+
+            // Generate a random token
+            const token = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).substr(2));
+
+            // Get selected job for upload
+            const jobId = document.getElementById('uploadJobSelect').value;
+
+            // Save token to Supabase (expires in 30 minutes)
+            const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+            const { error } = await sb.from('hw_upload_tokens').insert({
+                token: token,
+                job_id: jobId === '_unassigned' ? null : jobId,
+                expires_at: expiresAt
+            });
+
+            if (error) {
                 ctx.fillStyle = '#f5f5f5';
                 ctx.fillRect(0, 0, size, size);
-                ctx.fillStyle = '#333';
-                ctx.font = '12px Inter, sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('Open on your phone:', size/2, size/2 - 10);
-                ctx.fillStyle = '#2563eb';
-                ctx.fillText(url.replace('https://', ''), size/2, size/2 + 10);
+                ctx.fillStyle = '#dc2626';
+                ctx.fillText('Failed to generate link', size/2, size/2);
+                console.error(error);
+                return;
+            }
+
+            // Build upload URL
+            const baseUrl = window.location.origin;
+            const uploadUrl = baseUrl + '/admin/upload.html?t=' + token;
+
+            // Generate QR code image
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, size, size);
+                ctx.drawImage(img, 0, 0, size, size);
             };
-            img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size + '&data=' + encodeURIComponent(url);
+            img.onerror = () => {
+                // Fallback: show link text
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, size, size);
+                ctx.fillStyle = '#333';
+                ctx.font = '11px Inter, sans-serif';
+                ctx.fillText('Could not render QR.', size/2, size/2 - 15);
+                ctx.fillText('Copy link below.', size/2, size/2 + 5);
+            };
+            img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size + '&data=' + encodeURIComponent(uploadUrl);
+
+            // Show the link text below QR for manual copy
+            let linkEl = document.getElementById('qrLink');
+            if (!linkEl) {
+                linkEl = document.createElement('div');
+                linkEl.id = 'qrLink';
+                linkEl.style.cssText = 'margin-top:1rem;font-size:0.75rem;color:#64748b;word-break:break-all;';
+                canvas.parentNode.insertBefore(linkEl, document.getElementById('qrClose'));
+            }
+            linkEl.innerHTML = '<div style="margin-bottom:0.5rem;">Expires in 30 minutes</div>' +
+                '<button onclick="navigator.clipboard.writeText(\'' + uploadUrl + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy Link\',2000)" style="padding:0.4rem 1rem;border-radius:6px;border:1px solid #e2e8f0;background:white;cursor:pointer;font-size:0.8rem;">Copy Link</button>';
         }
 
         // ==================== AI Receipt Reading ====================
