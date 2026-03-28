@@ -22,7 +22,7 @@
     </div>
     <aside class="admin-sidebar" id="adminSidebar"></aside>
     <main class="admin-main">
-        <a href="jobs.html" class="back-link">
+        <a href="/admin/jobs.html" class="back-link">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
             Back to Jobs
         </a>
@@ -224,7 +224,7 @@
 
         (async () => {
             if (!jobId) {
-                window.location.href = 'jobs.html';
+                window.location.href = '/admin/jobs.html';
                 return;
             }
             const session = await initAdminPage('jobs');
@@ -240,13 +240,13 @@
         async function loadJob() {
             const { data, error } = await supabase
                 .from('hw_jobs')
-                .select('*, hw_customers(id, name)')
+                .select('*, hw_customers(id, name, email, phone, stripe_customer_id)')
                 .eq('id', jobId)
                 .single();
 
             if (error || !data) {
                 showToast('Job not found', 'error');
-                setTimeout(() => window.location.href = 'jobs.html', 1500);
+                setTimeout(() => window.location.href = '/admin/jobs.html', 1500);
                 return;
             }
 
@@ -265,7 +265,7 @@
             document.getElementById('jobTitle').textContent = job.name;
 
             const customerLink = job.hw_customers
-                ? `<a href="customer-detail.html?id=${job.hw_customers.id}" style="color:var(--primary-light);text-decoration:none;">${escapeHtml(job.hw_customers.name)}</a>`
+                ? `<a href="/admin/customer-detail.html?id=${job.hw_customers.id}" style="color:var(--primary-light);text-decoration:none;">${escapeHtml(job.hw_customers.name)}</a>`
                 : '-';
 
             document.getElementById('jobInfoGrid').innerHTML = `
@@ -375,21 +375,22 @@
                 .order('expense_date', { ascending: false });
 
             if (error) {
-                showToast('Failed to load expenses', 'error');
-                return;
+                console.error('Load expenses error:', error);
+                expenses = [];
+            } else {
+                expenses = data || [];
             }
-
-            expenses = data || [];
-            renderExpenses();
+            await renderExpenses();
         }
 
-        function getReceiptUrl(receiptPath) {
+        async function getReceiptUrl(receiptPath) {
             if (!receiptPath) return null;
-            const { data } = supabase.storage.from('hw-receipts').getPublicUrl(receiptPath);
-            return data?.publicUrl || null;
+            const { data, error } = await supabase.storage.from('hw-receipts').createSignedUrl(receiptPath, 3600);
+            if (error) return null;
+            return data?.signedUrl || null;
         }
 
-        function renderExpenses() {
+        async function renderExpenses() {
             const tbody = document.getElementById('expensesTableBody');
             const total = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
             document.getElementById('expensesTotal').textContent = formatCurrency(total);
@@ -398,18 +399,21 @@
                 tbody.innerHTML = `
                     <tr><td colspan="5">
                         <div class="empty-state">
-                            <p>No expenses yet</p>
+                            <p>No expenses yet. Click "Add Expense" to track costs.</p>
                         </div>
                     </td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = expenses.map(exp => {
-                const receiptUrl = getReceiptUrl(exp.receipt_path);
-                const receiptHtml = receiptUrl
-                    ? `<img src="${receiptUrl}" class="receipt-thumb" onclick="viewReceipt('${receiptUrl}')" alt="Receipt">`
-                    : '<span style="color:var(--text-light);font-size:0.8rem;">-</span>';
-
+            // Build rows, fetching signed URLs for receipts
+            const rows = await Promise.all(expenses.map(async (exp) => {
+                let receiptHtml = '<span style="color:var(--text-light);font-size:0.8rem;">-</span>';
+                if (exp.receipt_path) {
+                    const url = await getReceiptUrl(exp.receipt_path);
+                    if (url) {
+                        receiptHtml = `<img src="${url}" class="receipt-thumb" onclick="viewReceipt('${url}')" alt="Receipt">`;
+                    }
+                }
                 return `
                     <tr>
                         <td>${escapeHtml(exp.vendor) || '-'}</td>
@@ -418,7 +422,9 @@
                         <td>${formatDate(exp.expense_date)}</td>
                         <td>${receiptHtml}</td>
                     </tr>`;
-            }).join('');
+            }));
+
+            tbody.innerHTML = rows.join('');
         }
 
         // ==================== Add Expense Modal ====================
@@ -741,39 +747,74 @@
             btn.textContent = 'Creating...';
 
             try {
+                const amount = parseFloat(document.getElementById('invoiceAmount').value);
+                const description = document.getElementById('invoiceDescription').value.trim();
+                const dueDate = document.getElementById('invoiceDueDate').value || null;
+
+                // Ensure customer has a Stripe customer ID
+                let stripeCustomerId = job.hw_customers?.stripe_customer_id;
+                if (!stripeCustomerId) {
+                    const custResult = await callApi('/api/stripe-create-customer', {
+                        name: job.hw_customers?.name || 'Customer',
+                        email: job.hw_customers?.email || undefined,
+                        phone: job.hw_customers?.phone || undefined,
+                    });
+                    stripeCustomerId = custResult.stripe_customer_id;
+                    // Save Stripe customer ID back to database
+                    await supabase.from('hw_customers').update({ stripe_customer_id: stripeCustomerId }).eq('id', job.customer_id);
+                }
+
+                // Create Stripe invoice (amount in cents)
                 const result = await callApi('/api/stripe-create-invoice', {
-                    job_id: jobId,
-                    customer_id: job.customer_id,
-                    amount: parseFloat(document.getElementById('invoiceAmount').value),
-                    description: document.getElementById('invoiceDescription').value.trim(),
-                    due_date: document.getElementById('invoiceDueDate').value || null,
+                    stripe_customer_id: stripeCustomerId,
+                    amount_cents: Math.round(amount * 100),
+                    description: description || job.name,
+                    due_date: dueDate,
                 });
+
+                // Save invoice record in our database
+                const { error: dbErr } = await supabase.from('hw_invoices').insert({
+                    job_id: jobId,
+                    stripe_invoice_id: result.stripe_invoice_id,
+                    stripe_invoice_url: result.stripe_invoice_url,
+                    amount: amount,
+                    status: 'draft',
+                    due_date: dueDate,
+                });
+
+                if (dbErr) throw dbErr;
 
                 showToast('Invoice created');
                 await loadInvoice();
                 updateProfitSummary();
             } catch (err) {
                 showToast('Failed to create invoice: ' + err.message, 'error');
-                btn.disabled = false;
-                btn.textContent = 'Create Invoice';
             }
+
+            btn.disabled = false;
+            btn.textContent = 'Create Invoice';
         }
 
         async function handleSendInvoice() {
             if (!confirmAction('Send this invoice to the customer?')) return;
 
             try {
-                await callApi('/api/stripe-send-invoice', {
-                    invoice_id: invoice.id,
+                const result = await callApi('/api/stripe-send-invoice', {
                     stripe_invoice_id: invoice.stripe_invoice_id,
                 });
 
-                showToast('Invoice sent');
-                await loadInvoice();
+                // Update local DB
+                await supabase.from('hw_invoices').update({
+                    status: 'sent',
+                    stripe_invoice_url: result.stripe_invoice_url || invoice.stripe_invoice_url,
+                }).eq('id', invoice.id);
 
                 // Update job status to invoiced
                 await supabase.from('hw_jobs').update({ status: 'invoiced' }).eq('id', jobId);
                 job.status = 'invoiced';
+
+                showToast('Invoice sent');
+                await loadInvoice();
                 renderJobInfo();
             } catch (err) {
                 showToast('Failed to send invoice: ' + err.message, 'error');
@@ -785,9 +826,11 @@
 
             try {
                 await callApi('/api/stripe-void-invoice', {
-                    invoice_id: invoice.id,
                     stripe_invoice_id: invoice.stripe_invoice_id,
                 });
+
+                // Update local DB
+                await supabase.from('hw_invoices').update({ status: 'void' }).eq('id', invoice.id);
 
                 showToast('Invoice voided');
                 await loadInvoice();

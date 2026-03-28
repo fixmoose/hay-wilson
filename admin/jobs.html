@@ -119,10 +119,10 @@
             if (error) {
                 showToast('Failed to load jobs', 'error');
                 console.error(error);
-                return;
+                allJobs = [];
+            } else {
+                allJobs = data || [];
             }
-
-            allJobs = data || [];
             renderJobs();
         }
 
@@ -144,7 +144,7 @@
             }
 
             tbody.innerHTML = filtered.map(job => `
-                <tr class="clickable" onclick="window.location.href='job-detail.html?id=${job.id}'">
+                <tr class="clickable" onclick="window.location.href='/admin/job-detail.html?id=${job.id}'">
                     <td><strong>${escapeHtml(job.name)}</strong></td>
                     <td>${escapeHtml(job.hw_customers?.name || '-')}</td>
                     <td>${statusBadge(job.status)}</td>

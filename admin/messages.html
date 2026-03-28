@@ -108,10 +108,11 @@
             .order('created_at', { ascending: false });
 
         if (error) {
-            showToast('Failed to load messages', 'error');
-            return;
+            console.error('Load messages error:', error);
+            allMessages = [];
+        } else {
+            allMessages = data || [];
         }
-        allMessages = data || [];
         renderMessages();
     }
 

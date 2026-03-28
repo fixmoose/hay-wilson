@@ -158,16 +158,27 @@ async function callApi(endpoint, body) {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Not authenticated');
 
-    const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify(body)
-    });
+    let response;
+    try {
+        response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify(body)
+        });
+    } catch (err) {
+        throw new Error('Network error - check your connection');
+    }
 
-    const result = await response.json();
+    let result;
+    try {
+        result = await response.json();
+    } catch (err) {
+        throw new Error('Server error (' + response.status + ')');
+    }
+
     if (!response.ok) throw new Error(result.error || 'API request failed');
     return result;
 }
