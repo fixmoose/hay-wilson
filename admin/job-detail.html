@@ -7,7 +7,35 @@
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/admin/admin-styles.css?v=4">
+    <link rel="stylesheet" href="/admin/admin-styles.css">
+    <style>
+        .job-header { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem; }
+        .job-header h2 { margin:0; font-size:1.5rem; }
+        .job-header .status-select { padding:0.4rem 2rem 0.4rem 0.6rem; font-size:0.85rem; border-radius:6px; border:1px solid var(--border-color); background:white; cursor:pointer; }
+        .job-meta { display:flex; gap:1.5rem; flex-wrap:wrap; margin-top:0.5rem; font-size:0.9rem; color:var(--text-light); }
+        .job-meta a { color:var(--primary-light); text-decoration:none; }
+        .section-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-bottom:1.25rem; }
+        @media(max-width:768px) { .section-grid { grid-template-columns:1fr; } }
+        .section-card { background:white; border-radius:12px; border:1px solid var(--border-color); overflow:hidden; }
+        .section-card-header { padding:1rem 1.25rem; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; }
+        .section-card-header h4 { margin:0; font-size:0.95rem; font-weight:600; }
+        .section-card-body { padding:1.25rem; }
+        .section-card-body.empty { text-align:center; padding:2rem 1.25rem; color:var(--text-light); }
+        .info-row { display:flex; justify-content:space-between; padding:0.5rem 0; border-bottom:1px solid var(--bg-light); font-size:0.9rem; }
+        .info-row:last-child { border:none; }
+        .info-row .label { color:var(--text-light); }
+        .info-row .value { font-weight:500; text-align:right; }
+        .next-steps { list-style:none; padding:0; margin:0; }
+        .next-steps li { padding:0.6rem 0; border-bottom:1px solid var(--bg-light); font-size:0.9rem; display:flex; align-items:center; gap:0.5rem; }
+        .next-steps li:last-child { border:none; }
+        .step-dot { width:8px; height:8px; border-radius:50%; background:var(--primary-light); flex-shrink:0; }
+        .step-dot.done { background:var(--success); }
+        .step-dot.pending { background:var(--border-color); }
+        .full-width { grid-column:1/-1; }
+        .notes-text { white-space:pre-wrap; line-height:1.7; color:var(--text-dark); font-size:0.9rem; }
+        .price-big { font-size:1.8rem; font-weight:700; color:var(--primary-dark); }
+        .price-sub { font-size:0.85rem; color:var(--text-light); margin-top:0.25rem; }
+    </style>
 </head>
 <body>
     <div class="admin-topbar">
@@ -20,7 +48,19 @@
             <button class="btn-logout" id="logoutBtn">Logout</button>
         </div>
     </div>
-    <aside class="admin-sidebar" id="adminSidebar"></aside>
+
+    <aside class="admin-sidebar" id="adminSidebar">
+        <ul class="admin-nav">
+            <li><a href="/admin/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Dashboard</a></li>
+            <li><a href="/admin/jobs.html" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Jobs</a></li>
+            <li><a href="/admin/clients.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Clients</a></li>
+            <li><a href="/admin/invoices.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Invoices</a></li>
+            <li><a href="/admin/documents.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Documents</a></li>
+            <li><div class="nav-divider"></div></li>
+            <li><a href="/" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>View Site</a></li>
+        </ul>
+    </aside>
+
     <main class="admin-main">
         <a href="/admin/jobs.html" class="back-link">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
@@ -30,78 +70,104 @@
         <div id="pageLoading" class="loading"><div class="spinner"></div></div>
 
         <div id="pageContent" style="display:none;">
-            <!-- Job Info Card -->
-            <div class="admin-card">
-                <div class="admin-card-header">
-                    <h3 id="jobTitle">Job Details</h3>
-                    <button class="btn btn-outline btn-sm" id="editJobBtn">Edit</button>
-                </div>
-                <div class="detail-info-grid" id="jobInfoGrid">
-                    <!-- Filled by JS -->
-                </div>
-            </div>
-
-            <!-- Expenses Section -->
-            <div class="admin-card">
-                <div class="admin-card-header">
-                    <h3>Expenses</h3>
-                    <button class="btn btn-primary btn-sm" id="addExpenseBtn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        Add Expense
-                    </button>
-                </div>
-                <div class="admin-table-wrap">
-                    <table class="admin-table">
-                        <thead>
-                            <tr>
-                                <th>Vendor</th>
-                                <th>Description</th>
-                                <th>Amount</th>
-                                <th>Date</th>
-                                <th>Receipt</th>
-                            </tr>
-                        </thead>
-                        <tbody id="expensesTableBody">
-                            <tr><td colspan="5"><div class="loading"><div class="spinner"></div></div></td></tr>
-                        </tbody>
-                        <tfoot>
-                            <tr>
-                                <td colspan="2" style="text-align:right;font-weight:600;">Total</td>
-                                <td style="font-weight:700;" id="expensesTotal">$0.00</td>
-                                <td colspan="2"></td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Invoice Section -->
-            <div class="admin-card">
-                <div class="admin-card-header">
-                    <h3>Invoice</h3>
-                </div>
-                <div class="modal-body" id="invoiceSection">
-                    <div class="loading"><div class="spinner"></div></div>
-                </div>
-            </div>
-
-            <!-- Profit Summary -->
-            <div class="admin-card">
-                <div class="admin-card-header">
-                    <h3>Profit Summary</h3>
-                </div>
-                <div class="profit-summary" id="profitSummary">
-                    <div class="profit-item">
-                        <label>Invoice Total</label>
-                        <div class="value money" id="profitInvoice">$0.00</div>
+            <!-- Job Header -->
+            <div class="job-header">
+                <div>
+                    <h2 id="jobName">Job Name</h2>
+                    <div class="job-meta">
+                        <span>Client: <a href="#" id="clientLink">-</a></span>
+                        <span>Started: <span id="startDate">-</span></span>
+                        <span>End: <span id="endDate">-</span></span>
                     </div>
-                    <div class="profit-item">
-                        <label>Expenses Total</label>
-                        <div class="value danger" id="profitExpenses">$0.00</div>
+                </div>
+                <select class="status-select" id="statusSelect">
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="invoiced">Invoiced</option>
+                    <option value="paid">Paid</option>
+                </select>
+            </div>
+
+            <!-- Cards Grid -->
+            <div class="section-grid">
+                <!-- Pricing -->
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h4>Pricing</h4>
+                        <button class="btn btn-outline btn-sm" id="editPriceBtn">Edit</button>
                     </div>
-                    <div class="profit-item">
-                        <label>Profit</label>
-                        <div class="value" id="profitNet">$0.00</div>
+                    <div class="section-card-body" id="pricingBody">
+                        <div class="price-big" id="jobPrice">Not set</div>
+                        <div class="price-sub" id="jobPriceSub"></div>
+                    </div>
+                </div>
+
+                <!-- Permit -->
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h4>Permit</h4>
+                        <button class="btn btn-outline btn-sm" id="editPermitBtn">Edit</button>
+                    </div>
+                    <div class="section-card-body" id="permitBody">
+                        <div class="info-row"><span class="label">Status</span><span class="value" id="permitStatus">-</span></div>
+                        <div class="info-row"><span class="label">Permit #</span><span class="value" id="permitNumber">-</span></div>
+                        <div class="info-row"><span class="label">Inspection</span><span class="value" id="permitInspection">-</span></div>
+                    </div>
+                </div>
+
+                <!-- Plan Set / Documents -->
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h4>Plan Set & Documents</h4>
+                        <button class="btn btn-outline btn-sm" id="addDocBtn">Upload</button>
+                    </div>
+                    <div class="section-card-body empty" id="docsBody">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32" style="margin-bottom:0.5rem;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                        <p>No documents yet</p>
+                    </div>
+                </div>
+
+                <!-- Next Steps -->
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h4>Next Steps</h4>
+                    </div>
+                    <div class="section-card-body" id="stepsBody">
+                        <ul class="next-steps" id="stepsList"></ul>
+                    </div>
+                </div>
+
+                <!-- Expenses -->
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h4>Expenses</h4>
+                        <button class="btn btn-outline btn-sm" id="addExpenseBtn">Add</button>
+                    </div>
+                    <div class="section-card-body" id="expensesBody">
+                        <div class="info-row"><span class="label">Total Expenses</span><span class="value" id="expenseTotal">$0.00</span></div>
+                    </div>
+                </div>
+
+                <!-- Invoice -->
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h4>Invoice</h4>
+                    </div>
+                    <div class="section-card-body" id="invoiceBody">
+                        <div class="info-row"><span class="label">Status</span><span class="value" id="invoiceStatus">No invoice</span></div>
+                        <div class="info-row"><span class="label">Amount</span><span class="value" id="invoiceAmount">-</span></div>
+                    </div>
+                </div>
+
+                <!-- Notes (full width) -->
+                <div class="section-card full-width">
+                    <div class="section-card-header">
+                        <h4>Notes & Description</h4>
+                        <button class="btn btn-outline btn-sm" id="editNotesBtn">Edit</button>
+                    </div>
+                    <div class="section-card-body">
+                        <p class="notes-text" id="jobNotes">No notes</p>
                     </div>
                 </div>
             </div>
@@ -109,138 +175,71 @@
     </main>
 
     <!-- Edit Job Modal -->
-    <div class="modal-overlay" id="editJobModal">
+    <div class="modal-overlay" id="editModal">
         <div class="modal">
             <div class="modal-header">
-                <h3>Edit Job</h3>
-                <button class="modal-close" id="closeEditJob">&times;</button>
+                <h3 id="editModalTitle">Edit</h3>
+                <button class="modal-close" id="editModalClose">&times;</button>
             </div>
-            <form id="editJobForm">
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="editJobName">Job Name *</label>
-                        <input type="text" id="editJobName" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="editJobDescription">Description</label>
-                        <textarea id="editJobDescription" class="form-control" rows="3"></textarea>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="editJobStartDate">Start Date</label>
-                            <input type="date" id="editJobStartDate" class="form-control">
-                        </div>
-                        <div class="form-group">
-                            <label for="editJobEndDate">End Date</label>
-                            <input type="date" id="editJobEndDate" class="form-control">
-                        </div>
-                    </div>
-                </div>
+            <form id="editForm">
+                <div class="modal-body" id="editModalBody"></div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline" id="cancelEditJob">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="submitEditJob">Save Changes</button>
+                    <button type="button" class="btn btn-outline" id="editModalCancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="editModalSave">Save</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Add Expense Modal -->
-    <div class="modal-overlay" id="addExpenseModal">
-        <div class="modal" style="max-width:550px;">
-            <div class="modal-header">
-                <h3>Add Expense</h3>
-                <button class="modal-close" id="closeAddExpense">&times;</button>
-            </div>
-            <form id="addExpenseForm">
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label>Receipt (optional)</label>
-                        <div style="display:flex;gap:0.5rem;align-items:center;">
-                            <button type="button" class="btn btn-outline btn-sm" id="scanReceiptBtn">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
-                                Scan Receipt
-                            </button>
-                            <span id="receiptFileName" style="font-size:0.8rem;color:var(--text-light);"></span>
-                        </div>
-                        <input type="file" id="receiptFileInput" accept="image/*" capture="environment" style="display:none;">
-                        <img id="receiptPreview" class="receipt-preview" style="display:none;">
-                    </div>
-                    <div class="ocr-progress" id="ocrProgress" style="display:none;">
-                        <div class="ocr-progress-bar">
-                            <div class="ocr-progress-fill" id="ocrProgressFill"></div>
-                        </div>
-                        <div class="ocr-progress-text" id="ocrProgressText">Scanning...</div>
-                    </div>
-                    <div class="form-group">
-                        <label for="expenseVendor">Vendor</label>
-                        <input type="text" id="expenseVendor" class="form-control" placeholder="e.g. Home Depot">
-                    </div>
-                    <div class="form-group">
-                        <label for="expenseDescription">Description</label>
-                        <input type="text" id="expenseDescription" class="form-control" placeholder="e.g. Wire, breakers, panel">
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="expenseAmount">Amount *</label>
-                            <input type="number" id="expenseAmount" class="form-control" step="0.01" min="0" required placeholder="0.00">
-                        </div>
-                        <div class="form-group">
-                            <label for="expenseDate">Date</label>
-                            <input type="date" id="expenseDate" class="form-control">
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline" id="cancelAddExpense">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="submitAddExpense">Add Expense</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Receipt Viewer Modal -->
-    <div class="modal-overlay" id="receiptViewerModal">
-        <div class="modal" style="max-width:700px;">
-            <div class="modal-header">
-                <h3>Receipt</h3>
-                <button class="modal-close" id="closeReceiptViewer">&times;</button>
-            </div>
-            <div class="modal-body" style="text-align:center;">
-                <img id="receiptViewerImg" style="max-width:100%;max-height:70vh;border-radius:8px;">
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.body.innerHTML='<h1 style=padding:2rem>Supabase CDN blocked. Disable ad-blocker or check internet.</h1>'"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" onerror="console.warn('Tesseract failed to load')"></script>
-    <script>document.write('<scr'+'ipt src="/admin/hw.js?_='+Date.now()+'"></scr'+'ipt>');</script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        const jobId = getUrlParam('id');
+        const sb = window.supabase.createClient(
+            'https://mxxabikquupnwvlspzyz.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14eGFiaWtxdXVwbnd2bHNwenl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDMwNTgsImV4cCI6MjA3NzIxOTA1OH0.WC_mupqYMneJnYmr9vmDZd0vXroBnaLwZlYX44J_HFQ'
+        );
+
+        // Helpers
+        function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function formatDate(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+        function formatDateInput(d) { if (!d) return ''; return new Date(d).toISOString().split('T')[0]; }
+        function formatCurrency(a) { return '$' + (parseFloat(a) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+        function statusBadge(s) { return '<span class="badge badge-' + s + '">' + s.replace('_', ' ') + '</span>'; }
+        function showToast(msg, type) {
+            type = type || 'success';
+            let c = document.querySelector('.toast-container');
+            if (!c) { c = document.createElement('div'); c.className = 'toast-container'; document.body.appendChild(c); }
+            const t = document.createElement('div'); t.className = 'toast toast-' + type; t.textContent = msg; c.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(100%)'; setTimeout(() => t.remove(), 300); }, 3000);
+        }
+
+        const jobId = new URLSearchParams(window.location.search).get('id');
         let job = null;
-        let expenses = [];
-        let invoice = null;
-        let receiptFile = null;
-        let ocrRawText = null;
 
         (async () => {
-            if (!jobId) {
-                window.location.href = '/admin/jobs.html';
-                return;
-            }
-            const session = await initAdminPage('jobs');
-            if (!session) return;
+            if (!jobId) { window.location.href = '/admin/jobs.html'; return; }
+
+            // Auth
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) { window.location.href = '/admin/login.html'; return; }
+            document.getElementById('adminUser').textContent = session.user.email;
+            document.getElementById('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); window.location.href = '/admin/login.html'; });
+
+            // Mobile sidebar
+            const sidebar = document.getElementById('adminSidebar');
+            const toggle = document.getElementById('sidebarToggle');
+            toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+            document.addEventListener('click', (e) => { if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggle.contains(e.target)) sidebar.classList.remove('open'); });
 
             await loadJob();
+            setupStatusChange();
             setupEditModal();
-            setupExpenseModal();
-            setupReceiptViewer();
         })();
 
         // ==================== Load Job ====================
         async function loadJob() {
-            const { data, error } = await supabase
+            const { data, error } = await sb
                 .from('hw_jobs')
-                .select('*, hw_customers(id, name, email, phone, stripe_customer_id)')
+                .select('*, hw_customers(id, name, phone, email)')
                 .eq('id', jobId)
                 .single();
 
@@ -252,368 +251,80 @@
 
             job = data;
             document.title = job.name + ' - H&W Admin';
-            renderJobInfo();
+            renderJob();
 
             document.getElementById('pageLoading').style.display = 'none';
             document.getElementById('pageContent').style.display = 'block';
 
-            await Promise.all([loadExpenses(), loadInvoice()]);
-            updateProfitSummary();
+            // Load expenses and invoice in parallel
+            loadExpenses();
+            loadInvoice();
         }
 
-        function renderJobInfo() {
-            document.getElementById('jobTitle').textContent = job.name;
+        function renderJob() {
+            document.getElementById('jobName').textContent = job.name;
+            document.getElementById('statusSelect').value = job.status || 'pending';
+            document.getElementById('startDate').textContent = formatDate(job.start_date);
+            document.getElementById('endDate').textContent = formatDate(job.end_date);
 
-            const customerLink = job.hw_customers
-                ? `<a href="/admin/customer-detail.html?id=${job.hw_customers.id}" style="color:var(--primary-light);text-decoration:none;">${escapeHtml(job.hw_customers.name)}</a>`
-                : '-';
+            // Client link
+            const clientLink = document.getElementById('clientLink');
+            if (job.hw_customers) {
+                clientLink.textContent = job.hw_customers.name;
+                clientLink.href = '/admin/clients.html';
+            } else {
+                clientLink.textContent = 'No client assigned';
+                clientLink.removeAttribute('href');
+            }
 
-            document.getElementById('jobInfoGrid').innerHTML = `
-                <div class="detail-info-item">
-                    <label>Customer</label>
-                    <p>${customerLink}</p>
-                </div>
-                <div class="detail-info-item">
-                    <label>Status</label>
-                    <p>
-                        <select class="form-control" id="statusDropdown" style="display:inline-block;width:auto;padding:0.3rem 2rem 0.3rem 0.5rem;font-size:0.85rem;">
-                            <option value="pending" ${job.status === 'pending' ? 'selected' : ''}>Pending</option>
-                            <option value="in_progress" ${job.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
-                            <option value="completed" ${job.status === 'completed' ? 'selected' : ''}>Completed</option>
-                            <option value="invoiced" ${job.status === 'invoiced' ? 'selected' : ''}>Invoiced</option>
-                            <option value="paid" ${job.status === 'paid' ? 'selected' : ''}>Paid</option>
-                        </select>
-                    </p>
-                </div>
-                <div class="detail-info-item">
-                    <label>Start Date</label>
-                    <p>${formatDate(job.start_date)}</p>
-                </div>
-                <div class="detail-info-item">
-                    <label>End Date</label>
-                    <p>${formatDate(job.end_date)}</p>
-                </div>
-                <div class="detail-info-item" style="grid-column:1/-1;">
-                    <label>Description</label>
-                    <p>${escapeHtml(job.description) || '<span style="color:var(--text-light);">No description</span>'}</p>
-                </div>
-            `;
+            // Notes
+            document.getElementById('jobNotes').textContent = job.description || 'No notes';
 
-            // Status change handler
-            document.getElementById('statusDropdown').addEventListener('change', async (e) => {
-                const newStatus = e.target.value;
-                const { error } = await supabase
-                    .from('hw_jobs')
-                    .update({ status: newStatus })
-                    .eq('id', jobId);
-
-                if (error) {
-                    showToast('Failed to update status', 'error');
-                    e.target.value = job.status;
-                } else {
-                    job.status = newStatus;
-                    showToast('Status updated');
-                }
-            });
+            // Next steps based on status
+            renderNextSteps();
         }
 
-        // ==================== Edit Job Modal ====================
-        function setupEditModal() {
-            const modal = document.getElementById('editJobModal');
-            const openBtn = document.getElementById('editJobBtn');
-            const closeBtn = document.getElementById('closeEditJob');
-            const cancelBtn = document.getElementById('cancelEditJob');
-            const form = document.getElementById('editJobForm');
+        function renderNextSteps() {
+            const steps = [
+                { label: 'Job created', done: true },
+                { label: 'Client assigned', done: !!job.hw_customers },
+                { label: 'Work in progress', done: ['in_progress','completed','invoiced','paid'].includes(job.status) },
+                { label: 'Work completed', done: ['completed','invoiced','paid'].includes(job.status) },
+                { label: 'Invoice sent', done: ['invoiced','paid'].includes(job.status) },
+                { label: 'Payment received', done: job.status === 'paid' },
+            ];
 
-            openBtn.addEventListener('click', () => {
-                document.getElementById('editJobName').value = job.name;
-                document.getElementById('editJobDescription').value = job.description || '';
-                document.getElementById('editJobStartDate').value = formatDateInput(job.start_date);
-                document.getElementById('editJobEndDate').value = formatDateInput(job.end_date);
-                modal.classList.add('active');
-            });
-
-            closeBtn.addEventListener('click', () => modal.classList.remove('active'));
-            cancelBtn.addEventListener('click', () => modal.classList.remove('active'));
-            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
-
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const btn = document.getElementById('submitEditJob');
-                btn.disabled = true;
-                btn.textContent = 'Saving...';
-
-                const updates = {
-                    name: document.getElementById('editJobName').value.trim(),
-                    description: document.getElementById('editJobDescription').value.trim() || null,
-                    start_date: document.getElementById('editJobStartDate').value || null,
-                    end_date: document.getElementById('editJobEndDate').value || null,
-                };
-
-                const { error } = await supabase.from('hw_jobs').update(updates).eq('id', jobId);
-
-                if (error) {
-                    showToast('Failed to save: ' + error.message, 'error');
-                } else {
-                    Object.assign(job, updates);
-                    renderJobInfo();
-                    modal.classList.remove('active');
-                    showToast('Job updated');
-                }
-
-                btn.disabled = false;
-                btn.textContent = 'Save Changes';
-            });
+            document.getElementById('stepsList').innerHTML = steps.map(s =>
+                '<li><span class="step-dot ' + (s.done ? 'done' : 'pending') + '"></span>' +
+                '<span style="' + (s.done ? '' : 'color:var(--text-light)') + '">' + s.label + '</span></li>'
+            ).join('');
         }
 
         // ==================== Expenses ====================
         async function loadExpenses() {
-            const { data, error } = await supabase
+            const { data, error } = await sb
                 .from('hw_expenses')
                 .select('*')
-                .eq('job_id', jobId)
-                .order('expense_date', { ascending: false });
+                .eq('job_id', jobId);
 
-            if (error) {
-                console.error('Load expenses error:', error);
-                expenses = [];
-            } else {
-                expenses = data || [];
-            }
-            await renderExpenses();
-        }
+            if (error) { console.error(error); return; }
 
-        async function getReceiptUrl(receiptPath) {
-            if (!receiptPath) return null;
-            const { data, error } = await supabase.storage.from('hw-receipts').createSignedUrl(receiptPath, 3600);
-            if (error) return null;
-            return data?.signedUrl || null;
-        }
-
-        async function renderExpenses() {
-            const tbody = document.getElementById('expensesTableBody');
+            const expenses = data || [];
             const total = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-            document.getElementById('expensesTotal').textContent = formatCurrency(total);
+            document.getElementById('expenseTotal').textContent = formatCurrency(total);
 
-            if (expenses.length === 0) {
-                tbody.innerHTML = `
-                    <tr><td colspan="5">
-                        <div class="empty-state">
-                            <p>No expenses yet. Click "Add Expense" to track costs.</p>
-                        </div>
-                    </td></tr>`;
-                return;
+            if (expenses.length > 0) {
+                const body = document.getElementById('expensesBody');
+                body.innerHTML = expenses.map(e =>
+                    '<div class="info-row"><span class="label">' + escapeHtml(e.vendor || e.description || 'Expense') + '</span><span class="value">' + formatCurrency(e.amount) + '</span></div>'
+                ).join('') +
+                '<div class="info-row" style="font-weight:700;border-top:2px solid var(--border-color);margin-top:0.25rem;padding-top:0.75rem;"><span class="label">Total</span><span class="value">' + formatCurrency(total) + '</span></div>';
             }
-
-            // Build rows, fetching signed URLs for receipts
-            const rows = await Promise.all(expenses.map(async (exp) => {
-                let receiptHtml = '<span style="color:var(--text-light);font-size:0.8rem;">-</span>';
-                if (exp.receipt_path) {
-                    const url = await getReceiptUrl(exp.receipt_path);
-                    if (url) {
-                        receiptHtml = `<img src="${url}" class="receipt-thumb" onclick="viewReceipt('${url}')" alt="Receipt">`;
-                    }
-                }
-                return `
-                    <tr>
-                        <td>${escapeHtml(exp.vendor) || '-'}</td>
-                        <td>${escapeHtml(exp.description) || '-'}</td>
-                        <td><strong>${formatCurrency(exp.amount)}</strong></td>
-                        <td>${formatDate(exp.expense_date)}</td>
-                        <td>${receiptHtml}</td>
-                    </tr>`;
-            }));
-
-            tbody.innerHTML = rows.join('');
         }
 
-        // ==================== Add Expense Modal ====================
-        function setupExpenseModal() {
-            const modal = document.getElementById('addExpenseModal');
-            const openBtn = document.getElementById('addExpenseBtn');
-            const closeBtn = document.getElementById('closeAddExpense');
-            const cancelBtn = document.getElementById('cancelAddExpense');
-            const form = document.getElementById('addExpenseForm');
-            const fileInput = document.getElementById('receiptFileInput');
-            const scanBtn = document.getElementById('scanReceiptBtn');
-            const preview = document.getElementById('receiptPreview');
-
-            openBtn.addEventListener('click', () => {
-                form.reset();
-                preview.style.display = 'none';
-                document.getElementById('receiptFileName').textContent = '';
-                document.getElementById('ocrProgress').style.display = 'none';
-                document.getElementById('ocrProgressFill').style.width = '0%';
-                receiptFile = null;
-                ocrRawText = null;
-                document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
-                modal.classList.add('active');
-            });
-
-            closeBtn.addEventListener('click', () => modal.classList.remove('active'));
-            cancelBtn.addEventListener('click', () => modal.classList.remove('active'));
-            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
-
-            scanBtn.addEventListener('click', () => fileInput.click());
-
-            fileInput.addEventListener('change', async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                receiptFile = file;
-                document.getElementById('receiptFileName').textContent = file.name;
-
-                // Show preview
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    preview.src = ev.target.result;
-                    preview.style.display = 'block';
-                };
-                reader.readAsDataURL(file);
-
-                // Run OCR
-                try {
-                    const result = await scanReceipt(file);
-                    ocrRawText = result.rawText;
-
-                    if (result.amount && !document.getElementById('expenseAmount').value) {
-                        document.getElementById('expenseAmount').value = result.amount.toFixed(2);
-                    }
-                    if (result.vendor && !document.getElementById('expenseVendor').value) {
-                        document.getElementById('expenseVendor').value = result.vendor;
-                    }
-                    if (result.date && !document.getElementById('expenseDate').value) {
-                        // Try to parse the date into YYYY-MM-DD
-                        const parsed = parseReceiptDate(result.date);
-                        if (parsed) document.getElementById('expenseDate').value = parsed;
-                    }
-                } catch (err) {
-                    console.error('OCR failed:', err);
-                    document.getElementById('ocrProgressText').textContent = 'OCR failed - fill in manually';
-                }
-            });
-
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const btn = document.getElementById('submitAddExpense');
-                btn.disabled = true;
-                btn.textContent = 'Adding...';
-
-                try {
-                    // Insert expense record first
-                    const expenseData = {
-                        job_id: jobId,
-                        vendor: document.getElementById('expenseVendor').value.trim() || null,
-                        description: document.getElementById('expenseDescription').value.trim() || null,
-                        amount: parseFloat(document.getElementById('expenseAmount').value),
-                        expense_date: document.getElementById('expenseDate').value || null,
-                        ocr_raw_text: ocrRawText || null,
-                    };
-
-                    const { data: inserted, error } = await supabase
-                        .from('hw_expenses')
-                        .insert([expenseData])
-                        .select()
-                        .single();
-
-                    if (error) throw error;
-
-                    // Upload receipt if present
-                    if (receiptFile && inserted) {
-                        try {
-                            const path = await uploadReceipt(receiptFile, jobId, inserted.id);
-                            await supabase
-                                .from('hw_expenses')
-                                .update({ receipt_path: path })
-                                .eq('id', inserted.id);
-                        } catch (uploadErr) {
-                            console.error('Receipt upload failed:', uploadErr);
-                            showToast('Expense saved but receipt upload failed', 'info');
-                        }
-                    }
-
-                    showToast('Expense added');
-                    modal.classList.remove('active');
-                    await loadExpenses();
-                    updateProfitSummary();
-                } catch (err) {
-                    showToast('Failed to add expense: ' + err.message, 'error');
-                }
-
-                btn.disabled = false;
-                btn.textContent = 'Add Expense';
-            });
-        }
-
-        // ==================== Receipt Upload ====================
-        async function uploadReceipt(file, jobId, expenseId) {
-            const ext = file.name.split('.').pop();
-            const path = `${jobId}/${expenseId}.${ext}`;
-            const { error } = await supabase.storage.from('hw-receipts').upload(path, file);
-            if (error) throw error;
-            return path;
-        }
-
-        // ==================== OCR with Tesseract.js ====================
-        async function scanReceipt(file) {
-            const progressBar = document.getElementById('ocrProgressFill');
-            const progressText = document.getElementById('ocrProgressText');
-            const progressWrap = document.getElementById('ocrProgress');
-            progressWrap.style.display = 'block';
-
-            const worker = await Tesseract.createWorker('eng', 1, {
-                logger: m => {
-                    if (m.status === 'recognizing text') {
-                        const pct = Math.round(m.progress * 100);
-                        progressBar.style.width = pct + '%';
-                        progressText.textContent = 'Scanning... ' + pct + '%';
-                    }
-                }
-            });
-
-            const { data: { text } } = await worker.recognize(file);
-            await worker.terminate();
-
-            progressText.textContent = 'Done!';
-
-            // Parse receipt
-            const amounts = text.match(/\$?\d+\.\d{2}/g);
-            const amount = amounts ? Math.max(...amounts.map(m => parseFloat(m.replace('$', '')))) : null;
-            const dateMatch = text.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/);
-            const date = dateMatch ? dateMatch[1] : null;
-            const lines = text.split('\n').filter(l => l.trim().length > 2);
-            const vendor = lines[0]?.trim() || null;
-
-            return { amount, date, vendor, rawText: text };
-        }
-
-        function parseReceiptDate(dateStr) {
-            // Try to convert MM/DD/YYYY or MM-DD-YYYY to YYYY-MM-DD
-            const parts = dateStr.split(/[\/\-]/);
-            if (parts.length !== 3) return null;
-            let [m, d, y] = parts;
-            if (y.length === 2) y = '20' + y;
-            m = m.padStart(2, '0');
-            d = d.padStart(2, '0');
-            return `${y}-${m}-${d}`;
-        }
-
-        // ==================== Receipt Viewer ====================
-        function setupReceiptViewer() {
-            const modal = document.getElementById('receiptViewerModal');
-            const closeBtn = document.getElementById('closeReceiptViewer');
-            closeBtn.addEventListener('click', () => modal.classList.remove('active'));
-            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
-        }
-
-        function viewReceipt(url) {
-            document.getElementById('receiptViewerImg').src = url;
-            document.getElementById('receiptViewerModal').classList.add('active');
-        }
-
-        // ==================== Invoice Section ====================
+        // ==================== Invoice ====================
         async function loadInvoice() {
-            const { data, error } = await supabase
+            const { data, error } = await sb
                 .from('hw_invoices')
                 .select('*')
                 .eq('job_id', jobId)
@@ -621,237 +332,126 @@
                 .limit(1)
                 .maybeSingle();
 
-            if (error) {
-                console.error(error);
+            if (error) { console.error(error); return; }
+            if (data) {
+                document.getElementById('invoiceStatus').innerHTML = statusBadge(data.status);
+                document.getElementById('invoiceAmount').textContent = formatCurrency(data.amount);
             }
-
-            invoice = data;
-            renderInvoice();
         }
 
-        function renderInvoice() {
-            const section = document.getElementById('invoiceSection');
-            const expensesTotal = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+        // ==================== Status Change ====================
+        function setupStatusChange() {
+            document.getElementById('statusSelect').addEventListener('change', async (e) => {
+                const newStatus = e.target.value;
+                const { error } = await sb.from('hw_jobs').update({ status: newStatus }).eq('id', jobId);
+                if (error) {
+                    showToast('Failed to update status', 'error');
+                    e.target.value = job.status;
+                } else {
+                    job.status = newStatus;
+                    renderNextSteps();
+                    showToast('Status updated');
+                }
+            });
+        }
 
-            if (!invoice) {
-                // No invoice - show create form
-                const defaultAmount = expensesTotal > 0 ? expensesTotal.toFixed(2) : '';
-                const defaultDesc = job.name || '';
-                const due = new Date();
-                due.setDate(due.getDate() + 30);
-                const dueDate = due.toISOString().split('T')[0];
+        // ==================== Edit Modal ====================
+        function setupEditModal() {
+            const modal = document.getElementById('editModal');
+            const form = document.getElementById('editForm');
+            const body = document.getElementById('editModalBody');
+            let currentEdit = null;
 
-                section.innerHTML = `
-                    <p style="color:var(--text-light);margin-bottom:1rem;">No invoice created yet.</p>
-                    <form id="createInvoiceForm">
+            function openEdit(type) {
+                currentEdit = type;
+                form.reset();
+
+                if (type === 'notes') {
+                    document.getElementById('editModalTitle').textContent = 'Edit Job Details';
+                    body.innerHTML = `
+                        <div class="form-group"><label for="eName">Job Name *</label><input type="text" id="eName" class="form-control" value="${escapeHtml(job.name)}" required></div>
                         <div class="form-row">
-                            <div class="form-group">
-                                <label for="invoiceAmount">Amount *</label>
-                                <input type="number" id="invoiceAmount" class="form-control" step="0.01" min="0" required value="${defaultAmount}" placeholder="0.00">
-                            </div>
-                            <div class="form-group">
-                                <label for="invoiceDueDate">Due Date</label>
-                                <input type="date" id="invoiceDueDate" class="form-control" value="${dueDate}">
-                            </div>
+                            <div class="form-group"><label for="eStart">Start Date</label><input type="date" id="eStart" class="form-control" value="${formatDateInput(job.start_date)}"></div>
+                            <div class="form-group"><label for="eEnd">End Date</label><input type="date" id="eEnd" class="form-control" value="${formatDateInput(job.end_date)}"></div>
                         </div>
-                        <div class="form-group">
-                            <label for="invoiceDescription">Description</label>
-                            <input type="text" id="invoiceDescription" class="form-control" value="${escapeHtml(defaultDesc)}">
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-primary" id="createInvoiceBtn">Create Invoice</button>
-                        </div>
-                    </form>
-                `;
-
-                document.getElementById('createInvoiceForm').addEventListener('submit', handleCreateInvoice);
-                return;
-            }
-
-            // Invoice exists - render based on status
-            const statusClass = invoice.status;
-            let content = '';
-
-            if (invoice.status === 'draft') {
-                content = `
-                    <div class="invoice-status-card draft">
-                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
-                            <div>
-                                <strong>Draft Invoice</strong> ${statusBadge('draft')}
-                                <div style="margin-top:0.5rem;color:var(--text-light);font-size:0.9rem;">
-                                    Amount: <strong>${formatCurrency(invoice.amount)}</strong>
-                                    ${invoice.due_date ? ' &middot; Due: ' + formatDate(invoice.due_date) : ''}
-                                </div>
-                                ${invoice.stripe_invoice_url ? `<a href="${invoice.stripe_invoice_url}" target="_blank" style="font-size:0.85rem;color:var(--primary-light);">View in Stripe</a>` : ''}
-                            </div>
-                            <div style="display:flex;gap:0.5rem;">
-                                <button class="btn btn-primary btn-sm" onclick="handleSendInvoice()">Send Invoice</button>
-                                <button class="btn btn-danger btn-sm" onclick="handleVoidInvoice()">Void</button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } else if (invoice.status === 'sent') {
-                const daysOut = invoice.due_date ? daysBetween(invoice.due_date) : null;
-                const overdue = daysOut !== null && daysOut > 0;
-                content = `
-                    <div class="invoice-status-card sent">
-                        <div>
-                            <strong>Invoice Sent</strong> ${statusBadge('sent')}
-                            <div style="margin-top:0.5rem;color:var(--text-light);font-size:0.9rem;">
-                                Amount: <strong>${formatCurrency(invoice.amount)}</strong>
-                                ${invoice.due_date ? ' &middot; Due: ' + formatDate(invoice.due_date) : ''}
-                                ${overdue ? ` &middot; <span style="color:var(--danger);font-weight:600;">${daysOut} days overdue</span>` : ''}
-                                ${(!overdue && daysOut !== null) ? ` &middot; <span style="color:var(--text-light);">Due in ${Math.abs(daysOut)} days</span>` : ''}
-                            </div>
-                            ${invoice.stripe_invoice_url ? `<a href="${invoice.stripe_invoice_url}" target="_blank" style="font-size:0.85rem;color:var(--primary-light);">View in Stripe</a>` : ''}
-                        </div>
-                    </div>
-                `;
-            } else if (invoice.status === 'paid') {
-                content = `
-                    <div class="invoice-status-card paid">
-                        <div style="display:flex;align-items:center;gap:0.75rem;">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5" width="28" height="28"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                            <div>
-                                <strong>Paid</strong> ${statusBadge('paid')}
-                                <div style="margin-top:0.5rem;color:var(--text-light);font-size:0.9rem;">
-                                    Amount: <strong>${formatCurrency(invoice.amount)}</strong>
-                                    ${invoice.paid_at ? ' &middot; Paid: ' + formatDate(invoice.paid_at) : ''}
-                                </div>
-                                ${invoice.stripe_invoice_url ? `<a href="${invoice.stripe_invoice_url}" target="_blank" style="font-size:0.85rem;color:var(--primary-light);">View in Stripe</a>` : ''}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } else if (invoice.status === 'void') {
-                content = `
-                    <div class="invoice-status-card void">
-                        <div>
-                            <strong>Invoice Voided</strong> ${statusBadge('void')}
-                            <div style="margin-top:0.5rem;color:var(--text-light);font-size:0.9rem;">
-                                Amount: <strong>${formatCurrency(invoice.amount)}</strong>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            section.innerHTML = content;
-        }
-
-        async function handleCreateInvoice(e) {
-            e.preventDefault();
-            const btn = document.getElementById('createInvoiceBtn');
-            btn.disabled = true;
-            btn.textContent = 'Creating...';
-
-            try {
-                const amount = parseFloat(document.getElementById('invoiceAmount').value);
-                const description = document.getElementById('invoiceDescription').value.trim();
-                const dueDate = document.getElementById('invoiceDueDate').value || null;
-
-                // Ensure customer has a Stripe customer ID
-                let stripeCustomerId = job.hw_customers?.stripe_customer_id;
-                if (!stripeCustomerId) {
-                    const custResult = await callApi('/api/stripe-create-customer', {
-                        name: job.hw_customers?.name || 'Customer',
-                        email: job.hw_customers?.email || undefined,
-                        phone: job.hw_customers?.phone || undefined,
-                    });
-                    stripeCustomerId = custResult.stripe_customer_id;
-                    // Save Stripe customer ID back to database
-                    await supabase.from('hw_customers').update({ stripe_customer_id: stripeCustomerId }).eq('id', job.customer_id);
+                        <div class="form-group"><label for="eDesc">Notes / Description</label><textarea id="eDesc" class="form-control" rows="5">${escapeHtml(job.description)}</textarea></div>`;
+                } else if (type === 'price') {
+                    document.getElementById('editModalTitle').textContent = 'Edit Price';
+                    body.innerHTML = `
+                        <div class="form-group"><label for="ePrice">Job Price ($)</label><input type="number" id="ePrice" class="form-control" step="0.01" min="0" placeholder="0.00" value="${job.price || ''}"></div>
+                        <div class="form-group"><label for="ePriceNotes">Price Notes</label><input type="text" id="ePriceNotes" class="form-control" placeholder="e.g. Materials + labor" value="${escapeHtml(job.price_notes || '')}"></div>`;
                 }
 
-                // Create Stripe invoice (amount in cents)
-                const result = await callApi('/api/stripe-create-invoice', {
-                    stripe_customer_id: stripeCustomerId,
-                    amount_cents: Math.round(amount * 100),
-                    description: description || job.name,
-                    due_date: dueDate,
-                });
-
-                // Save invoice record in our database
-                const { error: dbErr } = await supabase.from('hw_invoices').insert({
-                    job_id: jobId,
-                    stripe_invoice_id: result.stripe_invoice_id,
-                    stripe_invoice_url: result.stripe_invoice_url,
-                    amount: amount,
-                    status: 'draft',
-                    due_date: dueDate,
-                });
-
-                if (dbErr) throw dbErr;
-
-                showToast('Invoice created');
-                await loadInvoice();
-                updateProfitSummary();
-            } catch (err) {
-                showToast('Failed to create invoice: ' + err.message, 'error');
+                modal.classList.add('active');
             }
 
-            btn.disabled = false;
-            btn.textContent = 'Create Invoice';
-        }
+            document.getElementById('editNotesBtn').addEventListener('click', () => openEdit('notes'));
+            document.getElementById('editPriceBtn').addEventListener('click', () => openEdit('price'));
+            document.getElementById('editModalClose').addEventListener('click', () => modal.classList.remove('active'));
+            document.getElementById('editModalCancel').addEventListener('click', () => modal.classList.remove('active'));
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
 
-        async function handleSendInvoice() {
-            if (!confirmAction('Send this invoice to the customer?')) return;
+            // Placeholder buttons (not yet wired to DB)
+            document.getElementById('editPermitBtn').addEventListener('click', () => showToast('Permit tracking coming soon', 'info'));
+            document.getElementById('addDocBtn').addEventListener('click', () => showToast('Document upload coming soon', 'info'));
+            document.getElementById('addExpenseBtn').addEventListener('click', () => showToast('Expense tracking coming soon', 'info'));
 
-            try {
-                const result = await callApi('/api/stripe-send-invoice', {
-                    stripe_invoice_id: invoice.stripe_invoice_id,
-                });
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('editModalSave');
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
 
-                // Update local DB
-                await supabase.from('hw_invoices').update({
-                    status: 'sent',
-                    stripe_invoice_url: result.stripe_invoice_url || invoice.stripe_invoice_url,
-                }).eq('id', invoice.id);
+                try {
+                    let updates = {};
 
-                // Update job status to invoiced
-                await supabase.from('hw_jobs').update({ status: 'invoiced' }).eq('id', jobId);
-                job.status = 'invoiced';
+                    if (currentEdit === 'notes') {
+                        updates = {
+                            name: document.getElementById('eName').value.trim(),
+                            start_date: document.getElementById('eStart').value || null,
+                            end_date: document.getElementById('eEnd').value || null,
+                            description: document.getElementById('eDesc').value.trim() || null
+                        };
+                    } else if (currentEdit === 'price') {
+                        const price = document.getElementById('ePrice').value;
+                        updates = {
+                            price: price ? parseFloat(price) : null,
+                            price_notes: document.getElementById('ePriceNotes').value.trim() || null
+                        };
+                    }
 
-                showToast('Invoice sent');
-                await loadInvoice();
-                renderJobInfo();
-            } catch (err) {
-                showToast('Failed to send invoice: ' + err.message, 'error');
+                    const { error } = await sb.from('hw_jobs').update(updates).eq('id', jobId);
+                    if (error) throw error;
+
+                    Object.assign(job, updates);
+                    renderJob();
+
+                    // Update price display
+                    if (currentEdit === 'price') {
+                        if (job.price) {
+                            document.getElementById('jobPrice').textContent = formatCurrency(job.price);
+                            document.getElementById('jobPriceSub').textContent = job.price_notes || '';
+                        } else {
+                            document.getElementById('jobPrice').textContent = 'Not set';
+                            document.getElementById('jobPriceSub').textContent = '';
+                        }
+                    }
+
+                    modal.classList.remove('active');
+                    showToast('Saved');
+                } catch (err) {
+                    showToast('Failed to save: ' + err.message, 'error');
+                }
+
+                btn.disabled = false;
+                btn.textContent = 'Save';
+            });
+
+            // Initial price display
+            if (job && job.price) {
+                document.getElementById('jobPrice').textContent = formatCurrency(job.price);
+                document.getElementById('jobPriceSub').textContent = job.price_notes || '';
             }
-        }
-
-        async function handleVoidInvoice() {
-            if (!confirmAction('Void this invoice? This cannot be undone.')) return;
-
-            try {
-                await callApi('/api/stripe-void-invoice', {
-                    stripe_invoice_id: invoice.stripe_invoice_id,
-                });
-
-                // Update local DB
-                await supabase.from('hw_invoices').update({ status: 'void' }).eq('id', invoice.id);
-
-                showToast('Invoice voided');
-                await loadInvoice();
-                updateProfitSummary();
-            } catch (err) {
-                showToast('Failed to void invoice: ' + err.message, 'error');
-            }
-        }
-
-        // ==================== Profit Summary ====================
-        function updateProfitSummary() {
-            const expTotal = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-            const invTotal = (invoice && invoice.status !== 'void') ? (parseFloat(invoice.amount) || 0) : 0;
-            const profit = invTotal - expTotal;
-
-            document.getElementById('profitInvoice').textContent = formatCurrency(invTotal);
-            document.getElementById('profitExpenses').textContent = formatCurrency(expTotal);
-
-            const profitEl = document.getElementById('profitNet');
-            profitEl.textContent = formatCurrency(profit);
-            profitEl.className = 'value ' + (profit >= 0 ? 'money' : 'danger');
         }
     </script>
 </body>
