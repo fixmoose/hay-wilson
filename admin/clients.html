@@ -8,6 +8,42 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/admin/admin-styles.css">
+    <style>
+        .badge-gc {
+            display: inline-block;
+            background: var(--primary, #f59e0b);
+            color: #fff;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 0.1em 0.45em;
+            border-radius: 4px;
+            margin-left: 0.4em;
+            vertical-align: middle;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .gc-prefix {
+            color: var(--text-muted, #94a3b8);
+            font-weight: 500;
+            font-size: 0.85em;
+        }
+        .sub-client-row td:first-child {
+            padding-left: 2.2rem;
+        }
+        .checkbox-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5em;
+            cursor: pointer;
+            font-weight: 500;
+            padding-top: 1.65rem;
+        }
+        .checkbox-label input[type="checkbox"] {
+            width: 1.1em;
+            height: 1.1em;
+            accent-color: var(--primary, #f59e0b);
+        }
+    </style>
 </head>
 <body>
     <div class="admin-topbar">
@@ -107,6 +143,19 @@
                         <label for="clientAddress">Home Address</label>
                         <input type="text" id="clientAddress" class="form-control" placeholder="123 Main St, Reno, NV 89501">
                     </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="isGcCheckbox"> General Contractor
+                            </label>
+                        </div>
+                        <div class="form-group" id="parentGcGroup">
+                            <label for="parentGcSelect">Under GC</label>
+                            <select id="parentGcSelect" class="form-control">
+                                <option value="">— None —</option>
+                            </select>
+                        </div>
+                    </div>
                     <div class="form-group">
                         <label for="clientNotes">Notes</label>
                         <textarea id="clientNotes" class="form-control" rows="2" placeholder="Gate code, dog, preferred contact time..."></textarea>
@@ -164,7 +213,7 @@
         async function loadClients() {
             const { data, error } = await sb
                 .from('hw_customers')
-                .select('*')
+                .select('*, parent_gc:hw_customers!parent_gc_id(id, name)')
                 .order('name');
 
             if (error) {
@@ -176,6 +225,31 @@
             renderClients(allClients);
         }
 
+        function getInitials(name) {
+            if (!name) return '??';
+            const parts = name.trim().split(/\s+/);
+            if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+            return (parts[0][0] || '?').toUpperCase();
+        }
+
+        function sortClientsGrouped(clients) {
+            // Separate GCs, sub-clients, and standalone clients
+            const gcs = clients.filter(c => c.is_gc);
+            const subClients = clients.filter(c => !c.is_gc && c.parent_gc_id);
+            const standalone = clients.filter(c => !c.is_gc && !c.parent_gc_id);
+
+            // Build ordered list: GC followed by its sub-clients, then standalone
+            const ordered = [];
+            gcs.forEach(gc => {
+                ordered.push(gc);
+                subClients.filter(sc => sc.parent_gc_id === gc.id).forEach(sc => ordered.push(sc));
+            });
+            // Sub-clients whose GC is not in the current filtered list
+            subClients.filter(sc => !gcs.find(gc => gc.id === sc.parent_gc_id)).forEach(sc => ordered.push(sc));
+            standalone.forEach(sc => ordered.push(sc));
+            return ordered;
+        }
+
         function renderClients(clients) {
             const tbody = document.getElementById('clientsBody');
 
@@ -184,14 +258,21 @@
                 return;
             }
 
-            tbody.innerHTML = clients.map(c => `
-                <tr class="clickable" data-id="${c.id}">
-                    <td><strong>${escapeHtml(c.name)}</strong></td>
+            const sorted = sortClientsGrouped(clients);
+
+            tbody.innerHTML = sorted.map(c => {
+                const gcBadge = c.is_gc ? ' <span class="badge badge-gc">GC</span>' : '';
+                const gcPrefix = (!c.is_gc && c.parent_gc_id && c.parent_gc)
+                    ? '<span class="gc-prefix">(' + escapeHtml(getInitials(c.parent_gc.name)) + ')</span> '
+                    : '';
+                const indentClass = (!c.is_gc && c.parent_gc_id) ? ' sub-client-row' : '';
+                return `<tr class="clickable${indentClass}" data-id="${c.id}">
+                    <td><strong>${gcPrefix}${escapeHtml(c.name)}${gcBadge}</strong></td>
                     <td>${escapeHtml(c.phone) || '-'}</td>
                     <td>${escapeHtml(c.email) || '-'}</td>
                     <td>${escapeHtml(c.address) || '-'}</td>
-                </tr>
-            `).join('');
+                </tr>`;
+            }).join('');
 
             // Click to edit
             tbody.querySelectorAll('tr.clickable').forEach(row => {
@@ -236,12 +317,16 @@
                 const last = document.getElementById('lastName').value.trim();
                 if (!first || !last) { showToast('First and last name required', 'error'); btn.disabled = false; btn.textContent = 'Save Client'; return; }
 
+                const isGc = document.getElementById('isGcCheckbox').checked;
+                const parentGcVal = document.getElementById('parentGcSelect').value;
                 const payload = {
                     name: first + ' ' + last,
                     phone: document.getElementById('clientPhone').value.trim() || null,
                     email: document.getElementById('clientEmail').value.trim() || null,
                     address: document.getElementById('clientAddress').value.trim() || null,
-                    notes: document.getElementById('clientNotes').value.trim() || null
+                    notes: document.getElementById('clientNotes').value.trim() || null,
+                    is_gc: isGc,
+                    parent_gc_id: (!isGc && parentGcVal) ? parentGcVal : null
                 };
 
                 try {
@@ -281,9 +366,25 @@
             });
         }
 
+        function populateGcDropdown(excludeId) {
+            const select = document.getElementById('parentGcSelect');
+            const gcClients = allClients.filter(c => c.is_gc && c.id !== excludeId);
+            select.innerHTML = '<option value="">— None —</option>' +
+                gcClients.map(gc => `<option value="${gc.id}">${escapeHtml(gc.name)}</option>`).join('');
+        }
+
+        function toggleGcFields() {
+            const isGc = document.getElementById('isGcCheckbox').checked;
+            document.getElementById('parentGcGroup').style.display = isGc ? 'none' : '';
+        }
+
         function openModal(client) {
             editingId = null;
             document.getElementById('clientForm').reset();
+
+            const isGcCheckbox = document.getElementById('isGcCheckbox');
+            isGcCheckbox.removeEventListener('change', toggleGcFields);
+            isGcCheckbox.addEventListener('change', toggleGcFields);
 
             if (client) {
                 editingId = client.id;
@@ -296,12 +397,19 @@
                 document.getElementById('clientEmail').value = client.email || '';
                 document.getElementById('clientAddress').value = client.address || '';
                 document.getElementById('clientNotes').value = client.notes || '';
+                isGcCheckbox.checked = !!client.is_gc;
+                populateGcDropdown(client.id);
+                document.getElementById('parentGcSelect').value = client.parent_gc_id || '';
                 document.getElementById('deleteClientBtn').style.display = 'inline-flex';
             } else {
                 document.getElementById('modalTitle').textContent = 'Add Client';
                 document.getElementById('deleteClientBtn').style.display = 'none';
+                isGcCheckbox.checked = false;
+                populateGcDropdown(null);
+                document.getElementById('parentGcSelect').value = '';
             }
 
+            toggleGcFields();
             document.getElementById('clientModal').classList.add('active');
         }
 

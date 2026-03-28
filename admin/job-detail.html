@@ -268,7 +268,7 @@
         async function loadJob() {
             const { data, error } = await sb
                 .from('hw_jobs')
-                .select('*, hw_customers(id, name, phone, email)')
+                .select('*, hw_customers(id, name, phone, email, is_gc, parent_gc_id, parent_gc:hw_customers!parent_gc_id(id, name))')
                 .eq('id', jobId)
                 .single();
 
@@ -296,10 +296,16 @@
             document.getElementById('startDate').textContent = formatDate(job.start_date);
             document.getElementById('endDate').textContent = formatDate(job.end_date);
 
-            // Client link
+            // Client link with GC prefix
             const clientLink = document.getElementById('clientLink');
             if (job.hw_customers) {
-                clientLink.textContent = job.hw_customers.name;
+                const cust = job.hw_customers;
+                let displayName = cust.name;
+                if (cust.parent_gc) {
+                    const initials = cust.parent_gc.name.split(' ').map(w => w[0]).join('').toUpperCase();
+                    displayName = '(' + initials + ') ' + cust.name;
+                }
+                clientLink.textContent = displayName;
                 clientLink.href = '/admin/clients.html';
             } else {
                 clientLink.textContent = 'No client assigned';

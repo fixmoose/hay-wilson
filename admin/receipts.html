@@ -69,6 +69,24 @@
         .acct-table th { text-align:left; padding:0.6rem 0.75rem; border-bottom:2px solid var(--border-color); color:var(--text-light); font-weight:500; font-size:0.8rem; }
         .acct-table td { padding:0.6rem 0.75rem; border-bottom:1px solid var(--bg-light); }
         .acct-table .cat-badge { display:inline-block; padding:0.15rem 0.5rem; border-radius:4px; font-size:0.75rem; background:var(--bg-light); text-transform:capitalize; }
+        .acct-table .row-actions { white-space:nowrap; }
+        .acct-table .row-actions button { background:none; border:none; cursor:pointer; padding:0.25rem; color:var(--text-light); transition:color 0.15s; }
+        .acct-table .row-actions button:hover { color:var(--primary-light); }
+        .acct-table .row-actions .btn-row-delete:hover { color:#dc2626; }
+        .reimb-badge { display:inline-block; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.7rem; background:#dbeafe; color:#1d4ed8; font-weight:500; margin-left:0.35rem; }
+        .reimbursed-badge { display:inline-block; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.7rem; background:#dcfce7; color:#16a34a; font-weight:500; margin-left:0.35rem; }
+        .acct-reimb { background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:1rem 1.25rem; }
+        .acct-reimb .acct-card-cat { color:#1d4ed8; }
+        .acct-reimb .acct-card-amount { color:#1d4ed8; font-size:1.3rem; }
+        .acct-reimb .acct-card-count { color:#3b82f6; }
+        .acct-reimbursed { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:1rem 1.25rem; }
+        .acct-reimbursed .acct-card-cat { color:#16a34a; }
+        .acct-reimbursed .acct-card-amount { color:#16a34a; font-size:1.3rem; }
+        .acct-reimbursed .acct-card-count { color:#22c55e; }
+        /* Edit Expense Modal */
+        .edit-modal { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; display:none; align-items:center; justify-content:center; padding:1rem; }
+        .edit-modal.active { display:flex; }
+        .edit-modal-content { background:white; border-radius:16px; max-width:500px; width:100%; max-height:90vh; overflow-y:auto; }
     </style>
 </head>
 <body>
@@ -172,6 +190,7 @@
                             <th>Category</th>
                             <th>Job</th>
                             <th style="text-align:right;">Amount</th>
+                            <th style="width:70px;"></th>
                         </tr>
                     </thead>
                     <tbody id="acctTableBody"></tbody>
@@ -234,6 +253,11 @@
                     <label>Assign to Job</label>
                     <select id="aiJob"></select>
                 </div>
+                <div class="ai-field">
+                    <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                        <input type="checkbox" id="aiReimbursable"> Reimbursable by GC
+                    </label>
+                </div>
                 <div class="ai-field" id="aiItemsField" style="display:none;">
                     <label>Line Items</label>
                     <div class="ai-items" id="aiItems"></div>
@@ -242,6 +266,79 @@
             <div class="ai-modal-footer">
                 <button class="btn btn-outline" id="aiCancel">Cancel</button>
                 <button class="btn btn-primary" id="aiSave">Save Expense</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Expense Modal -->
+    <div class="edit-modal" id="editModal">
+        <div class="edit-modal-content">
+            <div class="ai-modal-header">
+                <h3>Edit Expense</h3>
+                <button class="modal-close" id="editModalClose">&times;</button>
+            </div>
+            <div class="ai-modal-body" id="editModalBody">
+                <input type="hidden" id="editId">
+                <div class="ai-field">
+                    <label>Vendor / Store</label>
+                    <input type="text" id="editVendor">
+                </div>
+                <div class="ai-field">
+                    <label>Total Amount ($)</label>
+                    <input type="number" id="editAmount" step="0.01" min="0">
+                </div>
+                <div class="ai-field">
+                    <label>Date</label>
+                    <input type="date" id="editDate">
+                </div>
+                <div class="ai-field">
+                    <label>Category</label>
+                    <select id="editCategory">
+                        <option value="materials">Materials</option>
+                        <option value="tools">Tools</option>
+                        <option value="software">Software</option>
+                        <option value="fuel">Fuel</option>
+                        <option value="supplies">Supplies</option>
+                        <option value="permits">Permits</option>
+                        <option value="subcontractor">Subcontractor</option>
+                        <option value="equipment_rental">Equipment Rental</option>
+                        <option value="vehicle">Vehicle</option>
+                        <option value="meals">Meals</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="ai-field">
+                    <label>Description</label>
+                    <input type="text" id="editDescription">
+                </div>
+                <div class="ai-field">
+                    <label>Assign to Job</label>
+                    <select id="editJob"></select>
+                </div>
+                <div class="ai-field">
+                    <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                        <input type="checkbox" id="editReimbursable"> Reimbursable by GC
+                    </label>
+                </div>
+                <div id="editReimbursedSection" style="display:none;border-top:1px solid var(--border-color);padding-top:1rem;margin-top:0.5rem;">
+                    <div class="ai-field">
+                        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                            <input type="checkbox" id="editReimbursed"> Reimbursed
+                        </label>
+                    </div>
+                    <div class="ai-field" id="editReimbursedByField" style="display:none;">
+                        <label>Reimbursed By</label>
+                        <input type="text" id="editReimbursedBy" placeholder="e.g. Adriatic Builders">
+                    </div>
+                    <div class="ai-field" id="editReimbursedDateField" style="display:none;">
+                        <label>Reimbursed Date</label>
+                        <input type="date" id="editReimbursedDate">
+                    </div>
+                </div>
+            </div>
+            <div class="ai-modal-footer">
+                <button class="btn btn-outline" id="editCancel">Cancel</button>
+                <button class="btn btn-primary" id="editSave">Save Changes</button>
             </div>
         </div>
     </div>
@@ -288,11 +385,12 @@
             setupFilter();
             setupQrCode();
             setupAiModal();
+            setupEditModal();
         })();
 
         // ==================== Jobs ====================
         async function loadJobs() {
-            const { data } = await sb.from('hw_jobs').select('id, name, customer_id').order('name');
+            const { data } = await sb.from('hw_jobs').select('id, name, customer_id, hw_customers(name, parent_gc:hw_customers!parent_gc_id(name))').order('name');
             allJobs = data || [];
 
             const jobOptions = allJobs.map(j => '<option value="' + j.id + '">' + escapeHtml(j.name) + '</option>').join('');
@@ -433,7 +531,10 @@
         function getJobName(folder) {
             if (folder === '_unassigned') return 'Unassigned';
             const job = allJobs.find(j => j.id === folder);
-            return job ? job.name : 'Job ' + folder.substring(0, 8);
+            if (!job) return 'Job ' + folder.substring(0, 8);
+            const gc = job.hw_customers?.parent_gc;
+            const prefix = gc ? '(' + gc.name.split(' ').map(w => w[0]).join('').toUpperCase() + ') ' : '';
+            return prefix + job.name;
         }
 
         function cleanName(name) {
@@ -675,7 +776,8 @@
                     expense_date: document.getElementById('aiDate').value || null,
                     category: document.getElementById('aiCategory').value || 'other',
                     description: document.getElementById('aiDescription').value.trim() || null,
-                    receipt_path: currentAiPath
+                    receipt_path: currentAiPath,
+                    reimbursable: document.getElementById('aiReimbursable').checked
                 };
 
                 const { error } = await sb.from('hw_expenses').insert(payload);
@@ -722,12 +824,16 @@
             // Group by category
             const cats = {};
             let total = 0;
+            let reimbPendingTotal = 0, reimbPendingCount = 0;
+            let reimbDoneTotal = 0, reimbDoneCount = 0;
             allExpenses.forEach(e => {
                 const cat = e.category || 'other';
                 if (!cats[cat]) cats[cat] = { count: 0, total: 0 };
                 cats[cat].count++;
                 cats[cat].total += parseFloat(e.amount) || 0;
                 total += parseFloat(e.amount) || 0;
+                if (e.reimbursable && e.reimbursed) { reimbDoneTotal += parseFloat(e.amount) || 0; reimbDoneCount++; }
+                else if (e.reimbursable) { reimbPendingTotal += parseFloat(e.amount) || 0; reimbPendingCount++; }
             });
 
             // Render category cards
@@ -736,6 +842,8 @@
 
             grid.innerHTML =
                 '<div class="acct-total"><div class="acct-card-cat">Total Expenses</div><div class="acct-card-amount">' + formatCurrency(total) + '</div><div class="acct-card-count">' + allExpenses.length + ' items</div></div>' +
+                (reimbPendingCount > 0 ? '<div class="acct-reimb"><div class="acct-card-cat">To Be Reimbursed</div><div class="acct-card-amount">' + formatCurrency(reimbPendingTotal) + '</div><div class="acct-card-count">' + reimbPendingCount + ' pending</div></div>' : '') +
+                (reimbDoneCount > 0 ? '<div class="acct-reimbursed"><div class="acct-card-cat">Reimbursed</div><div class="acct-card-amount">' + formatCurrency(reimbDoneTotal) + '</div><div class="acct-card-count">' + reimbDoneCount + ' completed</div></div>' : '') +
                 activeCats.map(c =>
                     '<div class="acct-card"><div class="acct-card-cat">' + c.replace('_', ' ') + '</div><div class="acct-card-amount">' + formatCurrency(cats[c].total) + '</div><div class="acct-card-count">' + cats[c].count + ' item' + (cats[c].count !== 1 ? 's' : '') + '</div></div>'
                 ).join('');
@@ -745,14 +853,121 @@
             tbody.innerHTML = allExpenses.map(e => {
                 const date = e.expense_date ? new Date(e.expense_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
                 const cat = (e.category || 'other').replace('_', ' ');
-                return '<tr>' +
+                return '<tr data-expense-id="' + e.id + '">' +
                     '<td>' + date + '</td>' +
-                    '<td>' + escapeHtml(e.vendor || e.description || '-') + '</td>' +
+                    '<td>' + escapeHtml(e.vendor || e.description || '-') +
+                        (e.reimbursed ? '<span class="reimbursed-badge">Reimbursed</span>' :
+                         e.reimbursable ? '<span class="reimb-badge">Reimb.</span>' : '') +
+                    '</td>' +
                     '<td><span class="cat-badge">' + cat + '</span></td>' +
                     '<td>' + escapeHtml(e.hw_jobs?.name || '-') + '</td>' +
                     '<td style="text-align:right;font-weight:500;">' + formatCurrency(e.amount) + '</td>' +
+                    '<td class="row-actions">' +
+                        '<button class="btn-row-edit" data-edit="' + e.id + '" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
+                        '<button class="btn-row-delete" data-delete="' + e.id + '" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+                    '</td>' +
                     '</tr>';
             }).join('');
+
+            // Wire up edit buttons
+            tbody.querySelectorAll('[data-edit]').forEach(btn => {
+                btn.addEventListener('click', () => openEditModal(btn.dataset.edit));
+            });
+
+            // Wire up delete buttons
+            tbody.querySelectorAll('[data-delete]').forEach(btn => {
+                btn.addEventListener('click', () => deleteExpense(btn.dataset.delete));
+            });
+        }
+
+        // ==================== Edit Expense ====================
+        function openEditModal(expenseId) {
+            const expense = allExpenses.find(e => e.id === expenseId);
+            if (!expense) return;
+
+            document.getElementById('editId').value = expense.id;
+            document.getElementById('editVendor').value = expense.vendor || '';
+            document.getElementById('editAmount').value = expense.amount || '';
+            document.getElementById('editDate').value = expense.expense_date || '';
+            document.getElementById('editCategory').value = expense.category || 'other';
+            document.getElementById('editDescription').value = expense.description || '';
+
+            const jobOptions = '<option value="">No job</option>' + allJobs.map(j => '<option value="' + j.id + '">' + escapeHtml(j.name) + '</option>').join('');
+            document.getElementById('editJob').innerHTML = jobOptions;
+            document.getElementById('editJob').value = expense.job_id || '';
+            document.getElementById('editReimbursable').checked = expense.reimbursable || false;
+            document.getElementById('editReimbursed').checked = expense.reimbursed || false;
+            document.getElementById('editReimbursedBy').value = expense.reimbursed_by || '';
+            document.getElementById('editReimbursedDate').value = expense.reimbursed_date || '';
+
+            // Show/hide reimbursed section based on reimbursable
+            toggleReimbursedSection();
+
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        async function deleteExpense(expenseId) {
+            const expense = allExpenses.find(e => e.id === expenseId);
+            if (!expense) return;
+            if (!confirm('Delete expense' + (expense.vendor ? ' from ' + expense.vendor : '') + '?')) return;
+
+            const { error } = await sb.from('hw_expenses').delete().eq('id', expenseId);
+            if (error) { showToast('Failed to delete: ' + error.message, 'error'); return; }
+            showToast('Expense deleted');
+            await loadExpenses();
+        }
+
+        function toggleReimbursedSection() {
+            const isReimb = document.getElementById('editReimbursable').checked;
+            document.getElementById('editReimbursedSection').style.display = isReimb ? 'block' : 'none';
+            const isDone = document.getElementById('editReimbursed').checked;
+            document.getElementById('editReimbursedByField').style.display = isDone ? 'block' : 'none';
+            document.getElementById('editReimbursedDateField').style.display = isDone ? 'block' : 'none';
+        }
+
+        function setupEditModal() {
+            const modal = document.getElementById('editModal');
+            document.getElementById('editModalClose').addEventListener('click', () => modal.classList.remove('active'));
+            document.getElementById('editCancel').addEventListener('click', () => modal.classList.remove('active'));
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+
+            // Toggle reimbursed section visibility
+            document.getElementById('editReimbursable').addEventListener('change', toggleReimbursedSection);
+            document.getElementById('editReimbursed').addEventListener('change', toggleReimbursedSection);
+
+            document.getElementById('editSave').addEventListener('click', async () => {
+                const btn = document.getElementById('editSave');
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+
+                const expenseId = document.getElementById('editId').value;
+                const isReimbursable = document.getElementById('editReimbursable').checked;
+                const isReimbursed = document.getElementById('editReimbursed').checked;
+                const payload = {
+                    vendor: document.getElementById('editVendor').value.trim() || null,
+                    amount: parseFloat(document.getElementById('editAmount').value) || 0,
+                    expense_date: document.getElementById('editDate').value || null,
+                    category: document.getElementById('editCategory').value || 'other',
+                    description: document.getElementById('editDescription').value.trim() || null,
+                    job_id: document.getElementById('editJob').value || null,
+                    reimbursable: isReimbursable,
+                    reimbursed: isReimbursable && isReimbursed,
+                    reimbursed_by: isReimbursable && isReimbursed ? (document.getElementById('editReimbursedBy').value.trim() || null) : null,
+                    reimbursed_date: isReimbursable && isReimbursed ? (document.getElementById('editReimbursedDate').value || null) : null
+                };
+
+                const { error } = await sb.from('hw_expenses').update(payload).eq('id', expenseId);
+                if (error) {
+                    showToast('Failed to save: ' + error.message, 'error');
+                } else {
+                    showToast('Expense updated');
+                    modal.classList.remove('active');
+                    await loadExpenses();
+                }
+
+                btn.disabled = false;
+                btn.textContent = 'Save Changes';
+            });
         }
     </script>
 </body>

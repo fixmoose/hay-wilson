@@ -162,7 +162,7 @@
         async function loadJobs() {
             const { data, error } = await sb
                 .from('hw_jobs')
-                .select('id, name, status, start_date, end_date, customer_id, hw_customers(name)')
+                .select('id, name, status, start_date, end_date, customer_id, hw_customers(name, is_gc, parent_gc_id, parent_gc:hw_customers!parent_gc_id(name))')
                 .order('created_at', { ascending: false });
 
             if (error) {
@@ -186,7 +186,7 @@
             tbody.innerHTML = filtered.map(job => `
                 <tr class="clickable" onclick="window.location.href='/admin/job-detail.html?id=${job.id}'">
                     <td><strong>${escapeHtml(job.name)}</strong></td>
-                    <td>${escapeHtml(job.hw_customers?.name || '-')}</td>
+                    <td>${escapeHtml(job.hw_customers?.parent_gc ? '(' + job.hw_customers.parent_gc.name.split(' ').map(w => w[0]).join('').toUpperCase() + ') ' + job.hw_customers.name : (job.hw_customers?.name || '-'))}</td>
                     <td>${statusBadge(job.status)}</td>
                     <td>${formatDate(job.start_date)}</td>
                     <td>${formatDate(job.end_date)}</td>

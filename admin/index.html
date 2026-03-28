@@ -39,43 +39,58 @@
             <h2>Dashboard</h2>
         </div>
 
-        <div class="stats-grid">
+        <div class="stats-grid" id="statsGrid">
             <div class="stat-card">
                 <div class="stat-card-label">Active Jobs</div>
-                <div class="stat-card-value">0</div>
-                <div class="stat-card-sub">No jobs yet</div>
+                <div class="stat-card-value" id="statJobs">-</div>
+                <div class="stat-card-sub" id="statJobsSub">Loading...</div>
             </div>
             <div class="stat-card">
                 <div class="stat-card-label">Clients</div>
-                <div class="stat-card-value">0</div>
-                <div class="stat-card-sub">No clients yet</div>
+                <div class="stat-card-value" id="statClients">-</div>
+                <div class="stat-card-sub" id="statClientsSub">Loading...</div>
             </div>
             <div class="stat-card">
-                <div class="stat-card-label">Outstanding</div>
-                <div class="stat-card-value money">$0.00</div>
-                <div class="stat-card-sub">No unpaid invoices</div>
+                <div class="stat-card-label">Total Expenses</div>
+                <div class="stat-card-value money" id="statExpenses">-</div>
+                <div class="stat-card-sub" id="statExpensesSub">Loading...</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-card-label">Revenue This Month</div>
-                <div class="stat-card-value money">$0.00</div>
-                <div class="stat-card-sub">March 2026</div>
+            <div class="stat-card" style="background:#eff6ff;border-color:#bfdbfe;">
+                <div class="stat-card-label" style="color:#1d4ed8;">To Be Reimbursed</div>
+                <div class="stat-card-value money" id="statReimb" style="color:#1d4ed8;">-</div>
+                <div class="stat-card-sub" id="statReimbSub" style="color:#3b82f6;">Loading...</div>
             </div>
         </div>
 
-        <div class="admin-card">
+        <!-- Active Jobs -->
+        <div class="admin-card" id="activeJobsCard">
             <div class="admin-card-header">
-                <h3>Welcome</h3>
+                <h3>Active Jobs</h3>
             </div>
-            <div style="padding:1.25rem;">
-                <p style="color:var(--text-light);line-height:1.8;">
-                    Your admin panel is ready. Pages coming soon:
-                </p>
-                <ul style="margin-top:1rem;color:var(--text-light);line-height:2;">
-                    <li><strong>Jobs</strong> — Track jobs from start to payment</li>
-                    <li><strong>Clients</strong> — Customer directory with contact info</li>
-                    <li><strong>Invoices</strong> — Create and send invoices via Stripe</li>
-                    <li><strong>Documents</strong> — Receipt scanning and expense tracking</li>
-                </ul>
+            <div style="padding:0;" id="activeJobsBody">
+                <div style="padding:1.25rem;text-align:center;color:var(--text-light);">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Reimbursable Expenses -->
+        <div class="admin-card" style="margin-top:1.25rem;" id="reimbCard">
+            <div class="admin-card-header">
+                <h3>Pending Reimbursements</h3>
+                <a href="/admin/receipts.html" style="font-size:0.85rem;color:var(--primary-light);text-decoration:none;">View all</a>
+            </div>
+            <div style="padding:0;" id="reimbBody">
+                <div style="padding:1.25rem;text-align:center;color:var(--text-light);">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Recent Expenses -->
+        <div class="admin-card" style="margin-top:1.25rem;">
+            <div class="admin-card-header">
+                <h3>Recent Expenses</h3>
+                <a href="/admin/receipts.html" style="font-size:0.85rem;color:var(--primary-light);text-decoration:none;">View all</a>
+            </div>
+            <div style="padding:0;" id="recentExpensesBody">
+                <div style="padding:1.25rem;text-align:center;color:var(--text-light);">Loading...</div>
             </div>
         </div>
     </main>
@@ -113,7 +128,117 @@
                     sidebar.classList.remove('open');
                 }
             });
+
+            // Load dashboard data
+            loadDashboard();
         })();
+
+        function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function formatCurrency(a) { return '$' + (parseFloat(a) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+        async function loadDashboard() {
+            // Load all data in parallel
+            const [jobsRes, clientsRes, expensesRes] = await Promise.all([
+                sb.from('hw_jobs').select('id, name, status, customer_id, hw_customers(name, parent_gc:hw_customers!parent_gc_id(name))'),
+                sb.from('hw_customers').select('id, name, is_gc'),
+                sb.from('hw_expenses').select('*, hw_jobs(name)').order('expense_date', { ascending: false })
+            ]);
+
+            const jobs = jobsRes.data || [];
+            const clients = clientsRes.data || [];
+            const expenses = expensesRes.data || [];
+
+            // Stats: Active Jobs
+            const activeJobs = jobs.filter(j => ['pending', 'in_progress'].includes(j.status));
+            document.getElementById('statJobs').textContent = activeJobs.length;
+            document.getElementById('statJobsSub').textContent = activeJobs.length === 0 ? 'No active jobs' : jobs.length + ' total';
+
+            // Stats: Clients
+            const gcCount = clients.filter(c => c.is_gc).length;
+            document.getElementById('statClients').textContent = clients.length;
+            document.getElementById('statClientsSub').textContent = gcCount > 0 ? gcCount + ' GC' + (gcCount > 1 ? 's' : '') : 'No GCs';
+
+            // Stats: Expenses
+            const totalExpenses = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+            document.getElementById('statExpenses').textContent = formatCurrency(totalExpenses);
+            document.getElementById('statExpensesSub').textContent = expenses.length + ' expense' + (expenses.length !== 1 ? 's' : '');
+
+            // Stats: Reimbursable (pending only)
+            const reimbPending = expenses.filter(e => e.reimbursable && !e.reimbursed);
+            const reimbTotal = reimbPending.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+            document.getElementById('statReimb').textContent = formatCurrency(reimbTotal);
+            document.getElementById('statReimbSub').textContent = reimbPending.length + ' item' + (reimbPending.length !== 1 ? 's' : '') + ' pending';
+
+            // Active Jobs list
+            const activeJobsBody = document.getElementById('activeJobsBody');
+            if (activeJobs.length === 0) {
+                activeJobsBody.innerHTML = '<div style="padding:1.25rem;text-align:center;color:var(--text-light);">No active jobs</div>';
+            } else {
+                activeJobsBody.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:0.9rem;">' +
+                    activeJobs.map(j => {
+                        const gc = j.hw_customers?.parent_gc;
+                        const prefix = gc ? '(' + gc.name.split(' ').map(w => w[0]).join('').toUpperCase() + ') ' : '';
+                        const clientName = j.hw_customers ? prefix + j.hw_customers.name : '-';
+                        const statusClass = j.status === 'in_progress' ? 'badge-in_progress' : 'badge-pending';
+                        return '<tr style="cursor:pointer;" onclick="window.location.href=\'/admin/job-detail.html?id=' + j.id + '\'">' +
+                            '<td style="padding:0.75rem 1.25rem;border-bottom:1px solid var(--bg-light);"><strong>' + escapeHtml(j.name) + '</strong></td>' +
+                            '<td style="padding:0.75rem 1.25rem;border-bottom:1px solid var(--bg-light);color:var(--text-light);">' + escapeHtml(clientName) + '</td>' +
+                            '<td style="padding:0.75rem 1.25rem;border-bottom:1px solid var(--bg-light);text-align:right;"><span class="badge ' + statusClass + '">' + j.status.replace('_', ' ') + '</span></td>' +
+                            '</tr>';
+                    }).join('') +
+                    '</table>';
+            }
+
+            // Reimbursable expenses table (pending only)
+            const reimbBody = document.getElementById('reimbBody');
+            const reimbExpenses = reimbPending;
+            if (reimbExpenses.length === 0) {
+                reimbBody.innerHTML = '<div style="padding:1.25rem;text-align:center;color:var(--text-light);">No pending reimbursements</div>';
+            } else {
+                reimbBody.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">' +
+                    '<thead><tr>' +
+                    '<th style="text-align:left;padding:0.6rem 1.25rem;border-bottom:2px solid var(--border-color);color:var(--text-light);font-weight:500;font-size:0.8rem;">Date</th>' +
+                    '<th style="text-align:left;padding:0.6rem 1.25rem;border-bottom:2px solid var(--border-color);color:var(--text-light);font-weight:500;font-size:0.8rem;">Vendor</th>' +
+                    '<th style="text-align:left;padding:0.6rem 1.25rem;border-bottom:2px solid var(--border-color);color:var(--text-light);font-weight:500;font-size:0.8rem;">Job</th>' +
+                    '<th style="text-align:right;padding:0.6rem 1.25rem;border-bottom:2px solid var(--border-color);color:var(--text-light);font-weight:500;font-size:0.8rem;">Amount</th>' +
+                    '</tr></thead><tbody>' +
+                    reimbExpenses.map(e => {
+                        const date = e.expense_date ? new Date(e.expense_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+                        return '<tr>' +
+                            '<td style="padding:0.6rem 1.25rem;border-bottom:1px solid var(--bg-light);">' + date + '</td>' +
+                            '<td style="padding:0.6rem 1.25rem;border-bottom:1px solid var(--bg-light);">' + escapeHtml(e.vendor || e.description || '-') + '</td>' +
+                            '<td style="padding:0.6rem 1.25rem;border-bottom:1px solid var(--bg-light);">' + escapeHtml(e.hw_jobs?.name || '-') + '</td>' +
+                            '<td style="padding:0.6rem 1.25rem;border-bottom:1px solid var(--bg-light);text-align:right;font-weight:500;color:#1d4ed8;">' + formatCurrency(e.amount) + '</td>' +
+                            '</tr>';
+                    }).join('') +
+                    '<tr style="font-weight:700;border-top:2px solid var(--border-color);">' +
+                    '<td colspan="3" style="padding:0.75rem 1.25rem;">Total to Reimburse</td>' +
+                    '<td style="padding:0.75rem 1.25rem;text-align:right;color:#1d4ed8;">' + formatCurrency(reimbTotal) + '</td>' +
+                    '</tr></tbody></table>';
+            }
+
+            // Recent expenses (last 5)
+            const recentBody = document.getElementById('recentExpensesBody');
+            const recent = expenses.slice(0, 5);
+            if (recent.length === 0) {
+                recentBody.innerHTML = '<div style="padding:1.25rem;text-align:center;color:var(--text-light);">No expenses recorded yet</div>';
+            } else {
+                recentBody.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">' +
+                    recent.map(e => {
+                        const date = e.expense_date ? new Date(e.expense_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+                        const cat = (e.category || 'other').replace('_', ' ');
+                        return '<tr>' +
+                            '<td style="padding:0.6rem 1.25rem;border-bottom:1px solid var(--bg-light);">' + date + '</td>' +
+                            '<td style="padding:0.6rem 1.25rem;border-bottom:1px solid var(--bg-light);">' + escapeHtml(e.vendor || e.description || '-') +
+                                (e.reimbursable ? '<span style="display:inline-block;padding:0.1rem 0.4rem;border-radius:4px;font-size:0.7rem;background:#dbeafe;color:#1d4ed8;font-weight:500;margin-left:0.35rem;">Reimb.</span>' : '') +
+                            '</td>' +
+                            '<td style="padding:0.6rem 1.25rem;border-bottom:1px solid var(--bg-light);"><span style="display:inline-block;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.75rem;background:var(--bg-light);text-transform:capitalize;">' + cat + '</span></td>' +
+                            '<td style="padding:0.6rem 1.25rem;border-bottom:1px solid var(--bg-light);text-align:right;font-weight:500;">' + formatCurrency(e.amount) + '</td>' +
+                            '</tr>';
+                    }).join('') +
+                    '</table>';
+            }
+        }
     </script>
 </body>
 </html>
