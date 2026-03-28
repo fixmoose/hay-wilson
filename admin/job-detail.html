@@ -35,6 +35,17 @@
         .notes-text { white-space:pre-wrap; line-height:1.7; color:var(--text-dark); font-size:0.9rem; }
         .price-big { font-size:1.8rem; font-weight:700; color:var(--primary-dark); }
         .price-sub { font-size:0.85rem; color:var(--text-light); margin-top:0.25rem; }
+        .receipt-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:0.75rem; }
+        .receipt-item { position:relative; border-radius:8px; border:1px solid var(--border-color); overflow:hidden; cursor:pointer; transition:box-shadow 0.2s; }
+        .receipt-item:hover { box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+        .receipt-thumb { width:100%; height:120px; object-fit:cover; display:block; background:var(--bg-light); }
+        .receipt-thumb-pdf { width:100%; height:120px; display:flex; align-items:center; justify-content:center; background:var(--bg-light); color:var(--text-light); font-size:0.8rem; flex-direction:column; gap:0.25rem; }
+        .receipt-name { padding:0.4rem 0.5rem; font-size:0.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-dark); border-top:1px solid var(--border-color); }
+        .receipt-delete { position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,0.6); color:white; border:none; cursor:pointer; font-size:14px; display:none; align-items:center; justify-content:center; line-height:1; }
+        .receipt-item:hover .receipt-delete { display:flex; }
+        .upload-drop-zone { border:2px dashed var(--border-color); border-radius:8px; padding:1.5rem; text-align:center; color:var(--text-light); cursor:pointer; transition:border-color 0.2s, background 0.2s; }
+        .upload-drop-zone:hover, .upload-drop-zone.dragover { border-color:var(--primary-light); background:rgba(37,99,235,0.04); }
+        .upload-drop-zone input { display:none; }
     </style>
 </head>
 <body>
@@ -125,6 +136,22 @@
                     <div class="section-card-body empty" id="docsBody">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32" style="margin-bottom:0.5rem;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                         <p>No documents yet</p>
+                    </div>
+                </div>
+
+                <!-- Receipts -->
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h4>Receipts</h4>
+                    </div>
+                    <div class="section-card-body" id="receiptsBody">
+                        <div class="receipt-grid" id="receiptGrid"></div>
+                        <div class="upload-drop-zone" id="receiptDropZone">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28" style="margin-bottom:0.25rem;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <p style="margin:0;font-size:0.85rem;">Tap to upload or drag & drop</p>
+                            <p style="margin:0.25rem 0 0;font-size:0.75rem;">Images or PDFs</p>
+                            <input type="file" id="receiptFileInput" multiple accept="image/*,.pdf">
+                        </div>
                     </div>
                 </div>
 
@@ -233,6 +260,7 @@
             await loadJob();
             setupStatusChange();
             setupEditModal();
+            setupReceiptUpload();
         })();
 
         // ==================== Load Job ====================
@@ -451,6 +479,114 @@
             if (job && job.price) {
                 document.getElementById('jobPrice').textContent = formatCurrency(job.price);
                 document.getElementById('jobPriceSub').textContent = job.price_notes || '';
+            }
+
+            // Load receipts after job loads
+            loadReceipts();
+        }
+
+        // ==================== Receipts ====================
+        async function loadReceipts() {
+            const grid = document.getElementById('receiptGrid');
+            const { data, error } = await sb.storage.from('hw-receipts').list(jobId + '/', { sortBy: { column: 'created_at', order: 'desc' } });
+
+            if (error) { console.error('Receipts error:', error); return; }
+            if (!data || data.length === 0) { grid.style.display = 'none'; return; }
+
+            grid.style.display = 'grid';
+            grid.innerHTML = data.map(file => {
+                const path = jobId + '/' + file.name;
+                const isPdf = file.name.toLowerCase().endsWith('.pdf');
+                const { data: urlData } = sb.storage.from('hw-receipts').getPublicUrl(path);
+                // Use signed URL for private bucket
+                return `<div class="receipt-item" data-path="${escapeHtml(path)}" data-name="${escapeHtml(file.name)}">
+                    ${isPdf
+                        ? '<div class="receipt-thumb-pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</div>'
+                        : '<img class="receipt-thumb" src="" alt="" data-path="' + escapeHtml(path) + '">'
+                    }
+                    <div class="receipt-name">${escapeHtml(file.name)}</div>
+                    <button class="receipt-delete" title="Delete">&times;</button>
+                </div>`;
+            }).join('');
+
+            // Load signed URLs for images
+            grid.querySelectorAll('img.receipt-thumb').forEach(async (img) => {
+                const { data: signedData, error } = await sb.storage.from('hw-receipts').createSignedUrl(img.dataset.path, 3600);
+                if (signedData) img.src = signedData.signedUrl;
+            });
+
+            // Click to view
+            grid.querySelectorAll('.receipt-item').forEach(item => {
+                item.addEventListener('click', async (e) => {
+                    if (e.target.closest('.receipt-delete')) return;
+                    const { data: signedData } = await sb.storage.from('hw-receipts').createSignedUrl(item.dataset.path, 3600);
+                    if (signedData) window.open(signedData.signedUrl, '_blank');
+                });
+            });
+
+            // Delete
+            grid.querySelectorAll('.receipt-delete').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const item = btn.closest('.receipt-item');
+                    if (!confirm('Delete ' + item.dataset.name + '?')) return;
+                    const { error } = await sb.storage.from('hw-receipts').remove([item.dataset.path]);
+                    if (error) { showToast('Failed to delete', 'error'); return; }
+                    showToast('Receipt deleted');
+                    loadReceipts();
+                });
+            });
+        }
+
+        // Upload handling
+        function setupReceiptUpload() {
+            const dropZone = document.getElementById('receiptDropZone');
+            const fileInput = document.getElementById('receiptFileInput');
+
+            dropZone.addEventListener('click', () => fileInput.click());
+
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
+            });
+
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length) uploadFiles(fileInput.files);
+                fileInput.value = '';
+            });
+        }
+
+        async function uploadFiles(files) {
+            const dropZone = document.getElementById('receiptDropZone');
+            const origHtml = dropZone.innerHTML;
+            let uploaded = 0;
+
+            for (const file of files) {
+                dropZone.innerHTML = '<p style="margin:0;font-size:0.85rem;">Uploading ' + (uploaded + 1) + ' of ' + files.length + '...</p>';
+
+                // Unique filename to avoid collisions
+                const ext = file.name.split('.').pop();
+                const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const filePath = jobId + '/' + Date.now() + '_' + safeName;
+
+                const { error } = await sb.storage.from('hw-receipts').upload(filePath, file, { cacheControl: '3600' });
+                if (error) {
+                    showToast('Failed to upload ' + file.name + ': ' + error.message, 'error');
+                } else {
+                    uploaded++;
+                }
+            }
+
+            dropZone.innerHTML = origHtml;
+            // Re-bind click handler
+            dropZone.addEventListener('click', () => document.getElementById('receiptFileInput').click());
+
+            if (uploaded > 0) {
+                showToast(uploaded + ' receipt' + (uploaded > 1 ? 's' : '') + ' uploaded');
+                loadReceipts();
             }
         }
     </script>
