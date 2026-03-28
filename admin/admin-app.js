@@ -1,5 +1,5 @@
 // ==================== H&W Admin - Shared Application Module ====================
-const HW_ADMIN_VERSION = 'v3';
+const HW_ADMIN_VERSION = 'v4';
 
 // ==================== Global Error Handler ====================
 window.onerror = function(msg, url, line, col, error) {
@@ -219,7 +219,13 @@ async function initAdminPage(pageName) {
 
     // Show email and version in topbar
     const userEl = document.getElementById('adminUser');
-    if (userEl) userEl.textContent = session.user.email + ' · ' + HW_ADMIN_VERSION;
+    if (userEl) userEl.textContent = session.user.email;
+
+    // Show version badge (always visible, even on mobile)
+    const vBadge = document.createElement('span');
+    vBadge.textContent = HW_ADMIN_VERSION;
+    vBadge.style.cssText = 'position:fixed;top:4px;left:50%;transform:translateX(-50%);background:rgba(245,158,11,0.9);color:#000;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;z-index:999;';
+    document.body.appendChild(vBadge);
 
     return session;
 }
