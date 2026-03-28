@@ -10,24 +10,65 @@
     <link rel="stylesheet" href="/admin/admin-styles.css">
     <style>
         .receipt-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:1rem; margin-top:1rem; }
-        .receipt-card { background:white; border-radius:10px; border:1px solid var(--border-color); overflow:hidden; cursor:pointer; transition:box-shadow 0.2s; position:relative; }
+        .receipt-card { background:white; border-radius:10px; border:1px solid var(--border-color); overflow:hidden; transition:box-shadow 0.2s; position:relative; }
         .receipt-card:hover { box-shadow:0 4px 12px rgba(0,0,0,0.1); }
-        .receipt-card-thumb { width:100%; height:160px; object-fit:cover; display:block; background:var(--bg-light); }
-        .receipt-card-pdf { width:100%; height:160px; display:flex; align-items:center; justify-content:center; background:var(--bg-light); color:var(--text-light); flex-direction:column; gap:0.25rem; }
+        .receipt-card-thumb { width:100%; height:160px; object-fit:cover; display:block; background:var(--bg-light); cursor:pointer; }
+        .receipt-card-pdf { width:100%; height:160px; display:flex; align-items:center; justify-content:center; background:var(--bg-light); color:var(--text-light); flex-direction:column; gap:0.25rem; cursor:pointer; }
         .receipt-card-info { padding:0.75rem; }
         .receipt-card-name { font-size:0.85rem; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:0.25rem; }
         .receipt-card-job { font-size:0.75rem; color:var(--primary-light); }
         .receipt-card-date { font-size:0.7rem; color:var(--text-light); margin-top:0.15rem; }
-        .receipt-card-delete { position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; background:rgba(0,0,0,0.6); color:white; border:none; cursor:pointer; font-size:16px; display:none; align-items:center; justify-content:center; line-height:1; }
+        .receipt-card-actions { display:flex; gap:0.5rem; padding:0 0.75rem 0.75rem; }
+        .receipt-card-actions button { flex:1; padding:0.35rem; border-radius:6px; border:1px solid var(--border-color); background:white; cursor:pointer; font-size:0.7rem; display:flex; align-items:center; justify-content:center; gap:0.25rem; transition:all 0.15s; color:var(--text-dark); }
+        .receipt-card-actions button:hover { background:var(--bg-light); }
+        .receipt-card-actions .btn-ai { border-color:var(--primary-light); color:var(--primary-light); }
+        .receipt-card-actions .btn-ai:hover { background:rgba(37,99,235,0.06); }
+        .receipt-card-actions .btn-ai.processing { opacity:0.6; pointer-events:none; }
+        .receipt-card-delete { position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; background:rgba(0,0,0,0.6); color:white; border:none; cursor:pointer; font-size:16px; display:none; align-items:center; justify-content:center; line-height:1; z-index:2; }
         .receipt-card:hover .receipt-card-delete { display:flex; }
-        .upload-area { border:2px dashed var(--border-color); border-radius:10px; padding:2rem; text-align:center; color:var(--text-light); cursor:pointer; transition:border-color 0.2s, background 0.2s; margin-bottom:1rem; }
+        .upload-area { border:2px dashed var(--border-color); border-radius:10px; padding:2rem; text-align:center; color:var(--text-light); cursor:pointer; transition:border-color 0.2s, background 0.2s; }
         .upload-area:hover, .upload-area.dragover { border-color:var(--primary-light); background:rgba(37,99,235,0.04); }
         .upload-area input { display:none; }
-        .upload-bar { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; }
-        .upload-bar select { padding:0.5rem 2rem 0.5rem 0.75rem; border-radius:6px; border:1px solid var(--border-color); font-size:0.85rem; background:white; }
+        .upload-controls { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; margin-bottom:1rem; }
+        .upload-controls select { padding:0.5rem 2rem 0.5rem 0.75rem; border-radius:6px; border:1px solid var(--border-color); font-size:0.85rem; background:white; }
         .filter-row { display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap; margin-bottom:1rem; }
         .filter-row select { padding:0.4rem 2rem 0.4rem 0.6rem; border-radius:6px; border:1px solid var(--border-color); font-size:0.85rem; background:white; }
         .receipt-count { font-size:0.85rem; color:var(--text-light); }
+        .qr-btn { padding:0.5rem 1rem; border-radius:6px; border:1px solid var(--border-color); background:white; cursor:pointer; font-size:0.85rem; display:inline-flex; align-items:center; gap:0.5rem; transition:all 0.15s; color:var(--text-dark); }
+        .qr-btn:hover { background:var(--bg-light); }
+        .qr-modal { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; display:none; align-items:center; justify-content:center; }
+        .qr-modal.active { display:flex; }
+        .qr-modal-content { background:white; border-radius:16px; padding:2rem; text-align:center; max-width:360px; width:90%; }
+        .qr-modal-content h3 { margin:0 0 0.5rem; }
+        .qr-modal-content p { color:var(--text-light); font-size:0.85rem; margin:0 0 1.5rem; }
+        .qr-modal-content canvas { margin:0 auto; display:block; }
+        .qr-close { margin-top:1.5rem; padding:0.5rem 1.5rem; border-radius:6px; border:1px solid var(--border-color); background:white; cursor:pointer; font-size:0.9rem; }
+        /* AI Result Modal */
+        .ai-modal { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; display:none; align-items:center; justify-content:center; padding:1rem; }
+        .ai-modal.active { display:flex; }
+        .ai-modal-content { background:white; border-radius:16px; max-width:500px; width:100%; max-height:90vh; overflow-y:auto; }
+        .ai-modal-header { padding:1.25rem; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; }
+        .ai-modal-header h3 { margin:0; }
+        .ai-modal-body { padding:1.25rem; }
+        .ai-field { margin-bottom:1rem; }
+        .ai-field label { display:block; font-size:0.8rem; color:var(--text-light); margin-bottom:0.25rem; font-weight:500; }
+        .ai-field input, .ai-field select { width:100%; padding:0.5rem 0.75rem; border-radius:6px; border:1px solid var(--border-color); font-size:0.9rem; box-sizing:border-box; }
+        .ai-field .ai-items { font-size:0.8rem; color:var(--text-light); line-height:1.6; }
+        .ai-modal-footer { padding:1rem 1.25rem; border-top:1px solid var(--border-color); display:flex; gap:0.75rem; justify-content:flex-end; }
+        /* Accounting */
+        .acct-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:1rem; }
+        .acct-card { background:var(--bg-light); border-radius:10px; padding:1rem 1.25rem; }
+        .acct-card-cat { font-size:0.8rem; color:var(--text-light); text-transform:capitalize; margin-bottom:0.25rem; }
+        .acct-card-amount { font-size:1.3rem; font-weight:700; color:var(--text-dark); }
+        .acct-card-count { font-size:0.75rem; color:var(--text-light); margin-top:0.15rem; }
+        .acct-total { background:var(--primary-dark); color:white; border-radius:10px; padding:1rem 1.25rem; }
+        .acct-total .acct-card-cat { color:rgba(255,255,255,0.7); }
+        .acct-total .acct-card-amount { color:white; font-size:1.5rem; }
+        .acct-total .acct-card-count { color:rgba(255,255,255,0.6); }
+        .acct-table { width:100%; border-collapse:collapse; margin-top:1rem; font-size:0.85rem; }
+        .acct-table th { text-align:left; padding:0.6rem 0.75rem; border-bottom:2px solid var(--border-color); color:var(--text-light); font-weight:500; font-size:0.8rem; }
+        .acct-table td { padding:0.6rem 0.75rem; border-bottom:1px solid var(--bg-light); }
+        .acct-table .cat-badge { display:inline-block; padding:0.15rem 0.5rem; border-radius:4px; font-size:0.75rem; background:var(--bg-light); text-transform:capitalize; }
     </style>
 </head>
 <body>
@@ -63,6 +104,10 @@
 
         <div class="admin-page-header">
             <h2>Receipts</h2>
+            <button class="qr-btn" id="showQrBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/><line x1="21" y1="14" x2="21" y2="17"/><line x1="17" y1="21" x2="21" y2="21"/></svg>
+                Phone Upload
+            </button>
         </div>
 
         <!-- Upload Area -->
@@ -71,7 +116,7 @@
                 <h3>Upload Receipts</h3>
             </div>
             <div style="padding:1.25rem;">
-                <div class="upload-bar" style="margin-bottom:1rem;">
+                <div class="upload-controls">
                     <label style="font-size:0.85rem;color:var(--text-light);">Assign to job:</label>
                     <select id="uploadJobSelect">
                         <option value="_unassigned">No job (general)</option>
@@ -80,8 +125,8 @@
                 <div class="upload-area" id="uploadDropZone">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36" style="margin-bottom:0.5rem;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     <p style="margin:0;font-size:0.95rem;">Tap to upload or drag & drop</p>
-                    <p style="margin:0.25rem 0 0;font-size:0.8rem;">Upload multiple images or PDFs at once</p>
-                    <input type="file" id="fileInput" multiple accept="image/*,.pdf">
+                    <p style="margin:0.25rem 0 0;font-size:0.8rem;">Select multiple photos or PDFs at once</p>
+                    <input type="file" id="fileInput" multiple accept="image/*,.pdf" capture="environment">
                 </div>
             </div>
         </div>
@@ -108,7 +153,98 @@
                 </div>
             </div>
         </div>
+
+        <!-- Accounting Summary -->
+        <div class="admin-card" style="margin-top:1.25rem;">
+            <div class="admin-card-header">
+                <h3>Accounting</h3>
+                <span class="receipt-count" id="expenseCount"></span>
+            </div>
+            <div style="padding:1.25rem;">
+                <div class="acct-grid" id="acctGrid">
+                    <div style="text-align:center;padding:1rem;color:var(--text-light);font-size:0.85rem;">Loading expenses...</div>
+                </div>
+                <table class="acct-table" id="acctTable" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Vendor</th>
+                            <th>Category</th>
+                            <th>Job</th>
+                            <th style="text-align:right;">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="acctTableBody"></tbody>
+                </table>
+            </div>
+        </div>
     </main>
+
+    <!-- QR Code Modal -->
+    <div class="qr-modal" id="qrModal">
+        <div class="qr-modal-content">
+            <h3>Scan to Upload from Phone</h3>
+            <p>Open your phone camera and scan this code to upload receipts directly.</p>
+            <canvas id="qrCanvas"></canvas>
+            <button class="qr-close" id="qrClose">Close</button>
+        </div>
+    </div>
+
+    <!-- AI Result Modal -->
+    <div class="ai-modal" id="aiModal">
+        <div class="ai-modal-content">
+            <div class="ai-modal-header">
+                <h3>AI Receipt Reading</h3>
+                <button class="modal-close" id="aiModalClose">&times;</button>
+            </div>
+            <div class="ai-modal-body" id="aiModalBody">
+                <div class="ai-field">
+                    <label>Vendor / Store</label>
+                    <input type="text" id="aiVendor">
+                </div>
+                <div class="ai-field">
+                    <label>Total Amount ($)</label>
+                    <input type="number" id="aiAmount" step="0.01" min="0">
+                </div>
+                <div class="ai-field">
+                    <label>Date</label>
+                    <input type="date" id="aiDate">
+                </div>
+                <div class="ai-field">
+                    <label>Category</label>
+                    <select id="aiCategory">
+                        <option value="materials">Materials</option>
+                        <option value="tools">Tools</option>
+                        <option value="software">Software</option>
+                        <option value="fuel">Fuel</option>
+                        <option value="supplies">Supplies</option>
+                        <option value="permits">Permits</option>
+                        <option value="subcontractor">Subcontractor</option>
+                        <option value="equipment_rental">Equipment Rental</option>
+                        <option value="vehicle">Vehicle</option>
+                        <option value="meals">Meals</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="ai-field">
+                    <label>Description</label>
+                    <input type="text" id="aiDescription">
+                </div>
+                <div class="ai-field">
+                    <label>Assign to Job</label>
+                    <select id="aiJob"></select>
+                </div>
+                <div class="ai-field" id="aiItemsField" style="display:none;">
+                    <label>Line Items</label>
+                    <div class="ai-items" id="aiItems"></div>
+                </div>
+            </div>
+            <div class="ai-modal-footer">
+                <button class="btn btn-outline" id="aiCancel">Cancel</button>
+                <button class="btn btn-primary" id="aiSave">Save Expense</button>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
@@ -118,6 +254,7 @@
         );
 
         function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function formatCurrency(a) { return '$' + (parseFloat(a) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
         function showToast(msg, type) {
             type = type || 'success';
             let c = document.querySelector('.toast-container');
@@ -127,12 +264,16 @@
         }
 
         let allJobs = [];
-        let allReceipts = []; // { path, name, folder, created_at }
+        let allReceipts = [];
+        let allExpenses = [];
         let currentFilter = 'all';
+        let currentAiPath = null;
+        let authToken = null;
 
         (async () => {
             const { data: { session } } = await sb.auth.getSession();
             if (!session) { window.location.href = '/admin/login.html'; return; }
+            authToken = session.access_token;
             document.getElementById('adminUser').textContent = session.user.email;
             document.getElementById('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); window.location.href = '/admin/login.html'; });
 
@@ -142,58 +283,53 @@
             document.addEventListener('click', (e) => { if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggle.contains(e.target)) sidebar.classList.remove('open'); });
 
             await loadJobs();
-            await loadAllReceipts();
+            await Promise.all([loadAllReceipts(), loadExpenses()]);
             setupUpload();
             setupFilter();
+            setupQrCode();
+            setupAiModal();
         })();
 
+        // ==================== Jobs ====================
         async function loadJobs() {
-            const { data } = await sb.from('hw_jobs').select('id, name').order('name');
+            const { data } = await sb.from('hw_jobs').select('id, name, customer_id').order('name');
             allJobs = data || [];
 
-            const uploadSelect = document.getElementById('uploadJobSelect');
-            const filterSelect = document.getElementById('filterJobSelect');
-
             const jobOptions = allJobs.map(j => '<option value="' + j.id + '">' + escapeHtml(j.name) + '</option>').join('');
-            uploadSelect.innerHTML = '<option value="_unassigned">No job (general)</option>' + jobOptions;
-            filterSelect.innerHTML = '<option value="all">All receipts</option><option value="_unassigned">Unassigned</option>' + jobOptions;
+            document.getElementById('uploadJobSelect').innerHTML = '<option value="_unassigned">No job (general)</option>' + jobOptions;
+            document.getElementById('filterJobSelect').innerHTML = '<option value="all">All receipts</option><option value="_unassigned">Unassigned</option>' + jobOptions;
+            document.getElementById('aiJob').innerHTML = '<option value="">No job</option>' + jobOptions;
         }
 
+        // ==================== Receipts ====================
         async function loadAllReceipts() {
             document.getElementById('loadingState').style.display = 'flex';
             document.getElementById('receiptGrid').style.display = 'none';
             document.getElementById('emptyState').style.display = 'none';
-
             allReceipts = [];
 
-            // List all folders (job IDs + _unassigned)
             const { data: folders, error } = await sb.storage.from('hw-receipts').list('', { limit: 1000 });
             if (error) { console.error(error); document.getElementById('loadingState').style.display = 'none'; return; }
 
-            // For each folder, list files
-            const folderNames = (folders || []).filter(f => f.id === null).map(f => f.name); // folders have id=null
-            const fileFolders = (folders || []).filter(f => f.id !== null); // files at root level
+            const folderNames = (folders || []).filter(f => f.id === null).map(f => f.name);
+            const rootFiles = (folders || []).filter(f => f.id !== null);
 
-            // Root-level files go to _unassigned
-            fileFolders.forEach(f => {
+            rootFiles.forEach(f => {
                 allReceipts.push({ path: f.name, name: f.name, folder: '_unassigned', created_at: f.created_at });
             });
 
-            // List each subfolder
             for (const folder of folderNames) {
                 const { data: files } = await sb.storage.from('hw-receipts').list(folder + '/', { limit: 1000, sortBy: { column: 'created_at', order: 'desc' } });
                 if (files) {
                     files.forEach(f => {
-                        if (f.id !== null) { // skip nested folders
+                        if (f.id !== null) {
                             allReceipts.push({ path: folder + '/' + f.name, name: f.name, folder: folder, created_at: f.created_at });
                         }
                     });
                 }
             }
 
-            // Sort newest first
             allReceipts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
             document.getElementById('loadingState').style.display = 'none';
             renderReceipts();
         }
@@ -202,7 +338,6 @@
             const grid = document.getElementById('receiptGrid');
             const empty = document.getElementById('emptyState');
             const count = document.getElementById('receiptCount');
-
             const filtered = currentFilter === 'all' ? allReceipts : allReceipts.filter(r => r.folder === currentFilter);
 
             count.textContent = filtered.length + ' receipt' + (filtered.length !== 1 ? 's' : '');
@@ -221,15 +356,25 @@
                 const jobName = getJobName(r.folder);
                 const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 
-                return `<div class="receipt-card" data-path="${escapeHtml(r.path)}" data-name="${escapeHtml(r.name)}">
+                return `<div class="receipt-card" data-path="${escapeHtml(r.path)}" data-name="${escapeHtml(r.name)}" data-folder="${escapeHtml(r.folder)}">
                     ${isPdf
-                        ? '<div class="receipt-card-pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</div>'
-                        : '<img class="receipt-card-thumb" src="" alt="" data-path="' + escapeHtml(r.path) + '">'
+                        ? '<div class="receipt-card-pdf" data-view><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</div>'
+                        : '<img class="receipt-card-thumb" src="" alt="" data-path="' + escapeHtml(r.path) + '" data-view>'
                     }
                     <div class="receipt-card-info">
                         <div class="receipt-card-name" title="${escapeHtml(r.name)}">${escapeHtml(cleanName(r.name))}</div>
                         <div class="receipt-card-job">${escapeHtml(jobName)}</div>
                         <div class="receipt-card-date">${dateStr}</div>
+                    </div>
+                    <div class="receipt-card-actions">
+                        <button class="btn-ai" data-ai="${escapeHtml(r.path)}" title="AI Read">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                            AI Read
+                        </button>
+                        <button data-download="${escapeHtml(r.path)}" data-dlname="${escapeHtml(cleanName(r.name))}" title="Download">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Save
+                        </button>
                     </div>
                     <button class="receipt-card-delete" title="Delete">&times;</button>
                 </div>`;
@@ -241,12 +386,32 @@
                 if (data) img.src = data.signedUrl;
             });
 
-            // Click to view full size
-            grid.querySelectorAll('.receipt-card').forEach(card => {
-                card.addEventListener('click', async (e) => {
-                    if (e.target.closest('.receipt-card-delete')) return;
+            // Click thumbnail to view
+            grid.querySelectorAll('[data-view]').forEach(el => {
+                el.addEventListener('click', async () => {
+                    const card = el.closest('.receipt-card');
                     const { data } = await sb.storage.from('hw-receipts').createSignedUrl(card.dataset.path, 3600);
                     if (data) window.open(data.signedUrl, '_blank');
+                });
+            });
+
+            // Download
+            grid.querySelectorAll('[data-download]').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const path = btn.dataset.download;
+                    const dlName = btn.dataset.dlname;
+                    const { data } = await sb.storage.from('hw-receipts').createSignedUrl(path, 300);
+                    if (!data) { showToast('Download failed', 'error'); return; }
+                    const a = document.createElement('a'); a.href = data.signedUrl; a.download = dlName; a.target = '_blank'; document.body.appendChild(a); a.click(); a.remove();
+                });
+            });
+
+            // AI Read
+            grid.querySelectorAll('[data-ai]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    aiReadReceipt(btn);
                 });
             });
 
@@ -272,10 +437,10 @@
         }
 
         function cleanName(name) {
-            // Strip timestamp prefix like "1234567890_"
             return name.replace(/^\d+_/, '');
         }
 
+        // ==================== Upload ====================
         function setupFilter() {
             document.getElementById('filterJobSelect').addEventListener('change', (e) => {
                 currentFilter = e.target.value;
@@ -323,15 +488,224 @@
             }
 
             dropZone.innerHTML = origHtml;
-            dropZone.querySelector('input').addEventListener('change', () => {});
-            // Rebind click
-            const newInput = document.getElementById('fileInput');
-            dropZone.addEventListener('click', () => newInput.click());
+            document.getElementById('fileInput').addEventListener('change', () => {
+                const fi = document.getElementById('fileInput');
+                if (fi.files.length) uploadFiles(fi.files);
+                fi.value = '';
+            });
+            dropZone.addEventListener('click', () => document.getElementById('fileInput').click());
 
             if (uploaded > 0) {
                 showToast(uploaded + ' receipt' + (uploaded > 1 ? 's' : '') + ' uploaded');
                 await loadAllReceipts();
             }
+        }
+
+        // ==================== QR Code ====================
+        function setupQrCode() {
+            const modal = document.getElementById('qrModal');
+            document.getElementById('showQrBtn').addEventListener('click', () => {
+                generateQrCode();
+                modal.classList.add('active');
+            });
+            document.getElementById('qrClose').addEventListener('click', () => modal.classList.remove('active'));
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+        }
+
+        function generateQrCode() {
+            const canvas = document.getElementById('qrCanvas');
+            const url = window.location.href;
+            const ctx = canvas.getContext('2d');
+            const size = 200;
+            canvas.width = size;
+            canvas.height = size;
+
+            // Simple QR encoding using canvas - we'll use the QR Server API as image source
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => { ctx.drawImage(img, 0, 0, size, size); };
+            img.onerror = () => {
+                // Fallback: show URL as text
+                ctx.fillStyle = '#f5f5f5';
+                ctx.fillRect(0, 0, size, size);
+                ctx.fillStyle = '#333';
+                ctx.font = '12px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Open on your phone:', size/2, size/2 - 10);
+                ctx.fillStyle = '#2563eb';
+                ctx.fillText(url.replace('https://', ''), size/2, size/2 + 10);
+            };
+            img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + 'x' + size + '&data=' + encodeURIComponent(url);
+        }
+
+        // ==================== AI Receipt Reading ====================
+        async function aiReadReceipt(btn) {
+            const card = btn.closest('.receipt-card');
+            const path = btn.dataset.ai;
+            const folder = card.dataset.folder;
+
+            btn.classList.add('processing');
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="spin"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Reading...';
+
+            // Add spin animation
+            if (!document.getElementById('spin-style')) {
+                const s = document.createElement('style');
+                s.id = 'spin-style';
+                s.textContent = '@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}.spin{animation:spin 1s linear infinite}';
+                document.head.appendChild(s);
+            }
+
+            try {
+                const res = await fetch('/api/read-receipt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+                    body: JSON.stringify({ path })
+                });
+
+                const data = await res.json();
+
+                if (data.error && !data.vendor) {
+                    showToast('AI read failed: ' + data.error, 'error');
+                    btn.classList.remove('processing');
+                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> AI Read';
+                    return;
+                }
+
+                // Pre-fill AI modal
+                currentAiPath = path;
+                document.getElementById('aiVendor').value = data.vendor || '';
+                document.getElementById('aiAmount').value = data.amount || '';
+                document.getElementById('aiDate').value = data.date || '';
+                document.getElementById('aiCategory').value = data.category || 'materials';
+                document.getElementById('aiDescription').value = data.description || '';
+
+                // Pre-select job if receipt was in a job folder
+                const jobSelect = document.getElementById('aiJob');
+                if (folder && folder !== '_unassigned') {
+                    jobSelect.value = folder;
+                } else {
+                    jobSelect.value = '';
+                }
+
+                // Show line items if available
+                const itemsField = document.getElementById('aiItemsField');
+                const itemsDiv = document.getElementById('aiItems');
+                if (data.items && data.items.length > 0) {
+                    itemsField.style.display = 'block';
+                    itemsDiv.innerHTML = data.items.map(i =>
+                        escapeHtml(i.name) + (i.qty > 1 ? ' x' + i.qty : '') + ' — ' + formatCurrency(i.amount)
+                    ).join('<br>');
+                } else {
+                    itemsField.style.display = 'none';
+                }
+
+                document.getElementById('aiModal').classList.add('active');
+
+            } catch (err) {
+                showToast('AI read failed: ' + err.message, 'error');
+            }
+
+            btn.classList.remove('processing');
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> AI Read';
+        }
+
+        function setupAiModal() {
+            const modal = document.getElementById('aiModal');
+            document.getElementById('aiModalClose').addEventListener('click', () => modal.classList.remove('active'));
+            document.getElementById('aiCancel').addEventListener('click', () => modal.classList.remove('active'));
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+
+            document.getElementById('aiSave').addEventListener('click', async () => {
+                const btn = document.getElementById('aiSave');
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+
+                const jobId = document.getElementById('aiJob').value || null;
+                const payload = {
+                    job_id: jobId,
+                    vendor: document.getElementById('aiVendor').value.trim() || null,
+                    amount: parseFloat(document.getElementById('aiAmount').value) || 0,
+                    expense_date: document.getElementById('aiDate').value || null,
+                    category: document.getElementById('aiCategory').value || 'other',
+                    description: document.getElementById('aiDescription').value.trim() || null,
+                    receipt_path: currentAiPath
+                };
+
+                const { error } = await sb.from('hw_expenses').insert(payload);
+                if (error) {
+                    showToast('Failed to save: ' + error.message, 'error');
+                } else {
+                    showToast('Expense saved');
+                    modal.classList.remove('active');
+                    await loadExpenses();
+                }
+
+                btn.disabled = false;
+                btn.textContent = 'Save Expense';
+            });
+        }
+
+        // ==================== Accounting ====================
+        async function loadExpenses() {
+            const { data, error } = await sb
+                .from('hw_expenses')
+                .select('*, hw_jobs(name)')
+                .order('expense_date', { ascending: false });
+
+            if (error) { console.error(error); return; }
+            allExpenses = data || [];
+            renderAccounting();
+        }
+
+        function renderAccounting() {
+            const grid = document.getElementById('acctGrid');
+            const table = document.getElementById('acctTable');
+            const tbody = document.getElementById('acctTableBody');
+            const countEl = document.getElementById('expenseCount');
+
+            if (allExpenses.length === 0) {
+                grid.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-light);grid-column:1/-1;"><p>No expenses recorded yet. Use AI Read on a receipt to get started.</p></div>';
+                table.style.display = 'none';
+                countEl.textContent = '';
+                return;
+            }
+
+            countEl.textContent = allExpenses.length + ' expense' + (allExpenses.length !== 1 ? 's' : '');
+
+            // Group by category
+            const cats = {};
+            let total = 0;
+            allExpenses.forEach(e => {
+                const cat = e.category || 'other';
+                if (!cats[cat]) cats[cat] = { count: 0, total: 0 };
+                cats[cat].count++;
+                cats[cat].total += parseFloat(e.amount) || 0;
+                total += parseFloat(e.amount) || 0;
+            });
+
+            // Render category cards
+            const catOrder = ['materials', 'tools', 'software', 'fuel', 'supplies', 'permits', 'subcontractor', 'equipment_rental', 'vehicle', 'meals', 'other'];
+            const activeCats = catOrder.filter(c => cats[c]);
+
+            grid.innerHTML =
+                '<div class="acct-total"><div class="acct-card-cat">Total Expenses</div><div class="acct-card-amount">' + formatCurrency(total) + '</div><div class="acct-card-count">' + allExpenses.length + ' items</div></div>' +
+                activeCats.map(c =>
+                    '<div class="acct-card"><div class="acct-card-cat">' + c.replace('_', ' ') + '</div><div class="acct-card-amount">' + formatCurrency(cats[c].total) + '</div><div class="acct-card-count">' + cats[c].count + ' item' + (cats[c].count !== 1 ? 's' : '') + '</div></div>'
+                ).join('');
+
+            // Render expense table
+            table.style.display = 'table';
+            tbody.innerHTML = allExpenses.map(e => {
+                const date = e.expense_date ? new Date(e.expense_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+                const cat = (e.category || 'other').replace('_', ' ');
+                return '<tr>' +
+                    '<td>' + date + '</td>' +
+                    '<td>' + escapeHtml(e.vendor || e.description || '-') + '</td>' +
+                    '<td><span class="cat-badge">' + cat + '</span></td>' +
+                    '<td>' + escapeHtml(e.hw_jobs?.name || '-') + '</td>' +
+                    '<td style="text-align:right;font-weight:500;">' + formatCurrency(e.amount) + '</td>' +
+                    '</tr>';
+            }).join('');
         }
     </script>
 </body>
