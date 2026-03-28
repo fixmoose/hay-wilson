@@ -1,4 +1,23 @@
 // ==================== H&W Admin - Shared Application Module ====================
+const HW_ADMIN_VERSION = 'v3';
+
+// ==================== Global Error Handler ====================
+window.onerror = function(msg, url, line, col, error) {
+    showErrorBanner('JS Error: ' + msg + ' (line ' + line + ')');
+};
+window.addEventListener('unhandledrejection', function(event) {
+    showErrorBanner('Error: ' + (event.reason?.message || event.reason || 'Unknown async error'));
+});
+function showErrorBanner(msg) {
+    let banner = document.getElementById('hw-error-banner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'hw-error-banner';
+        banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#ef4444;color:white;padding:12px 16px;font-size:14px;z-index:9999;font-family:monospace;white-space:pre-wrap;max-height:40vh;overflow:auto;';
+        document.body.appendChild(banner);
+    }
+    banner.textContent = (banner.textContent ? banner.textContent + '\n' : '') + msg;
+}
 
 const HW_SUPABASE_URL = 'https://mxxabikquupnwvlspzyz.supabase.co';
 const HW_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14eGFiaWtxdXVwbnd2bHNwenl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDMwNTgsImV4cCI6MjA3NzIxOTA1OH0.WC_mupqYMneJnYmr9vmDZd0vXroBnaLwZlYX44J_HFQ';
@@ -6,6 +25,9 @@ const HW_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 let supabase;
 
 function initSupabase() {
+    if (!window.supabase) {
+        throw new Error('Supabase CDN failed to load. Check your internet connection.');
+    }
     supabase = window.supabase.createClient(HW_SUPABASE_URL, HW_SUPABASE_ANON_KEY);
     return supabase;
 }
@@ -195,9 +217,9 @@ async function initAdminPage(pageName) {
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
 
-    // Show email in topbar
+    // Show email and version in topbar
     const userEl = document.getElementById('adminUser');
-    if (userEl) userEl.textContent = session.user.email;
+    if (userEl) userEl.textContent = session.user.email + ' · ' + HW_ADMIN_VERSION;
 
     return session;
 }
