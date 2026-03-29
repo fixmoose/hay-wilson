@@ -17,9 +17,15 @@ module.exports = async (req, res) => {
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
         if (authError || !user) return res.status(401).json({ error: 'Invalid token' });
 
-        const { stripe_customer_id, amount_cents, description, due_date } = req.body;
-        if (!stripe_customer_id || !amount_cents) {
-            return res.status(400).json({ error: 'stripe_customer_id and amount_cents are required' });
+        const { stripe_customer_id, line_items, amount_cents, description, due_date } = req.body;
+        if (!stripe_customer_id) {
+            return res.status(400).json({ error: 'stripe_customer_id is required' });
+        }
+
+        // Support both multi-line and legacy single-line format
+        const items = line_items || [{ amount_cents, description: description || 'Electrical services' }];
+        if (!items.length || !items.some(i => i.amount_cents > 0)) {
+            return res.status(400).json({ error: 'At least one line item with a positive amount is required' });
         }
 
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -33,14 +39,16 @@ module.exports = async (req, res) => {
             auto_advance: false,
         });
 
-        // Add line item
-        await stripe.invoiceItems.create({
-            customer: stripe_customer_id,
-            invoice: invoice.id,
-            amount: amount_cents,
-            currency: 'usd',
-            description: description || 'Electrical services',
-        });
+        // Add each line item
+        for (const item of items) {
+            await stripe.invoiceItems.create({
+                customer: stripe_customer_id,
+                invoice: invoice.id,
+                amount: item.amount_cents,
+                currency: 'usd',
+                description: item.description || 'Electrical services',
+            });
+        }
 
         // Fetch updated invoice to get the hosted URL
         const updated = await stripe.invoices.retrieve(invoice.id);
