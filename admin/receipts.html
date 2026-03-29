@@ -400,7 +400,7 @@
 
         // ==================== Jobs ====================
         async function loadJobs() {
-            const { data } = await sb.from('hw_jobs').select('id, name, customer_id, hw_customers(name, parent_gc:hw_customers!parent_gc_id(name))').order('name');
+            const { data } = await sb.from('hw_jobs').select('id, name, customer_id, hw_customers(name, is_gc, parent_gc:hw_customers!parent_gc_id(name))').order('name');
             allJobs = data || [];
 
             const jobOptions = allJobs.map(j => '<option value="' + j.id + '">' + escapeHtml(j.name) + '</option>').join('');
@@ -599,6 +599,13 @@
             return prefix + job.name;
         }
 
+        function jobHasGC(jobId) {
+            const job = allJobs.find(j => j.id === jobId);
+            if (!job?.hw_customers) return false;
+            // Job's customer IS a GC, or job's customer HAS a parent GC
+            return !!(job.hw_customers.is_gc || job.hw_customers.parent_gc?.name);
+        }
+
         function cleanName(name) {
             // Strip group prefix (grp_123_p1_) or timestamp prefix (123_)
             return name.replace(/^grp_\d+_p\d+_/, '').replace(/^\d+_/, '');
@@ -791,7 +798,6 @@
             document.getElementById('aiDate').value = '';
             document.getElementById('aiCategory').value = 'materials';
             document.getElementById('aiDescription').value = '';
-            document.getElementById('aiReimbursable').checked = false;
             document.getElementById('aiItemsField').style.display = 'none';
             // Pre-select the job based on the receipt folder
             const jobSelect = document.getElementById('aiJob');
@@ -800,6 +806,10 @@
             } else {
                 jobSelect.value = '';
             }
+            // Auto-set reimbursable for GC jobs
+            const hasGC = jobHasGC(jobSelect.value);
+            document.getElementById('aiReimbursable').checked = hasGC;
+            document.getElementById('aiReimbursable').disabled = hasGC;
             document.getElementById('aiModal').classList.add('active');
         }
 
@@ -809,12 +819,21 @@
             document.getElementById('aiCancel').addEventListener('click', () => modal.classList.remove('active'));
             modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
 
+            // Auto-set reimbursable when job changes
+            document.getElementById('aiJob').addEventListener('change', () => {
+                const hasGC = jobHasGC(document.getElementById('aiJob').value);
+                const cb = document.getElementById('aiReimbursable');
+                cb.checked = hasGC || cb.checked;
+                cb.disabled = hasGC;
+            });
+
             document.getElementById('aiSave').addEventListener('click', async () => {
                 const btn = document.getElementById('aiSave');
                 btn.disabled = true;
                 btn.textContent = 'Saving...';
 
                 const jobId = document.getElementById('aiJob').value || null;
+                const hasGC = jobHasGC(jobId);
                 const payload = {
                     job_id: jobId,
                     vendor: document.getElementById('aiVendor').value.trim() || null,
@@ -823,7 +842,7 @@
                     category: document.getElementById('aiCategory').value || 'other',
                     description: document.getElementById('aiDescription').value.trim() || null,
                     receipt_path: currentAiPath,
-                    reimbursable: document.getElementById('aiReimbursable').checked
+                    reimbursable: hasGC || document.getElementById('aiReimbursable').checked
                 };
 
                 const { error } = await sb.from('hw_expenses').insert(payload);
@@ -937,7 +956,8 @@
             const catOpts = categoryOptions.map(c =>
                 '<option value="' + c + '"' + (c === (expense.category || 'other') ? ' selected' : '') + '>' + c.charAt(0).toUpperCase() + c.slice(1).replace('_',' ') + '</option>'
             ).join('');
-            const isReimb = expense.reimbursable || false;
+            const hasGC = jobHasGC(expense.job_id);
+            const isReimb = hasGC ? true : (expense.reimbursable || false);
             const isDone = expense.reimbursed || false;
 
             return `<div class="edit-expense-panel" data-expense-id="${expense.id}">
@@ -955,7 +975,7 @@
                 </div>
                 <div class="ai-field"><label>Description</label><input type="text" class="ep-description" value="${escapeHtml(expense.description || '')}"></div>
                 <div class="ai-field"><label>Job</label><select class="ep-job">${jobOpts}</select></div>
-                <div class="ai-field"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;"><input type="checkbox" class="ep-reimbursable" ${isReimb ? 'checked' : ''}> Reimbursable by GC</label></div>
+                <div class="ai-field ep-reimb-row" style="${hasGC ? 'color:#16a34a;font-size:0.8rem;' : ''}"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;"><input type="checkbox" class="ep-reimbursable" ${isReimb ? 'checked' : ''} ${hasGC ? 'checked disabled' : ''}> ${hasGC ? 'Auto-reimbursable (GC job)' : 'Reimbursable by GC'}</label></div>
                 <div class="ep-reimb-section" style="display:${isReimb ? 'block' : 'none'};border-top:1px solid var(--border-color);padding-top:0.5rem;margin-top:0.25rem;">
                     <div class="ai-field"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;"><input type="checkbox" class="ep-reimbursed" ${isDone ? 'checked' : ''}> Reimbursed</label></div>
                     <div class="edit-row ep-reimb-details" style="display:${isDone ? 'grid' : 'none'};">
@@ -983,6 +1003,29 @@
 
             const body = document.getElementById('editModalBody');
             body.innerHTML = relatedExpenses.map((exp, i) => buildExpensePanel(exp, i)).join('');
+
+            // Wire up job change → auto-reimbursable for GC jobs
+            body.querySelectorAll('.ep-job').forEach(sel => {
+                sel.addEventListener('change', () => {
+                    const panel = sel.closest('.edit-expense-panel');
+                    const hasGC = jobHasGC(sel.value);
+                    const cb = panel.querySelector('.ep-reimbursable');
+                    const row = panel.querySelector('.ep-reimb-row');
+                    if (hasGC) {
+                        cb.checked = true;
+                        cb.disabled = true;
+                        row.style.color = '#16a34a';
+                        row.style.fontSize = '0.8rem';
+                        row.querySelector('label').lastChild.textContent = ' Auto-reimbursable (GC job)';
+                    } else {
+                        cb.disabled = false;
+                        row.style.color = '';
+                        row.style.fontSize = '';
+                        row.querySelector('label').lastChild.textContent = ' Reimbursable by GC';
+                    }
+                    panel.querySelector('.ep-reimb-section').style.display = cb.checked ? 'block' : 'none';
+                });
+            });
 
             // Wire up reimbursable toggles
             body.querySelectorAll('.ep-reimbursable').forEach(cb => {
@@ -1049,15 +1092,17 @@
                 let errors = 0;
                 for (const panel of panels) {
                     const id = panel.dataset.expenseId;
-                    const isReimb = panel.querySelector('.ep-reimbursable').checked;
-                    const isDone = panel.querySelector('.ep-reimbursed').checked;
+                    const jobId = panel.querySelector('.ep-job').value || null;
+                    const hasGC = jobHasGC(jobId);
+                    const isReimb = hasGC || panel.querySelector('.ep-reimbursable').checked;
+                    const isDone = panel.querySelector('.ep-reimbursed')?.checked || false;
                     const payload = {
                         vendor: panel.querySelector('.ep-vendor').value.trim() || null,
                         amount: parseFloat(panel.querySelector('.ep-amount').value) || 0,
                         expense_date: panel.querySelector('.ep-date').value || null,
                         category: panel.querySelector('.ep-category').value || 'other',
                         description: panel.querySelector('.ep-description').value.trim() || null,
-                        job_id: panel.querySelector('.ep-job').value || null,
+                        job_id: jobId,
                         reimbursable: isReimb,
                         reimbursed: isReimb && isDone,
                         reimbursed_by: isReimb && isDone ? (panel.querySelector('.ep-reimbursed-by').value.trim() || null) : null,
