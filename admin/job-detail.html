@@ -65,6 +65,11 @@
         .upload-drop-zone { border:2px dashed var(--border-color); border-radius:8px; padding:1.5rem; text-align:center; color:var(--text-light); cursor:pointer; transition:border-color 0.2s, background 0.2s; }
         .upload-drop-zone:hover, .upload-drop-zone.dragover { border-color:var(--primary-light); background:rgba(37,99,235,0.04); }
         .upload-drop-zone input { display:none; }
+        .invoice-btn { padding:0.5rem 1rem; border-radius:6px; font-size:0.85rem; font-weight:500; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:0.35rem; transition:opacity 0.15s; }
+        .invoice-btn:disabled { opacity:0.5; cursor:not-allowed; }
+        .invoice-btn-create { background:var(--primary-light); color:white; }
+        .invoice-btn-send { background:#16a34a; color:white; }
+        .invoice-btn-view { background:var(--bg-light); color:var(--text-dark); border:1px solid var(--border-color); }
     </style>
 </head>
 <body>
@@ -202,9 +207,12 @@
                         <h4>Invoice</h4>
                     </div>
                     <div class="section-card-body" id="invoiceBody">
-                        <div class="info-row" id="invoiceBillToRow" style="display:none;"><span class="label">Bill To</span><span class="value" id="invoiceBillTo">-</span></div>
+                        <div class="info-row" id="invoiceBillToRow"><span class="label">Bill To</span><span class="value" id="invoiceBillTo">-</span></div>
+                        <div class="info-row"><span class="label">Unpaid Charges</span><span class="value" id="invoiceUnpaid">-</span></div>
+                        <div class="info-row" id="invoiceReimbRow" style="display:none;"><span class="label">+ Reimbursable</span><span class="value" id="invoiceReimb">-</span></div>
+                        <div class="info-row" style="border-top:2px solid var(--border-color);margin-top:0.25rem;padding-top:0.5rem;font-weight:700;"><span class="label">Invoice Total</span><span class="value" id="invoiceTotal">-</span></div>
                         <div class="info-row"><span class="label">Status</span><span class="value" id="invoiceStatus">No invoice</span></div>
-                        <div class="info-row"><span class="label">Amount</span><span class="value" id="invoiceAmount">-</span></div>
+                        <div id="invoiceActions" style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;"></div>
                     </div>
                 </div>
 
@@ -441,7 +449,11 @@
         }
 
         // ==================== Invoice ====================
+        let currentInvoice = null;
+        let reimbExpenses = [];
+
         async function loadInvoice() {
+            // Load existing invoice
             const { data, error } = await sb
                 .from('hw_invoices')
                 .select('*')
@@ -450,22 +462,223 @@
                 .limit(1)
                 .maybeSingle();
 
-            if (error) { console.error(error); return; }
-            if (data) {
-                document.getElementById('invoiceStatus').innerHTML = statusBadge(data.status);
-                document.getElementById('invoiceAmount').textContent = formatCurrency(data.amount);
-            }
+            if (error) { console.error(error); }
+            currentInvoice = data;
 
-            // Show billing contact in invoice card
+            // Load reimbursable expenses for this job
+            const { data: reimbData } = await sb
+                .from('hw_expenses')
+                .select('*')
+                .eq('job_id', jobId)
+                .eq('reimbursable', true);
+            reimbExpenses = reimbData || [];
+
+            renderInvoice();
+        }
+
+        function renderInvoice() {
             const cust = job && job.hw_customers;
-            const billToRow = document.getElementById('invoiceBillToRow');
-            if (cust && cust.parent_gc && cust.parent_gc.name) {
-                billToRow.style.display = '';
+            const isGcJob = cust && cust.parent_gc && cust.parent_gc.name;
+
+            // Bill To
+            if (isGcJob) {
                 document.getElementById('invoiceBillTo').textContent = cust.parent_gc.name + ' (GC)';
             } else if (cust) {
-                billToRow.style.display = '';
                 document.getElementById('invoiceBillTo').textContent = cust.name;
+            } else {
+                document.getElementById('invoiceBillTo').textContent = 'No client assigned';
             }
+
+            // Calculate unpaid charges
+            const unpaidCharges = allCharges.filter(c => !c.is_paid);
+            let unpaidTotal = 0;
+            unpaidCharges.forEach(c => {
+                unpaidTotal += c.charge_type === 'credit' ? -(parseFloat(c.amount) || 0) : (parseFloat(c.amount) || 0);
+            });
+
+            // Reimbursable expenses (not yet reimbursed)
+            const pendingReimb = reimbExpenses.filter(e => !e.reimbursed);
+            const reimbTotal = pendingReimb.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+
+            document.getElementById('invoiceUnpaid').textContent = unpaidCharges.length > 0
+                ? formatCurrency(unpaidTotal) + ' (' + unpaidCharges.length + ' item' + (unpaidCharges.length !== 1 ? 's' : '') + ')'
+                : '$0.00';
+
+            const reimbRow = document.getElementById('invoiceReimbRow');
+            if (pendingReimb.length > 0) {
+                reimbRow.style.display = '';
+                document.getElementById('invoiceReimb').textContent = formatCurrency(reimbTotal) + ' (' + pendingReimb.length + ' receipt' + (pendingReimb.length !== 1 ? 's' : '') + ')';
+            } else {
+                reimbRow.style.display = 'none';
+            }
+
+            const invoiceTotal = unpaidTotal + reimbTotal;
+            document.getElementById('invoiceTotal').textContent = formatCurrency(invoiceTotal);
+
+            // Status + actions
+            const actions = document.getElementById('invoiceActions');
+
+            if (currentInvoice) {
+                document.getElementById('invoiceStatus').innerHTML = statusBadge(currentInvoice.status);
+                if (currentInvoice.status === 'draft') {
+                    actions.innerHTML =
+                        '<button class="invoice-btn invoice-btn-send" id="sendInvoiceBtn">Send Invoice</button>' +
+                        (currentInvoice.stripe_invoice_url ? '<a href="' + currentInvoice.stripe_invoice_url + '" target="_blank" class="invoice-btn invoice-btn-view">View Draft</a>' : '');
+                } else if (currentInvoice.status === 'sent') {
+                    actions.innerHTML =
+                        (currentInvoice.stripe_invoice_url ? '<a href="' + currentInvoice.stripe_invoice_url + '" target="_blank" class="invoice-btn invoice-btn-view">View Invoice</a>' : '') +
+                        '<span style="font-size:0.8rem;color:var(--text-light);">Waiting for payment</span>';
+                } else if (currentInvoice.status === 'paid') {
+                    actions.innerHTML = '<span style="font-size:0.85rem;color:#16a34a;font-weight:500;">Paid</span>' +
+                        (currentInvoice.stripe_invoice_url ? ' <a href="' + currentInvoice.stripe_invoice_url + '" target="_blank" class="invoice-btn invoice-btn-view">View</a>' : '');
+                } else {
+                    actions.innerHTML = '';
+                }
+            } else {
+                document.getElementById('invoiceStatus').textContent = 'No invoice';
+                if (invoiceTotal > 0) {
+                    actions.innerHTML = '<button class="invoice-btn invoice-btn-create" id="createInvoiceBtn">Create Invoice (' + formatCurrency(invoiceTotal) + ')</button>';
+                } else {
+                    actions.innerHTML = '<span style="font-size:0.8rem;color:var(--text-light);">Add charges to create an invoice</span>';
+                }
+            }
+
+            // Wire buttons
+            const createBtn = document.getElementById('createInvoiceBtn');
+            if (createBtn) createBtn.addEventListener('click', createInvoice);
+            const sendBtn = document.getElementById('sendInvoiceBtn');
+            if (sendBtn) sendBtn.addEventListener('click', sendInvoice);
+        }
+
+        async function createInvoice() {
+            const btn = document.getElementById('createInvoiceBtn');
+            btn.disabled = true;
+            btn.textContent = 'Creating...';
+
+            const cust = job.hw_customers;
+            if (!cust) { showToast('No client assigned to this job', 'error'); btn.disabled = false; btn.textContent = 'Create Invoice'; return; }
+
+            // Determine billing target — GC or direct client
+            const isGcJob = cust.parent_gc && cust.parent_gc.name;
+            const billingCustomerId = isGcJob ? cust.parent_gc.id : cust.id;
+
+            // Get the billing customer's stripe_customer_id
+            const { data: billingCust, error: custErr } = await sb
+                .from('hw_customers')
+                .select('id, name, email, stripe_customer_id')
+                .eq('id', billingCustomerId)
+                .single();
+
+            if (custErr || !billingCust) { showToast('Could not find billing customer', 'error'); btn.disabled = false; btn.textContent = 'Create Invoice'; return; }
+            if (!billingCust.email) { showToast('Billing customer has no email — add one in Clients first', 'error'); btn.disabled = false; btn.textContent = 'Create Invoice'; return; }
+
+            // Calculate total
+            const unpaidCharges = allCharges.filter(c => !c.is_paid);
+            let chargesTotal = 0;
+            unpaidCharges.forEach(c => { chargesTotal += c.charge_type === 'credit' ? -(parseFloat(c.amount) || 0) : (parseFloat(c.amount) || 0); });
+            const pendingReimb = reimbExpenses.filter(e => !e.reimbursed);
+            const reimbTotal = pendingReimb.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+            const total = chargesTotal + reimbTotal;
+
+            if (total <= 0) { showToast('Nothing to invoice', 'error'); btn.disabled = false; btn.textContent = 'Create Invoice'; return; }
+
+            // Build description
+            let desc = job.name;
+            if (unpaidCharges.length > 0) desc += ' — ' + unpaidCharges.map(c => c.description).join(', ');
+            if (pendingReimb.length > 0) desc += ' + ' + pendingReimb.length + ' reimbursable receipt(s)';
+
+            try {
+                // Create or get Stripe customer
+                let stripeCustomerId = billingCust.stripe_customer_id;
+                if (!stripeCustomerId) {
+                    const res = await fetch('/api/stripe-create-customer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (await sb.auth.getSession()).data.session.access_token },
+                        body: JSON.stringify({ name: billingCust.name, email: billingCust.email })
+                    });
+                    const data = await res.json();
+                    if (data.error) throw new Error(data.error);
+                    stripeCustomerId = data.stripe_customer_id;
+                    // Save to DB
+                    await sb.from('hw_customers').update({ stripe_customer_id: stripeCustomerId }).eq('id', billingCust.id);
+                }
+
+                // Create Stripe invoice
+                const res = await fetch('/api/stripe-create-invoice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (await sb.auth.getSession()).data.session.access_token },
+                    body: JSON.stringify({
+                        stripe_customer_id: stripeCustomerId,
+                        amount_cents: Math.round(total * 100),
+                        description: desc
+                    })
+                });
+                const invoiceData = await res.json();
+                if (invoiceData.error) throw new Error(invoiceData.error);
+
+                // Save invoice record
+                const { error: insertErr } = await sb.from('hw_invoices').insert({
+                    job_id: jobId,
+                    stripe_invoice_id: invoiceData.stripe_invoice_id,
+                    stripe_invoice_url: invoiceData.stripe_invoice_url,
+                    amount: total,
+                    status: 'draft'
+                });
+                if (insertErr) throw insertErr;
+
+                showToast('Invoice created as draft');
+                await loadInvoice();
+            } catch (err) {
+                showToast('Failed: ' + err.message, 'error');
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Create Invoice';
+        }
+
+        async function sendInvoice() {
+            const btn = document.getElementById('sendInvoiceBtn');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+
+            try {
+                const res = await fetch('/api/stripe-send-invoice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (await sb.auth.getSession()).data.session.access_token },
+                    body: JSON.stringify({ stripe_invoice_id: currentInvoice.stripe_invoice_id })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                // Update local record
+                await sb.from('hw_invoices').update({ status: 'sent', stripe_invoice_url: data.stripe_invoice_url || currentInvoice.stripe_invoice_url }).eq('id', currentInvoice.id);
+
+                // Mark charges as paid
+                const unpaidIds = allCharges.filter(c => !c.is_paid).map(c => c.id);
+                if (unpaidIds.length > 0) {
+                    await sb.from('hw_charges').update({ is_paid: true, paid_date: new Date().toISOString().split('T')[0] }).in('id', unpaidIds);
+                }
+
+                // Mark reimbursable expenses as reimbursed
+                const pendingReimbIds = reimbExpenses.filter(e => !e.reimbursed).map(e => e.id);
+                if (pendingReimbIds.length > 0) {
+                    await sb.from('hw_expenses').update({ reimbursed: true, reimbursed_date: new Date().toISOString().split('T')[0] }).in('id', pendingReimbIds);
+                }
+
+                // Update job status
+                await sb.from('hw_jobs').update({ status: 'invoiced' }).eq('id', jobId);
+                job.status = 'invoiced';
+                document.getElementById('statusSelect').value = 'invoiced';
+                renderNextSteps();
+
+                showToast('Invoice sent!');
+                await Promise.all([loadCharges(), loadInvoice()]);
+            } catch (err) {
+                showToast('Failed to send: ' + err.message, 'error');
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Send Invoice';
         }
 
         // ==================== Status Change ====================
@@ -574,6 +787,7 @@
             if (error) { console.error('Charges error:', error); showToast('Failed to load charges', 'error'); return; }
             allCharges = data || [];
             renderCharges();
+            if (typeof renderInvoice === 'function') renderInvoice();
         }
 
         function renderCharges() {
