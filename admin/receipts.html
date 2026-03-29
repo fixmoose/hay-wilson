@@ -857,6 +857,7 @@
 
             if (error) { console.error('loadExpenses error:', error); showToast('Failed to load expenses: ' + error.message, 'error'); return; }
             allExpenses = data || [];
+            console.log('loadExpenses returned', allExpenses.length, 'rows', JSON.stringify(allExpenses));
             renderAccounting();
         }
 
