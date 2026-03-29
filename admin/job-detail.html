@@ -1055,7 +1055,7 @@
                     // Step 1: shrink dimensions — phone photos can be 4000-8000px
                     const canvas = document.createElement('canvas');
                     let w = img.width, h = img.height;
-                    const maxDim = 1200;
+                    const maxDim = 2000;
                     if (w > maxDim || h > maxDim) {
                         const scale = maxDim / Math.max(w, h);
                         w = Math.round(w * scale);
@@ -1064,11 +1064,11 @@
                     canvas.width = w;
                     canvas.height = h;
                     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    // Step 2: encode as JPEG at 0.6 quality — should be well under 500KB
+                    // Step 2: encode as JPEG at 0.7 quality for better receipt readability
                     canvas.toBlob((blob) => {
                         if (!blob) { resolve(file); return; }
                         resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
-                    }, 'image/jpeg', 0.6);
+                    }, 'image/jpeg', 0.7);
                 };
                 img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
                 img.src = url;

@@ -174,7 +174,7 @@
                     URL.revokeObjectURL(url);
                     const canvas = document.createElement('canvas');
                     let w = img.width, h = img.height;
-                    const maxDim = 1200;
+                    const maxDim = 2000;
                     if (w > maxDim || h > maxDim) {
                         const scale = maxDim / Math.max(w, h);
                         w = Math.round(w * scale);
@@ -186,7 +186,7 @@
                     canvas.toBlob((blob) => {
                         if (!blob) { resolve(file); return; }
                         resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
-                    }, 'image/jpeg', 0.6);
+                    }, 'image/jpeg', 0.7);
                 };
                 img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
                 img.src = url;
