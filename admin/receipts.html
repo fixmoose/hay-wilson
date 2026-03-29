@@ -1090,6 +1090,7 @@
 
                 const panels = document.querySelectorAll('.edit-expense-panel');
                 let errors = 0;
+                let lastErr = '';
                 for (const panel of panels) {
                     const id = panel.dataset.expenseId;
                     const jobId = panel.querySelector('.ep-job').value || null;
@@ -1109,11 +1110,11 @@
                         reimbursed_date: isReimb && isDone ? (panel.querySelector('.ep-reimbursed-date').value || null) : null
                     };
                     const { error } = await sb.from('hw_expenses').update(payload).eq('id', id);
-                    if (error) { errors++; console.error('Save error:', id, error.message); }
+                    if (error) { errors++; lastErr = error.message; console.error('Save error:', id, error.message); }
                 }
 
                 if (errors) {
-                    showToast(errors + ' expense(s) failed to save', 'error');
+                    showToast('Failed to save: ' + (lastErr || 'unknown error'), 'error');
                 } else {
                     showToast(panels.length > 1 ? panels.length + ' expenses updated' : 'Expense updated');
                     modal.classList.remove('active');
