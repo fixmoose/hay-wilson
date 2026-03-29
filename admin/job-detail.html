@@ -90,6 +90,7 @@
                     <h2 id="jobName">Job Name</h2><button class="edit-name-btn" id="editNameBtn" title="Edit job name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
                     <div class="job-meta">
                         <span>Client: <a href="#" id="clientLink">-</a></span>
+                        <span id="billToWrap" style="display:none;">Bill To: <strong id="billToName">-</strong></span>
                         <span>Started: <span id="startDate">-</span></span>
                         <span>End: <span id="endDate">-</span></span>
                     </div>
@@ -185,6 +186,7 @@
                         <h4>Invoice</h4>
                     </div>
                     <div class="section-card-body" id="invoiceBody">
+                        <div class="info-row" id="invoiceBillToRow" style="display:none;"><span class="label">Bill To</span><span class="value" id="invoiceBillTo">-</span></div>
                         <div class="info-row"><span class="label">Status</span><span class="value" id="invoiceStatus">No invoice</span></div>
                         <div class="info-row"><span class="label">Amount</span><span class="value" id="invoiceAmount">-</span></div>
                     </div>
@@ -298,20 +300,28 @@
             document.getElementById('startDate').textContent = formatDate(job.start_date);
             document.getElementById('endDate').textContent = formatDate(job.end_date);
 
-            // Client link with GC prefix
+            // Client link with GC prefix + billing contact
             const clientLink = document.getElementById('clientLink');
+            const billToWrap = document.getElementById('billToWrap');
+            const billToName = document.getElementById('billToName');
             if (job.hw_customers) {
                 const cust = job.hw_customers;
                 let displayName = cust.name;
                 if (cust.parent_gc && cust.parent_gc.name) {
                     const initials = cust.parent_gc.name.split(' ').map(w => w[0]).join('').toUpperCase();
                     displayName = '(' + initials + ') ' + cust.name;
+                    // GC is the billing contact
+                    billToWrap.style.display = '';
+                    billToName.textContent = cust.parent_gc.name;
+                } else {
+                    billToWrap.style.display = 'none';
                 }
                 clientLink.textContent = displayName;
                 clientLink.href = '/admin/clients.html';
             } else {
                 clientLink.textContent = 'No client assigned';
                 clientLink.removeAttribute('href');
+                billToWrap.style.display = 'none';
             }
 
             // Notes
@@ -373,6 +383,17 @@
             if (data) {
                 document.getElementById('invoiceStatus').innerHTML = statusBadge(data.status);
                 document.getElementById('invoiceAmount').textContent = formatCurrency(data.amount);
+            }
+
+            // Show billing contact in invoice card
+            const cust = job && job.hw_customers;
+            const billToRow = document.getElementById('invoiceBillToRow');
+            if (cust && cust.parent_gc && cust.parent_gc.name) {
+                billToRow.style.display = '';
+                document.getElementById('invoiceBillTo').textContent = cust.parent_gc.name + ' (GC)';
+            } else if (cust) {
+                billToRow.style.display = '';
+                document.getElementById('invoiceBillTo').textContent = cust.name;
             }
         }
 
