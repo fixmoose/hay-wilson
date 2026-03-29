@@ -707,8 +707,8 @@
             // Get selected job for upload
             const jobId = document.getElementById('uploadJobSelect').value;
 
-            // Save token to Supabase (expires in 30 minutes)
-            const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+            // Save token to Supabase (expires in 6 months)
+            const expiresAt = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString();
             const { error } = await sb.from('hw_upload_tokens').insert({
                 token: token,
                 job_id: jobId === '_unassigned' ? null : jobId,
