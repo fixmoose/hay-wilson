@@ -349,20 +349,29 @@
                 btn.textContent = 'Save Client';
             });
 
-            // Delete
-            document.getElementById('deleteClientBtn').addEventListener('click', async () => {
+            // Delete — use async flow to avoid blocking UI
+            document.getElementById('deleteClientBtn').addEventListener('click', () => {
                 if (!editingId) return;
-                if (!confirm('Delete this client? This cannot be undone.')) return;
-
-                try {
-                    const { error } = await sb.from('hw_customers').delete().eq('id', editingId);
-                    if (error) throw error;
-                    showToast('Client deleted');
-                    closeModal();
-                    await loadClients();
-                } catch (err) {
-                    showToast('Failed to delete: ' + err.message, 'error');
-                }
+                const idToDelete = editingId;
+                // Close modal first so UI updates immediately
+                closeModal();
+                // Use setTimeout to let the UI repaint before confirm dialog
+                setTimeout(async () => {
+                    if (!confirm('Delete this client? This cannot be undone.')) {
+                        // Re-open the client modal if they cancel
+                        const client = allClients.find(c => c.id === idToDelete);
+                        if (client) openModal(client);
+                        return;
+                    }
+                    try {
+                        const { error } = await sb.from('hw_customers').delete().eq('id', idToDelete);
+                        if (error) throw error;
+                        showToast('Client deleted');
+                        await loadClients();
+                    } catch (err) {
+                        showToast('Failed to delete: ' + err.message, 'error');
+                    }
+                }, 50);
             });
         }
 
