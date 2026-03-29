@@ -606,7 +606,8 @@
         }
 
         function cleanName(name) {
-            return name.replace(/^\d+_/, '');
+            // Strip group prefix (grp_123_p1_) or timestamp prefix (123_)
+            return name.replace(/^grp_\d+_p\d+_/, '').replace(/^\d+_/, '');
         }
 
         // ==================== Upload ====================
