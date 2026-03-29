@@ -755,7 +755,7 @@
                 linkEl.style.cssText = 'margin-top:1rem;font-size:0.75rem;color:#64748b;word-break:break-all;';
                 canvas.parentNode.insertBefore(linkEl, document.getElementById('qrClose'));
             }
-            linkEl.innerHTML = '<div style="margin-bottom:0.5rem;">Expires in 30 minutes</div>' +
+            linkEl.innerHTML = '<div style="margin-bottom:0.5rem;">Valid for 6 months</div>' +
                 '<button onclick="navigator.clipboard.writeText(\'' + uploadUrl + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy Link\',2000)" style="padding:0.4rem 1rem;border-radius:6px;border:1px solid #e2e8f0;background:white;cursor:pointer;font-size:0.8rem;">Copy Link</button>';
         }
 
