@@ -402,6 +402,9 @@
 
                 await loadJobs();
                 await Promise.all([loadAllReceipts(), loadExpenses()]);
+                // Re-render receipts now that both receipts AND expenses are loaded
+                // (fixes race where renderReceipts ran before expenses were ready)
+                renderReceipts();
                 setupUpload();
                 setupFilter();
                 setupQrCode();
@@ -837,6 +840,7 @@
                     showToast('Expense saved');
                     modal.classList.remove('active');
                     await loadExpenses();
+                    renderReceipts();
                 }
 
                 btn.disabled = false;
@@ -974,6 +978,7 @@
             if (error) { showToast('Failed to delete: ' + error.message, 'error'); return; }
             showToast('Expense deleted');
             await loadExpenses();
+            renderReceipts();
         }
 
         function toggleReimbursedSection() {
@@ -1031,6 +1036,7 @@
                     showToast('Expense updated');
                     modal.classList.remove('active');
                     await loadExpenses();
+                    renderReceipts();
                 }
 
                 btn.disabled = false;
