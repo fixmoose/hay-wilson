@@ -87,7 +87,7 @@
             <!-- Job Header -->
             <div class="job-header">
                 <div>
-                    <h2 id="jobName">Job Name</h2><button class="edit-name-btn" onclick="openEdit('notes')" title="Edit job name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                    <h2 id="jobName">Job Name</h2><button class="edit-name-btn" id="editNameBtn" title="Edit job name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
                     <div class="job-meta">
                         <span>Client: <a href="#" id="clientLink">-</a></span>
                         <span>Started: <span id="startDate">-</span></span>
@@ -423,6 +423,7 @@
             }
 
             document.getElementById('editNotesBtn').addEventListener('click', () => openEdit('notes'));
+            document.getElementById('editNameBtn').addEventListener('click', () => openEdit('notes'));
             document.getElementById('editPriceBtn').addEventListener('click', () => openEdit('price'));
             document.getElementById('editModalClose').addEventListener('click', () => modal.classList.remove('active'));
             document.getElementById('editModalCancel').addEventListener('click', () => modal.classList.remove('active'));
