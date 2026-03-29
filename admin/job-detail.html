@@ -1041,18 +1041,18 @@
             });
         }
 
-        // Compress image — always convert to JPEG, reduce until under 1MB
-        function compressImage(file, maxSizeMB) {
-            maxSizeMB = maxSizeMB || 1;
+        // Compress image to JPEG, shrink until under 500KB
+        function compressImage(file) {
             return new Promise((resolve) => {
                 if (!file.type.startsWith('image/')) { resolve(file); return; }
                 const img = new Image();
                 const url = URL.createObjectURL(file);
-                img.onload = async () => {
+                img.onload = () => {
                     URL.revokeObjectURL(url);
+                    // Step 1: shrink dimensions — phone photos can be 4000-8000px
                     const canvas = document.createElement('canvas');
                     let w = img.width, h = img.height;
-                    const maxDim = 1600;
+                    const maxDim = 1200;
                     if (w > maxDim || h > maxDim) {
                         const scale = maxDim / Math.max(w, h);
                         w = Math.round(w * scale);
@@ -1061,41 +1061,51 @@
                     canvas.width = w;
                     canvas.height = h;
                     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    let quality = 0.7;
-                    let blob;
-                    while (quality > 0.1) {
-                        blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', quality));
-                        if (blob.size <= maxSizeMB * 1024 * 1024) break;
-                        quality -= 0.15;
-                    }
-                    console.log('Compressed', file.name, ':', (file.size/1024).toFixed(0) + 'KB →', (blob.size/1024).toFixed(0) + 'KB');
-                    resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
+                    // Step 2: encode as JPEG at 0.6 quality — should be well under 500KB
+                    canvas.toBlob((blob) => {
+                        if (!blob) { resolve(file); return; }
+                        resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
+                    }, 'image/jpeg', 0.6);
                 };
                 img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
                 img.src = url;
             });
         }
 
-        // Direct upload bypassing Supabase JS client (handles non-JSON errors)
+        // Upload to Supabase Storage — uses JS client with safe JSON handling
         async function uploadToStorage(filePath, fileBlob) {
-            const session = await sb.auth.getSession();
-            const token = session.data.session?.access_token;
-            const url = 'https://mxxabikquupnwvlspzyz.supabase.co/storage/v1/object/hw-receipts/' + filePath.split('/').map(encodeURIComponent).join('/');
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + token,
-                    'Content-Type': fileBlob.type || 'image/jpeg',
-                    'Cache-Control': '3600',
-                    'x-upsert': 'false'
-                },
-                body: fileBlob
-            });
-            if (!res.ok) {
-                const text = await res.text();
-                throw new Error('Upload failed (' + res.status + '): ' + text.substring(0, 200));
+            try {
+                const { data, error } = await sb.storage.from('hw-receipts').upload(filePath, fileBlob, {
+                    contentType: fileBlob.type || 'image/jpeg',
+                    cacheControl: '3600',
+                    upsert: false
+                });
+                if (error) throw new Error(error.message || JSON.stringify(error));
+                return data;
+            } catch (e) {
+                // If Supabase client chokes on response, try direct fetch as fallback
+                try {
+                    const session = await sb.auth.getSession();
+                    const token = session.data.session?.access_token;
+                    const url = 'https://mxxabikquupnwvlspzyz.supabase.co/storage/v1/object/hw-receipts/' + filePath.split('/').map(encodeURIComponent).join('/');
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + token,
+                            'Content-Type': fileBlob.type || 'image/jpeg',
+                            'x-upsert': 'false'
+                        },
+                        body: fileBlob
+                    });
+                    if (!res.ok) {
+                        const text = await res.text().catch(() => 'unknown error');
+                        throw new Error(res.status + ': ' + text.substring(0, 100));
+                    }
+                    return true;
+                } catch (e2) {
+                    throw new Error(e2.message || 'Upload failed');
+                }
             }
-            return await res.json();
         }
 
         let currentGroupId = null;
@@ -1109,7 +1119,7 @@
             if (isBulk) {
                 // Bulk upload: each file is its own receipt (no grouping)
                 const batchId = Date.now();
-                let failed = 0;
+                let failed = 0, lastErr = '';
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
                     dropZone.innerHTML = '<p style="margin:0;font-size:0.85rem;">Uploading ' + (i + 1) + ' of ' + files.length + '...</p>';
@@ -1117,17 +1127,17 @@
                     const filePath = jobId + '/' + batchId + '_' + i + '_' + safeName;
 
                     try {
-                        const compressed = await compressImage(file, 1);
+                        const compressed = await compressImage(file);
                         await uploadToStorage(filePath, compressed);
                         uploaded++;
-                    } catch (e) { failed++; alert('Upload error [' + file.name + ']: ' + e.message); }
+                    } catch (e) { failed++; lastErr = e.message; }
                 }
 
                 if (uploaded > 0) {
                     showToast(uploaded + ' receipt' + (uploaded > 1 ? 's' : '') + ' uploaded' + (failed > 0 ? ' (' + failed + ' failed)' : ''));
                     loadReceipts();
                 } else {
-                    showToast('Upload failed — see error alert for details', 'error');
+                    showToast('Upload failed: ' + (lastErr || 'unknown'), 'error');
                 }
                 resetDropZone();
             } else {
@@ -1144,10 +1154,10 @@
                     const filePath = jobId + '/' + currentGroupId + '_p' + currentPageNum + '_' + safeName;
 
                     try {
-                        const compressed = await compressImage(file, 1);
+                        const compressed = await compressImage(file);
                         await uploadToStorage(filePath, compressed);
                         uploaded++;
-                    } catch (e) { alert('Upload error [' + file.name + ']: ' + e.message); }
+                    } catch (e) { showToast('Failed: ' + e.message, 'error'); }
                 }
 
                 if (uploaded > 0) {
