@@ -174,7 +174,7 @@
                     URL.revokeObjectURL(url);
                     const canvas = document.createElement('canvas');
                     let w = img.width, h = img.height;
-                    const maxDim = 2000;
+                    const maxDim = 3500;
                     if (w > maxDim || h > maxDim) {
                         const scale = maxDim / Math.max(w, h);
                         w = Math.round(w * scale);
