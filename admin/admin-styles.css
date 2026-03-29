@@ -628,6 +628,7 @@ textarea.form-control {
     object-fit: cover;
     cursor: pointer;
     border: 1px solid var(--border-color);
+    image-orientation: from-image;
 }
 
 .receipt-preview {
@@ -635,6 +636,7 @@ textarea.form-control {
     max-height: 300px;
     border-radius: 8px;
     margin: 0.5rem 0;
+    image-orientation: from-image;
 }
 
 /* ==================== Invoice Section ==================== */

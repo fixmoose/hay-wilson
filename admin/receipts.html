@@ -15,7 +15,7 @@
         .receipt-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:1rem; margin-top:1rem; }
         .receipt-card { background:white; border-radius:10px; border:1px solid var(--border-color); overflow:hidden; transition:box-shadow 0.2s; position:relative; }
         .receipt-card:hover { box-shadow:0 4px 12px rgba(0,0,0,0.1); }
-        .receipt-card-thumb { width:100%; height:160px; object-fit:cover; display:block; background:var(--bg-light); cursor:pointer; }
+        .receipt-card-thumb { width:100%; height:160px; object-fit:cover; display:block; background:var(--bg-light); cursor:pointer; image-orientation:from-image; }
         .receipt-card-pdf { width:100%; height:160px; display:flex; align-items:center; justify-content:center; background:var(--bg-light); color:var(--text-light); flex-direction:column; gap:0.25rem; cursor:pointer; }
         .receipt-card-info { padding:0.75rem; }
         .receipt-card-name { font-size:0.85rem; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:0.25rem; }
@@ -55,6 +55,18 @@
         .qr-modal-content p { color:var(--text-light); font-size:0.85rem; margin:0 0 1.5rem; }
         .qr-modal-content canvas { margin:0 auto; display:block; }
         .qr-close { margin-top:1.5rem; padding:0.5rem 1.5rem; border-radius:6px; border:1px solid var(--border-color); background:white; cursor:pointer; font-size:0.9rem; }
+        /* Image Viewer Modal */
+        .img-viewer { position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:1100; display:none; align-items:center; justify-content:center; flex-direction:column; }
+        .img-viewer.active { display:flex; }
+        .img-viewer img { max-width:90vw; max-height:80vh; object-fit:contain; transition:transform 0.3s; image-orientation:from-image; }
+        .img-viewer-controls { display:flex; gap:0.75rem; margin-top:1rem; }
+        .img-viewer-controls button { padding:0.5rem 1rem; border-radius:8px; border:none; background:rgba(255,255,255,0.15); color:white; font-size:0.9rem; cursor:pointer; display:flex; align-items:center; gap:0.4rem; transition:background 0.15s; }
+        .img-viewer-controls button:hover { background:rgba(255,255,255,0.3); }
+        .img-viewer-controls .btn-save-rot { background:rgba(37,99,235,0.8); }
+        .img-viewer-controls .btn-save-rot:hover { background:rgba(37,99,235,1); }
+        .img-viewer-controls .btn-save-rot:disabled { opacity:0.5; cursor:not-allowed; }
+        .img-viewer-close { position:absolute; top:1rem; right:1rem; width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,0.15); color:white; border:none; cursor:pointer; font-size:24px; display:flex; align-items:center; justify-content:center; }
+        .img-viewer-close:hover { background:rgba(255,255,255,0.3); }
         /* AI Result Modal */
         .ai-modal { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; display:none; align-items:center; justify-content:center; padding:1rem; }
         .ai-modal.active { display:flex; }
@@ -365,6 +377,17 @@
         </div>
     </div>
 
+    <!-- Image Viewer Modal -->
+    <div class="img-viewer" id="imgViewer">
+        <button class="img-viewer-close" id="imgViewerClose">&times;</button>
+        <img id="imgViewerImg" src="" alt="Receipt">
+        <div class="img-viewer-controls">
+            <button id="imgRotLeft"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Rotate Left</button>
+            <button id="imgRotRight"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg> Rotate Right</button>
+            <button id="imgSaveRot" class="btn-save-rot" style="display:none;">Save Rotation</button>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         const sb = window.supabase.createClient(
@@ -539,12 +562,19 @@
                 if (data) img.src = data.signedUrl;
             });
 
-            // Click thumbnail to view
+            // Click thumbnail to view in lightbox
             grid.querySelectorAll('[data-view]').forEach(el => {
                 el.addEventListener('click', async () => {
                     const card = el.closest('.receipt-card');
-                    const { data } = await sb.storage.from('hw-receipts').createSignedUrl(card.dataset.path, 3600);
-                    if (data) window.open(data.signedUrl, '_blank');
+                    const path = card.dataset.path;
+                    const isPdf = path.toLowerCase().endsWith('.pdf');
+                    if (isPdf) {
+                        const { data } = await sb.storage.from('hw-receipts').createSignedUrl(path, 3600);
+                        if (data) window.open(data.signedUrl, '_blank');
+                        return;
+                    }
+                    const { data } = await sb.storage.from('hw-receipts').createSignedUrl(path, 3600);
+                    if (data) openImageViewer(data.signedUrl, path);
                 });
             });
 
@@ -1045,6 +1075,99 @@
                 btn.textContent = 'Save Changes';
             });
         }
+        // ==================== Image Viewer with Rotation ====================
+        let viewerRotation = 0;
+        let viewerPath = '';
+        let viewerOrigUrl = '';
+
+        function openImageViewer(url, path) {
+            viewerRotation = 0;
+            viewerPath = path;
+            viewerOrigUrl = url;
+            const img = document.getElementById('imgViewerImg');
+            img.src = url;
+            img.style.transform = '';
+            document.getElementById('imgSaveRot').style.display = 'none';
+            document.getElementById('imgViewer').classList.add('active');
+        }
+
+        document.getElementById('imgViewerClose').addEventListener('click', () => {
+            document.getElementById('imgViewer').classList.remove('active');
+        });
+        document.getElementById('imgViewer').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('imgViewer')) {
+                document.getElementById('imgViewer').classList.remove('active');
+            }
+        });
+
+        document.getElementById('imgRotLeft').addEventListener('click', () => {
+            viewerRotation = (viewerRotation - 90) % 360;
+            document.getElementById('imgViewerImg').style.transform = 'rotate(' + viewerRotation + 'deg)';
+            document.getElementById('imgSaveRot').style.display = viewerRotation === 0 ? 'none' : 'inline-flex';
+        });
+        document.getElementById('imgRotRight').addEventListener('click', () => {
+            viewerRotation = (viewerRotation + 90) % 360;
+            document.getElementById('imgViewerImg').style.transform = 'rotate(' + viewerRotation + 'deg)';
+            document.getElementById('imgSaveRot').style.display = viewerRotation === 0 ? 'none' : 'inline-flex';
+        });
+
+        document.getElementById('imgSaveRot').addEventListener('click', async () => {
+            const btn = document.getElementById('imgSaveRot');
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+            try {
+                // Load image and rotate via canvas
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = viewerOrigUrl;
+                });
+
+                const canvas = document.createElement('canvas');
+                const isPortrait = Math.abs(viewerRotation) === 90 || Math.abs(viewerRotation) === 270;
+                canvas.width = isPortrait ? img.height : img.width;
+                canvas.height = isPortrait ? img.width : img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.rotate(viewerRotation * Math.PI / 180);
+                ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+                const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
+                if (!blob) throw new Error('Canvas export failed');
+
+                // Delete old file and re-upload rotated version
+                const { error: delErr } = await sb.storage.from('hw-receipts').remove([viewerPath]);
+                if (delErr) console.warn('Delete old failed:', delErr.message);
+
+                const { error: upErr } = await sb.storage.from('hw-receipts').upload(viewerPath, blob, {
+                    contentType: 'image/jpeg',
+                    cacheControl: '3600',
+                    upsert: true
+                });
+                if (upErr) throw upErr;
+
+                // Refresh the viewer and thumbnails
+                viewerRotation = 0;
+                document.getElementById('imgViewerImg').style.transform = '';
+                btn.style.display = 'none';
+                const { data: newSigned } = await sb.storage.from('hw-receipts').createSignedUrl(viewerPath, 3600);
+                if (newSigned) {
+                    document.getElementById('imgViewerImg').src = newSigned.signedUrl;
+                    viewerOrigUrl = newSigned.signedUrl;
+                    // Update thumbnail
+                    const thumb = document.querySelector('img[data-path="' + viewerPath + '"]');
+                    if (thumb) thumb.src = newSigned.signedUrl;
+                }
+                showToast('Image rotated and saved');
+            } catch (err) {
+                console.error('Save rotation error:', err);
+                showToast('Failed to save rotation: ' + err.message, 'error');
+            }
+            btn.disabled = false;
+            btn.textContent = 'Save Rotation';
+        });
     </script>
 </body>
 </html>
