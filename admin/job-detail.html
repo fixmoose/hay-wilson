@@ -37,6 +37,23 @@
         .notes-text { white-space:pre-wrap; line-height:1.7; color:var(--text-dark); font-size:0.9rem; }
         .price-big { font-size:1.8rem; font-weight:700; color:var(--primary-dark); }
         .price-sub { font-size:0.85rem; color:var(--text-light); margin-top:0.25rem; }
+        .charge-row { display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; border-bottom:1px solid var(--bg-light); font-size:0.9rem; gap:0.5rem; }
+        .charge-row:last-child { border:none; }
+        .charge-row .charge-info { flex:1; min-width:0; }
+        .charge-row .charge-desc { font-weight:500; }
+        .charge-row .charge-meta { font-size:0.75rem; color:var(--text-light); margin-top:0.1rem; }
+        .charge-row .charge-amount { font-weight:600; white-space:nowrap; }
+        .charge-row .charge-amount.paid { color:var(--success); }
+        .charge-row .charge-actions { display:flex; gap:0.25rem; }
+        .charge-row .charge-actions button { background:none; border:none; cursor:pointer; padding:0.2rem; color:var(--text-light); transition:color 0.15s; }
+        .charge-row .charge-actions button:hover { color:var(--primary-light); }
+        .charge-row .charge-actions .btn-del:hover { color:#dc2626; }
+        .charge-total { display:flex; justify-content:space-between; padding:0.75rem 0 0.25rem; border-top:2px solid var(--border-color); margin-top:0.25rem; font-weight:700; font-size:0.95rem; }
+        .charge-type-badge { display:inline-block; padding:0.1rem 0.35rem; border-radius:3px; font-size:0.65rem; font-weight:600; text-transform:uppercase; }
+        .type-contract { background:#dbeafe; color:#1d4ed8; }
+        .type-change_order { background:#fef9c3; color:#a16207; }
+        .type-additional { background:#e0e7ff; color:#4338ca; }
+        .type-credit { background:#dcfce7; color:#16a34a; }
         .receipt-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:0.75rem; }
         .receipt-item { position:relative; border-radius:8px; border:1px solid var(--border-color); overflow:hidden; cursor:pointer; transition:box-shadow 0.2s; }
         .receipt-item:hover { box-shadow:0 2px 8px rgba(0,0,0,0.1); }
@@ -106,15 +123,14 @@
 
             <!-- Cards Grid -->
             <div class="section-grid">
-                <!-- Pricing -->
+                <!-- Contracts & Charges -->
                 <div class="section-card">
                     <div class="section-card-header">
-                        <h4>Pricing</h4>
-                        <button class="btn btn-outline btn-sm" id="editPriceBtn">Edit</button>
+                        <h4>Contracts & Charges</h4>
+                        <button class="btn btn-outline btn-sm" id="addChargeBtn">Add</button>
                     </div>
-                    <div class="section-card-body" id="pricingBody">
-                        <div class="price-big" id="jobPrice">Not set</div>
-                        <div class="price-sub" id="jobPriceSub"></div>
+                    <div class="section-card-body" id="chargesBody">
+                        <div style="text-align:center;color:var(--text-light);font-size:0.85rem;">Loading...</div>
                     </div>
                 </div>
 
@@ -206,6 +222,60 @@
         </div>
     </main>
 
+    <!-- Add/Edit Charge Modal -->
+    <div class="modal-overlay" id="chargeModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="chargeModalTitle">Add Charge</h3>
+                <button class="modal-close" id="chargeModalClose">&times;</button>
+            </div>
+            <form id="chargeForm">
+                <div class="modal-body">
+                    <input type="hidden" id="chargeId">
+                    <div class="form-group">
+                        <label for="chargeDesc">Description *</label>
+                        <input type="text" id="chargeDesc" class="form-control" required placeholder="e.g. Initial contract, Change order #1">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="chargeAmount">Amount ($) *</label>
+                            <input type="number" id="chargeAmount" class="form-control" step="0.01" required placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="chargeType">Type</label>
+                            <select id="chargeType" class="form-control">
+                                <option value="contract">Contract</option>
+                                <option value="change_order">Change Order</option>
+                                <option value="additional">Additional</option>
+                                <option value="credit">Credit</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="chargeDate">Date</label>
+                            <input type="date" id="chargeDate" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label style="display:flex;align-items:center;gap:0.5rem;padding-top:1.65rem;cursor:pointer;">
+                                <input type="checkbox" id="chargePaid" style="width:1.1em;height:1.1em;"> Paid
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="chargeNotes">Notes</label>
+                        <input type="text" id="chargeNotes" class="form-control" placeholder="Optional notes">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" id="chargeModalCancel">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="chargeDeleteBtn" style="display:none;">Delete</button>
+                    <button type="submit" class="btn btn-primary" id="chargeModalSave">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Edit Job Modal -->
     <div class="modal-overlay" id="editModal">
         <div class="modal">
@@ -265,6 +335,7 @@
             await loadJob();
             setupStatusChange();
             setupEditModal();
+            setupCharges();
             setupReceiptUpload();
         })();
 
@@ -433,11 +504,6 @@
                             <div class="form-group"><label for="eEnd">End Date</label><input type="date" id="eEnd" class="form-control" value="${formatDateInput(job.end_date)}"></div>
                         </div>
                         <div class="form-group"><label for="eDesc">Notes / Description</label><textarea id="eDesc" class="form-control" rows="5">${escapeHtml(job.description)}</textarea></div>`;
-                } else if (type === 'price') {
-                    document.getElementById('editModalTitle').textContent = 'Edit Price';
-                    body.innerHTML = `
-                        <div class="form-group"><label for="ePrice">Job Price ($)</label><input type="number" id="ePrice" class="form-control" step="0.01" min="0" placeholder="0.00" value="${job.price || ''}"></div>
-                        <div class="form-group"><label for="ePriceNotes">Price Notes</label><input type="text" id="ePriceNotes" class="form-control" placeholder="e.g. Materials + labor" value="${escapeHtml(job.price_notes || '')}"></div>`;
                 }
 
                 modal.classList.add('active');
@@ -445,7 +511,6 @@
 
             document.getElementById('editNotesBtn').addEventListener('click', () => openEdit('notes'));
             document.getElementById('editNameBtn').addEventListener('click', () => openEdit('notes'));
-            document.getElementById('editPriceBtn').addEventListener('click', () => openEdit('price'));
             document.getElementById('editModalClose').addEventListener('click', () => modal.classList.remove('active'));
             document.getElementById('editModalCancel').addEventListener('click', () => modal.classList.remove('active'));
             modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
@@ -471,12 +536,6 @@
                             end_date: document.getElementById('eEnd').value || null,
                             description: document.getElementById('eDesc').value.trim() || null
                         };
-                    } else if (currentEdit === 'price') {
-                        const price = document.getElementById('ePrice').value;
-                        updates = {
-                            price: price ? parseFloat(price) : null,
-                            price_notes: document.getElementById('ePriceNotes').value.trim() || null
-                        };
                     }
 
                     const { error } = await sb.from('hw_jobs').update(updates).eq('id', jobId);
@@ -484,17 +543,6 @@
 
                     Object.assign(job, updates);
                     renderJob();
-
-                    // Update price display
-                    if (currentEdit === 'price') {
-                        if (job.price) {
-                            document.getElementById('jobPrice').textContent = formatCurrency(job.price);
-                            document.getElementById('jobPriceSub').textContent = job.price_notes || '';
-                        } else {
-                            document.getElementById('jobPrice').textContent = 'Not set';
-                            document.getElementById('jobPriceSub').textContent = '';
-                        }
-                    }
 
                     modal.classList.remove('active');
                     showToast('Saved');
@@ -506,14 +554,148 @@
                 btn.textContent = 'Save';
             });
 
-            // Initial price display
-            if (job && job.price) {
-                document.getElementById('jobPrice').textContent = formatCurrency(job.price);
-                document.getElementById('jobPriceSub').textContent = job.price_notes || '';
-            }
+            // Load charges after modal setup
+            loadCharges();
 
             // Load receipts after job loads
             loadReceipts();
+        }
+
+        // ==================== Charges ====================
+        let allCharges = [];
+
+        async function loadCharges() {
+            const { data, error } = await sb
+                .from('hw_charges')
+                .select('*')
+                .eq('job_id', jobId)
+                .order('created_at');
+
+            if (error) { console.error('Charges error:', error); showToast('Failed to load charges', 'error'); return; }
+            allCharges = data || [];
+            renderCharges();
+        }
+
+        function renderCharges() {
+            const body = document.getElementById('chargesBody');
+            if (allCharges.length === 0) {
+                body.innerHTML = '<div style="text-align:center;color:var(--text-light);font-size:0.85rem;padding:0.5rem 0;">No charges yet. Click Add to create one.</div>';
+                return;
+            }
+
+            const typeLabels = { contract: 'Contract', change_order: 'Change Order', additional: 'Additional', credit: 'Credit' };
+            let total = 0;
+            allCharges.forEach(c => { total += c.charge_type === 'credit' ? -(parseFloat(c.amount) || 0) : (parseFloat(c.amount) || 0); });
+
+            body.innerHTML = allCharges.map(c => {
+                const amt = parseFloat(c.amount) || 0;
+                const isCredit = c.charge_type === 'credit';
+                return '<div class="charge-row">' +
+                    '<div class="charge-info">' +
+                        '<div class="charge-desc">' + escapeHtml(c.description) +
+                            ' <span class="charge-type-badge type-' + c.charge_type + '">' + (typeLabels[c.charge_type] || c.charge_type) + '</span>' +
+                            (c.is_paid ? ' <span class="charge-type-badge" style="background:#dcfce7;color:#16a34a;">Paid</span>' : '') +
+                        '</div>' +
+                        '<div class="charge-meta">' +
+                            (c.charge_date ? formatDate(c.charge_date) : '') +
+                            (c.notes ? (c.charge_date ? ' &mdash; ' : '') + escapeHtml(c.notes) : '') +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="charge-amount' + (c.is_paid ? ' paid' : '') + '">' + (isCredit ? '-' : '') + formatCurrency(amt) + '</div>' +
+                    '<div class="charge-actions">' +
+                        '<button data-charge-edit="' + c.id + '" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
+                    '</div>' +
+                '</div>';
+            }).join('') +
+            '<div class="charge-total"><span>Total</span><span>' + formatCurrency(total) + '</span></div>';
+
+            // Wire edit buttons
+            body.querySelectorAll('[data-charge-edit]').forEach(btn => {
+                btn.addEventListener('click', () => openChargeModal(btn.dataset.chargeEdit));
+            });
+        }
+
+        function setupCharges() {
+            const modal = document.getElementById('chargeModal');
+            const form = document.getElementById('chargeForm');
+
+            document.getElementById('addChargeBtn').addEventListener('click', () => openChargeModal());
+            document.getElementById('chargeModalClose').addEventListener('click', () => modal.classList.remove('active'));
+            document.getElementById('chargeModalCancel').addEventListener('click', () => modal.classList.remove('active'));
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+
+            // Delete
+            document.getElementById('chargeDeleteBtn').addEventListener('click', async () => {
+                const chargeId = document.getElementById('chargeId').value;
+                if (!chargeId || !confirm('Delete this charge?')) return;
+                const { error } = await sb.from('hw_charges').delete().eq('id', chargeId);
+                if (error) { showToast('Failed to delete', 'error'); return; }
+                modal.classList.remove('active');
+                showToast('Charge deleted');
+                await loadCharges();
+            });
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('chargeModalSave');
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+
+                const chargeId = document.getElementById('chargeId').value;
+                const payload = {
+                    job_id: jobId,
+                    description: document.getElementById('chargeDesc').value.trim(),
+                    amount: parseFloat(document.getElementById('chargeAmount').value) || 0,
+                    charge_type: document.getElementById('chargeType').value,
+                    charge_date: document.getElementById('chargeDate').value || null,
+                    is_paid: document.getElementById('chargePaid').checked,
+                    notes: document.getElementById('chargeNotes').value.trim() || null
+                };
+
+                try {
+                    if (chargeId) {
+                        const { error } = await sb.from('hw_charges').update(payload).eq('id', chargeId);
+                        if (error) throw error;
+                        showToast('Charge updated');
+                    } else {
+                        const { error } = await sb.from('hw_charges').insert(payload);
+                        if (error) throw error;
+                        showToast('Charge added');
+                    }
+                    modal.classList.remove('active');
+                    await loadCharges();
+                } catch (err) {
+                    showToast('Failed to save: ' + err.message, 'error');
+                }
+
+                btn.disabled = false;
+                btn.textContent = 'Save';
+            });
+        }
+
+        function openChargeModal(chargeId) {
+            const modal = document.getElementById('chargeModal');
+            document.getElementById('chargeForm').reset();
+            document.getElementById('chargeId').value = '';
+
+            if (chargeId) {
+                const charge = allCharges.find(c => c.id === chargeId);
+                if (!charge) return;
+                document.getElementById('chargeModalTitle').textContent = 'Edit Charge';
+                document.getElementById('chargeId').value = charge.id;
+                document.getElementById('chargeDesc').value = charge.description || '';
+                document.getElementById('chargeAmount').value = charge.amount || '';
+                document.getElementById('chargeType').value = charge.charge_type || 'contract';
+                document.getElementById('chargeDate').value = charge.charge_date ? formatDateInput(charge.charge_date) : '';
+                document.getElementById('chargePaid').checked = !!charge.is_paid;
+                document.getElementById('chargeNotes').value = charge.notes || '';
+                document.getElementById('chargeDeleteBtn').style.display = 'inline-flex';
+            } else {
+                document.getElementById('chargeModalTitle').textContent = 'Add Charge';
+                document.getElementById('chargeDeleteBtn').style.display = 'none';
+            }
+
+            modal.classList.add('active');
         }
 
         // ==================== Receipts ====================
