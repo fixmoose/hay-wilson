@@ -468,10 +468,13 @@
 
             grid.innerHTML = filtered.map(r => {
                 const isPdf = r.name.toLowerCase().endsWith('.pdf');
-                const jobName = getJobName(r.folder);
                 const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
                 const expenses = expensesByPath[r.path] || [];
                 const isProcessed = expenses.length > 0;
+                // For processed receipts, show job from expenses; otherwise show storage folder
+                const jobName = isProcessed
+                    ? [...new Set(expenses.map(e => { const j = allJobs.find(j => j.id === e.job_id); return j ? j.name : ''; }).filter(Boolean))].join(', ') || 'No job'
+                    : getJobName(r.folder);
                 const queued = !isProcessed && isQueued(r.path);
                 const cardClass = isProcessed ? 'processed' : queued ? 'queued' : 'unprocessed';
                 const tagHtml = isProcessed
@@ -498,7 +501,7 @@
                     </div>
                     <div class="receipt-card-actions">
                         ${isProcessed
-                            ? expenses.map(exp => '<button class="btn-edit" data-edit-receipt="' + escapeHtml(exp.id) + '" title="Edit: ' + escapeHtml(exp.vendor || '') + ' ' + formatCurrency(exp.amount) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button>').join('')
+                            ? '<button class="btn-edit" data-edit-receipt="' + escapeHtml(expenses[0].id) + '" title="Edit ' + expenses.length + ' expense' + (expenses.length > 1 ? 's' : '') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit' + (expenses.length > 1 ? ' (' + expenses.length + ')' : '') + '</button>'
                             : (queued
                                 ? '<button class="btn-ai" data-ai="' + escapeHtml(r.path) + '" title="Remove from queue" style="border-color:#1d4ed8;color:#1d4ed8;background:rgba(29,78,216,0.06);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg> Queued</button>'
                                 : '<button class="btn-ai" data-ai="' + escapeHtml(r.path) + '" title="Queue for AI processing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> AI Read</button>'
