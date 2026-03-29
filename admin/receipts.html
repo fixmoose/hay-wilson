@@ -58,7 +58,8 @@
         /* Image Viewer Modal */
         .img-viewer { position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:1100; display:none; align-items:center; justify-content:center; flex-direction:column; }
         .img-viewer.active { display:flex; }
-        .img-viewer img { max-width:90vw; max-height:80vh; object-fit:contain; transition:transform 0.3s; image-orientation:from-image; }
+        .img-viewer img { max-width:90vw; max-height:80vh; object-fit:contain; transition:transform 0.2s; image-orientation:from-image; cursor:grab; }
+        .img-viewer img:active { cursor:grabbing; }
         .img-viewer-controls { display:flex; gap:0.75rem; margin-top:1rem; }
         .img-viewer-controls button { padding:0.5rem 1rem; border-radius:8px; border:none; background:rgba(255,255,255,0.15); color:white; font-size:0.9rem; cursor:pointer; display:flex; align-items:center; gap:0.4rem; transition:background 0.15s; }
         .img-viewer-controls button:hover { background:rgba(255,255,255,0.3); }
@@ -99,6 +100,15 @@
         .acct-table .row-actions .btn-row-delete:hover { color:#dc2626; }
         .reimb-badge { display:inline-block; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.7rem; background:#dbeafe; color:#1d4ed8; font-weight:500; margin-left:0.35rem; }
         .reimbursed-badge { display:inline-block; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.7rem; background:#dcfce7; color:#16a34a; font-weight:500; margin-left:0.35rem; }
+        .edit-expense-panel { border:1px solid var(--border-color); border-radius:10px; padding:1rem; margin-bottom:0.75rem; background:var(--bg-light); }
+        .edit-expense-panel:last-child { margin-bottom:0; }
+        .edit-expense-panel h4 { margin:0 0 0.75rem; font-size:0.9rem; color:var(--primary-dark); display:flex; justify-content:space-between; align-items:center; }
+        .edit-expense-panel h4 .del-expense { background:none; border:none; cursor:pointer; color:var(--text-light); font-size:0.8rem; padding:0.2rem 0.5rem; border-radius:4px; }
+        .edit-expense-panel h4 .del-expense:hover { color:#dc2626; background:rgba(220,38,38,0.06); }
+        .edit-expense-panel .ai-field { margin-bottom:0.65rem; }
+        .edit-expense-panel .ai-field:last-child { margin-bottom:0; }
+        .edit-row { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
+        @media(max-width:500px) { .edit-row { grid-template-columns:1fr; } }
         .acct-reimb { background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:1rem 1.25rem; }
         .acct-reimb .acct-card-cat { color:#1d4ed8; }
         .acct-reimb .acct-card-amount { color:#1d4ed8; font-size:1.3rem; }
@@ -303,75 +313,19 @@
 
     <!-- Edit Expense Modal -->
     <div class="edit-modal" id="editModal">
-        <div class="edit-modal-content">
+        <div class="edit-modal-content" style="max-width:560px;">
             <div class="ai-modal-header">
-                <h3>Edit Expense</h3>
+                <h3 id="editModalTitle">Edit Expenses</h3>
                 <button class="modal-close" id="editModalClose">&times;</button>
             </div>
-            <div class="ai-modal-body" id="editModalBody">
-                <input type="hidden" id="editId">
-                <div class="ai-field">
-                    <label>Vendor / Store</label>
-                    <input type="text" id="editVendor">
-                </div>
-                <div class="ai-field">
-                    <label>Total Amount ($)</label>
-                    <input type="number" id="editAmount" step="0.01" min="0">
-                </div>
-                <div class="ai-field">
-                    <label>Date</label>
-                    <input type="date" id="editDate">
-                </div>
-                <div class="ai-field">
-                    <label>Category</label>
-                    <select id="editCategory">
-                        <option value="materials">Materials</option>
-                        <option value="tools">Tools</option>
-                        <option value="software">Software</option>
-                        <option value="fuel">Fuel</option>
-                        <option value="supplies">Supplies</option>
-                        <option value="permits">Permits</option>
-                        <option value="subcontractor">Subcontractor</option>
-                        <option value="equipment_rental">Equipment Rental</option>
-                        <option value="vehicle">Vehicle</option>
-                        <option value="meals">Meals</option>
-                        <option value="other">Other</option>
-                    </select>
-                </div>
-                <div class="ai-field">
-                    <label>Description</label>
-                    <input type="text" id="editDescription">
-                </div>
-                <div class="ai-field">
-                    <label>Assign to Job</label>
-                    <select id="editJob"></select>
-                </div>
-                <div class="ai-field">
-                    <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
-                        <input type="checkbox" id="editReimbursable"> Reimbursable by GC
-                    </label>
-                </div>
-                <div id="editReimbursedSection" style="display:none;border-top:1px solid var(--border-color);padding-top:1rem;margin-top:0.5rem;">
-                    <div class="ai-field">
-                        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
-                            <input type="checkbox" id="editReimbursed"> Reimbursed
-                        </label>
-                    </div>
-                    <div class="ai-field" id="editReimbursedByField" style="display:none;">
-                        <label>Reimbursed By</label>
-                        <input type="text" id="editReimbursedBy" placeholder="e.g. Adriatic Builders">
-                    </div>
-                    <div class="ai-field" id="editReimbursedDateField" style="display:none;">
-                        <label>Reimbursed Date</label>
-                        <input type="date" id="editReimbursedDate">
-                    </div>
-                </div>
+            <div class="ai-modal-body" id="editModalBody" style="max-height:70vh;overflow-y:auto;">
+                <!-- Dynamically generated expense panels -->
             </div>
             <div class="ai-modal-footer" style="justify-content:space-between;">
                 <button class="btn btn-outline" id="editDownloadReceipt" style="display:none;" title="Download receipt">⬇ Receipt</button>
                 <div style="display:flex;gap:0.5rem;">
                     <button class="btn btn-outline" id="editCancel">Cancel</button>
-                    <button class="btn btn-primary" id="editSave">Save Changes</button>
+                    <button class="btn btn-primary" id="editSave">Save All Changes</button>
                 </div>
             </div>
         </div>
@@ -493,13 +447,13 @@
             const empty = document.getElementById('emptyState');
             const count = document.getElementById('receiptCount');
             // Build lookup of processed receipt paths
-            const expenseByPath = {};
-            allExpenses.forEach(e => { if (e.receipt_path) expenseByPath[e.receipt_path] = e; });
+            const expensesByPath = {};
+            allExpenses.forEach(e => { if (e.receipt_path) { if (!expensesByPath[e.receipt_path]) expensesByPath[e.receipt_path] = []; expensesByPath[e.receipt_path].push(e); } });
 
             let filtered = currentFilter === 'all' ? allReceipts : allReceipts.filter(r => r.folder === currentFilter);
-            if (currentStatusFilter === 'new') filtered = filtered.filter(r => !expenseByPath[r.path] && !isQueued(r.path));
-            else if (currentStatusFilter === 'queued') filtered = filtered.filter(r => !expenseByPath[r.path] && isQueued(r.path));
-            else if (currentStatusFilter === 'processed') filtered = filtered.filter(r => !!expenseByPath[r.path]);
+            if (currentStatusFilter === 'new') filtered = filtered.filter(r => !expensesByPath[r.path] && !isQueued(r.path));
+            else if (currentStatusFilter === 'queued') filtered = filtered.filter(r => !expensesByPath[r.path] && isQueued(r.path));
+            else if (currentStatusFilter === 'processed') filtered = filtered.filter(r => !!expensesByPath[r.path]);
 
             count.textContent = filtered.length + ' receipt' + (filtered.length !== 1 ? 's' : '');
 
@@ -516,15 +470,19 @@
                 const isPdf = r.name.toLowerCase().endsWith('.pdf');
                 const jobName = getJobName(r.folder);
                 const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-                const expense = expenseByPath[r.path];
-                const isProcessed = !!expense;
+                const expenses = expensesByPath[r.path] || [];
+                const isProcessed = expenses.length > 0;
                 const queued = !isProcessed && isQueued(r.path);
                 const cardClass = isProcessed ? 'processed' : queued ? 'queued' : 'unprocessed';
                 const tagHtml = isProcessed
-                    ? '<span class="receipt-status-tag tag-processed">Processed</span>'
+                    ? '<span class="receipt-status-tag tag-processed">Processed' + (expenses.length > 1 ? ' (' + expenses.length + ')' : '') + '</span>'
                     : queued
                         ? '<span class="receipt-status-tag tag-queued">Queued</span>'
                         : '<span class="receipt-status-tag tag-unprocessed">New</span>';
+
+                const expenseLinesHtml = expenses.map(exp =>
+                    '<div class="receipt-card-date" style="color:#16a34a;">' + escapeHtml(exp.vendor || '') + ' &mdash; ' + formatCurrency(exp.amount) + '</div>'
+                ).join('');
 
                 return `<div class="receipt-card ${cardClass}" data-path="${escapeHtml(r.path)}" data-name="${escapeHtml(r.name)}" data-folder="${escapeHtml(r.folder)}">
                     ${tagHtml}
@@ -535,12 +493,12 @@
                     <div class="receipt-card-info">
                         <div class="receipt-card-name" title="${escapeHtml(r.name)}">${escapeHtml(cleanName(r.name))}</div>
                         <div class="receipt-card-job">${escapeHtml(jobName)}</div>
-                        ${isProcessed ? '<div class="receipt-card-date" style="color:#16a34a;">' + escapeHtml(expense.vendor || '') + ' &mdash; ' + formatCurrency(expense.amount) + '</div>' : ''}
+                        ${expenseLinesHtml}
                         <div class="receipt-card-date">${dateStr}</div>
                     </div>
                     <div class="receipt-card-actions">
                         ${isProcessed
-                            ? '<button class="btn-edit" data-edit-receipt="' + escapeHtml(expense.id) + '" title="Edit Expense"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button>'
+                            ? expenses.map(exp => '<button class="btn-edit" data-edit-receipt="' + escapeHtml(exp.id) + '" title="Edit: ' + escapeHtml(exp.vendor || '') + ' ' + formatCurrency(exp.amount) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button>').join('')
                             : (queued
                                 ? '<button class="btn-ai" data-ai="' + escapeHtml(r.path) + '" title="Remove from queue" style="border-color:#1d4ed8;color:#1d4ed8;background:rgba(29,78,216,0.06);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg> Queued</button>'
                                 : '<button class="btn-ai" data-ai="' + escapeHtml(r.path) + '" title="Queue for AI processing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> AI Read</button>'
@@ -966,37 +924,88 @@
             });
         }
 
-        // ==================== Edit Expense ====================
+        // ==================== Edit Expense (Multi-expense support) ====================
+        const categoryOptions = ['materials','tools','software','fuel','supplies','permits','subcontractor','equipment_rental','vehicle','meals','other'];
+
+        function buildExpensePanel(expense, idx) {
+            const jobOpts = '<option value="">No job</option>' + allJobs.map(j =>
+                '<option value="' + j.id + '"' + (j.id === expense.job_id ? ' selected' : '') + '>' + escapeHtml(j.name) + '</option>'
+            ).join('');
+            const catOpts = categoryOptions.map(c =>
+                '<option value="' + c + '"' + (c === (expense.category || 'other') ? ' selected' : '') + '>' + c.charAt(0).toUpperCase() + c.slice(1).replace('_',' ') + '</option>'
+            ).join('');
+            const isReimb = expense.reimbursable || false;
+            const isDone = expense.reimbursed || false;
+
+            return `<div class="edit-expense-panel" data-expense-id="${expense.id}">
+                <h4>
+                    <span>${escapeHtml(expense.vendor || 'Expense')} — ${formatCurrency(expense.amount)}</span>
+                    <button class="del-expense" data-del-id="${expense.id}" title="Delete this expense">&times; Delete</button>
+                </h4>
+                <div class="edit-row">
+                    <div class="ai-field"><label>Vendor</label><input type="text" class="ep-vendor" value="${escapeHtml(expense.vendor || '')}"></div>
+                    <div class="ai-field"><label>Amount ($)</label><input type="number" class="ep-amount" step="0.01" value="${expense.amount || ''}"></div>
+                </div>
+                <div class="edit-row">
+                    <div class="ai-field"><label>Date</label><input type="date" class="ep-date" value="${expense.expense_date || ''}"></div>
+                    <div class="ai-field"><label>Category</label><select class="ep-category">${catOpts}</select></div>
+                </div>
+                <div class="ai-field"><label>Description</label><input type="text" class="ep-description" value="${escapeHtml(expense.description || '')}"></div>
+                <div class="ai-field"><label>Job</label><select class="ep-job">${jobOpts}</select></div>
+                <div class="ai-field"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;"><input type="checkbox" class="ep-reimbursable" ${isReimb ? 'checked' : ''}> Reimbursable by GC</label></div>
+                <div class="ep-reimb-section" style="display:${isReimb ? 'block' : 'none'};border-top:1px solid var(--border-color);padding-top:0.5rem;margin-top:0.25rem;">
+                    <div class="ai-field"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;"><input type="checkbox" class="ep-reimbursed" ${isDone ? 'checked' : ''}> Reimbursed</label></div>
+                    <div class="edit-row ep-reimb-details" style="display:${isDone ? 'grid' : 'none'};">
+                        <div class="ai-field"><label>Reimbursed By</label><input type="text" class="ep-reimbursed-by" value="${escapeHtml(expense.reimbursed_by || '')}" placeholder="e.g. Adriatic Builders"></div>
+                        <div class="ai-field"><label>Reimbursed Date</label><input type="date" class="ep-reimbursed-date" value="${expense.reimbursed_date || ''}"></div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
         function openEditModal(expenseId) {
             const expense = allExpenses.find(e => e.id === expenseId);
             if (!expense) return;
 
-            document.getElementById('editId').value = expense.id;
-            document.getElementById('editVendor').value = expense.vendor || '';
-            document.getElementById('editAmount').value = expense.amount || '';
-            document.getElementById('editDate').value = expense.expense_date || '';
-            document.getElementById('editCategory').value = expense.category || 'other';
-            document.getElementById('editDescription').value = expense.description || '';
+            // Find all expenses with the same receipt_path
+            const receiptPath = expense.receipt_path;
+            const relatedExpenses = receiptPath
+                ? allExpenses.filter(e => e.receipt_path === receiptPath)
+                : [expense];
 
-            const jobOptions = '<option value="">No job</option>' + allJobs.map(j => '<option value="' + j.id + '">' + escapeHtml(j.name) + '</option>').join('');
-            document.getElementById('editJob').innerHTML = jobOptions;
-            document.getElementById('editJob').value = expense.job_id || '';
-            document.getElementById('editReimbursable').checked = expense.reimbursable || false;
-            document.getElementById('editReimbursed').checked = expense.reimbursed || false;
-            document.getElementById('editReimbursedBy').value = expense.reimbursed_by || '';
-            document.getElementById('editReimbursedDate').value = expense.reimbursed_date || '';
+            const title = document.getElementById('editModalTitle');
+            title.textContent = relatedExpenses.length > 1
+                ? 'Edit ' + relatedExpenses.length + ' Expenses (same photo)'
+                : 'Edit Expense';
 
-            // Show/hide reimbursed section based on reimbursable
-            toggleReimbursedSection();
+            const body = document.getElementById('editModalBody');
+            body.innerHTML = relatedExpenses.map((exp, i) => buildExpensePanel(exp, i)).join('');
 
-            // Show download button if receipt exists
+            // Wire up reimbursable toggles
+            body.querySelectorAll('.ep-reimbursable').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    const panel = cb.closest('.edit-expense-panel');
+                    panel.querySelector('.ep-reimb-section').style.display = cb.checked ? 'block' : 'none';
+                });
+            });
+            body.querySelectorAll('.ep-reimbursed').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    const panel = cb.closest('.edit-expense-panel');
+                    panel.querySelector('.ep-reimb-details').style.display = cb.checked ? 'grid' : 'none';
+                });
+            });
+            // Wire up delete buttons
+            body.querySelectorAll('.del-expense').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    await deleteExpense(btn.dataset.delId);
+                    document.getElementById('editModal').classList.remove('active');
+                });
+            });
+
+            // Download button
             const dlBtn = document.getElementById('editDownloadReceipt');
-            if (expense.receipt_path) {
-                dlBtn.style.display = '';
-                dlBtn.dataset.path = expense.receipt_path;
-            } else {
-                dlBtn.style.display = 'none';
-            }
+            if (receiptPath) { dlBtn.style.display = ''; dlBtn.dataset.path = receiptPath; }
+            else { dlBtn.style.display = 'none'; }
 
             document.getElementById('editModal').classList.add('active');
         }
@@ -1011,14 +1020,6 @@
             showToast('Expense deleted');
             await loadExpenses();
             renderReceipts();
-        }
-
-        function toggleReimbursedSection() {
-            const isReimb = document.getElementById('editReimbursable').checked;
-            document.getElementById('editReimbursedSection').style.display = isReimb ? 'block' : 'none';
-            const isDone = document.getElementById('editReimbursed').checked;
-            document.getElementById('editReimbursedByField').style.display = isDone ? 'block' : 'none';
-            document.getElementById('editReimbursedDateField').style.display = isDone ? 'block' : 'none';
         }
 
         function setupEditModal() {
@@ -1036,52 +1037,63 @@
                 const a = document.createElement('a'); a.href = data.signedUrl; a.download = path.split('/').pop(); a.target = '_blank'; document.body.appendChild(a); a.click(); a.remove();
             });
 
-            // Toggle reimbursed section visibility
-            document.getElementById('editReimbursable').addEventListener('change', toggleReimbursedSection);
-            document.getElementById('editReimbursed').addEventListener('change', toggleReimbursedSection);
-
             document.getElementById('editSave').addEventListener('click', async () => {
                 const btn = document.getElementById('editSave');
                 btn.disabled = true;
                 btn.textContent = 'Saving...';
 
-                const expenseId = document.getElementById('editId').value;
-                const isReimbursable = document.getElementById('editReimbursable').checked;
-                const isReimbursed = document.getElementById('editReimbursed').checked;
-                const payload = {
-                    vendor: document.getElementById('editVendor').value.trim() || null,
-                    amount: parseFloat(document.getElementById('editAmount').value) || 0,
-                    expense_date: document.getElementById('editDate').value || null,
-                    category: document.getElementById('editCategory').value || 'other',
-                    description: document.getElementById('editDescription').value.trim() || null,
-                    job_id: document.getElementById('editJob').value || null,
-                    reimbursable: isReimbursable,
-                    reimbursed: isReimbursable && isReimbursed,
-                    reimbursed_by: isReimbursable && isReimbursed ? (document.getElementById('editReimbursedBy').value.trim() || null) : null,
-                    reimbursed_date: isReimbursable && isReimbursed ? (document.getElementById('editReimbursedDate').value || null) : null
-                };
-
-                const { error } = await sb.from('hw_expenses').update(payload).eq('id', expenseId);
-                if (error) {
-                    showToast('Failed to save: ' + error.message, 'error');
-                } else {
-                    showToast('Expense updated');
-                    modal.classList.remove('active');
-                    await loadExpenses();
-                    renderReceipts();
+                const panels = document.querySelectorAll('.edit-expense-panel');
+                let errors = 0;
+                for (const panel of panels) {
+                    const id = panel.dataset.expenseId;
+                    const isReimb = panel.querySelector('.ep-reimbursable').checked;
+                    const isDone = panel.querySelector('.ep-reimbursed').checked;
+                    const payload = {
+                        vendor: panel.querySelector('.ep-vendor').value.trim() || null,
+                        amount: parseFloat(panel.querySelector('.ep-amount').value) || 0,
+                        expense_date: panel.querySelector('.ep-date').value || null,
+                        category: panel.querySelector('.ep-category').value || 'other',
+                        description: panel.querySelector('.ep-description').value.trim() || null,
+                        job_id: panel.querySelector('.ep-job').value || null,
+                        reimbursable: isReimb,
+                        reimbursed: isReimb && isDone,
+                        reimbursed_by: isReimb && isDone ? (panel.querySelector('.ep-reimbursed-by').value.trim() || null) : null,
+                        reimbursed_date: isReimb && isDone ? (panel.querySelector('.ep-reimbursed-date').value || null) : null
+                    };
+                    const { error } = await sb.from('hw_expenses').update(payload).eq('id', id);
+                    if (error) { errors++; console.error('Save error:', id, error.message); }
                 }
 
+                if (errors) {
+                    showToast(errors + ' expense(s) failed to save', 'error');
+                } else {
+                    showToast(panels.length > 1 ? panels.length + ' expenses updated' : 'Expense updated');
+                    modal.classList.remove('active');
+                }
+                await loadExpenses();
+                renderReceipts();
                 btn.disabled = false;
-                btn.textContent = 'Save Changes';
+                btn.textContent = 'Save All Changes';
             });
         }
-        // ==================== Image Viewer with Rotation ====================
+        // ==================== Image Viewer with Rotation + Zoom ====================
         let viewerRotation = 0;
+        let viewerZoom = 1;
+        let viewerPanX = 0, viewerPanY = 0;
         let viewerPath = '';
         let viewerOrigUrl = '';
+        let isDragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
+
+        function updateViewerTransform() {
+            const img = document.getElementById('imgViewerImg');
+            img.style.transform = 'translate(' + viewerPanX + 'px,' + viewerPanY + 'px) scale(' + viewerZoom + ') rotate(' + viewerRotation + 'deg)';
+        }
 
         function openImageViewer(url, path) {
             viewerRotation = 0;
+            viewerZoom = 1;
+            viewerPanX = 0;
+            viewerPanY = 0;
             viewerPath = path;
             viewerOrigUrl = url;
             const img = document.getElementById('imgViewerImg');
@@ -1100,14 +1112,77 @@
             }
         });
 
+        // Mouse wheel zoom
+        document.getElementById('imgViewerImg').addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.85 : 1.18;
+            viewerZoom = Math.min(Math.max(viewerZoom * delta, 0.25), 10);
+            if (Math.abs(viewerZoom - 1) < 0.05) { viewerZoom = 1; viewerPanX = 0; viewerPanY = 0; }
+            updateViewerTransform();
+        }, { passive: false });
+
+        // Drag to pan when zoomed
+        document.getElementById('imgViewerImg').addEventListener('mousedown', (e) => {
+            if (viewerZoom <= 1) return;
+            isDragging = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            panStartX = viewerPanX;
+            panStartY = viewerPanY;
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            viewerPanX = panStartX + (e.clientX - dragStartX);
+            viewerPanY = panStartY + (e.clientY - dragStartY);
+            updateViewerTransform();
+        });
+        document.addEventListener('mouseup', () => { isDragging = false; });
+
+        // Touch pinch-zoom + drag
+        let lastTouchDist = 0;
+        document.getElementById('imgViewerImg').addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                lastTouchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+            } else if (e.touches.length === 1 && viewerZoom > 1) {
+                isDragging = true;
+                dragStartX = e.touches[0].clientX;
+                dragStartY = e.touches[0].clientY;
+                panStartX = viewerPanX;
+                panStartY = viewerPanY;
+            }
+        }, { passive: true });
+        document.getElementById('imgViewerImg').addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                if (lastTouchDist) {
+                    viewerZoom = Math.min(Math.max(viewerZoom * (dist / lastTouchDist), 0.25), 10);
+                    updateViewerTransform();
+                }
+                lastTouchDist = dist;
+            } else if (isDragging && e.touches.length === 1) {
+                viewerPanX = panStartX + (e.touches[0].clientX - dragStartX);
+                viewerPanY = panStartY + (e.touches[0].clientY - dragStartY);
+                updateViewerTransform();
+            }
+        }, { passive: false });
+        document.getElementById('imgViewerImg').addEventListener('touchend', () => { isDragging = false; lastTouchDist = 0; });
+
+        // Double-click to reset zoom
+        document.getElementById('imgViewerImg').addEventListener('dblclick', () => {
+            viewerZoom = 1; viewerPanX = 0; viewerPanY = 0;
+            updateViewerTransform();
+        });
+
         document.getElementById('imgRotLeft').addEventListener('click', () => {
             viewerRotation = (viewerRotation - 90) % 360;
-            document.getElementById('imgViewerImg').style.transform = 'rotate(' + viewerRotation + 'deg)';
+            updateViewerTransform();
             document.getElementById('imgSaveRot').style.display = viewerRotation === 0 ? 'none' : 'inline-flex';
         });
         document.getElementById('imgRotRight').addEventListener('click', () => {
             viewerRotation = (viewerRotation + 90) % 360;
-            document.getElementById('imgViewerImg').style.transform = 'rotate(' + viewerRotation + 'deg)';
+            updateViewerTransform();
             document.getElementById('imgSaveRot').style.display = viewerRotation === 0 ? 'none' : 'inline-flex';
         });
 
