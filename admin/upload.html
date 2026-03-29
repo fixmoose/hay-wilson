@@ -53,7 +53,6 @@
     </div>
 
     <div class="content">
-        <!-- Upload State -->
         <div id="uploadState">
             <div class="upload-btn" id="uploadBtn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -63,17 +62,13 @@
             </div>
 
             <div class="preview-grid" id="previewGrid" style="display:none;"></div>
-
             <button class="send-btn" id="sendBtn" style="display:none;">Upload Receipts</button>
-
             <div class="progress-bar" id="progressBar" style="display:none;">
                 <div class="progress-fill" id="progressFill"></div>
             </div>
-
             <div class="status" id="statusMsg"></div>
         </div>
 
-        <!-- Done State -->
         <div id="doneState" class="done-screen" style="display:none;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="64" height="64"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
             <h2 id="doneTitle">Uploaded!</h2>
@@ -81,7 +76,6 @@
             <button id="uploadMoreBtn">Upload More</button>
         </div>
 
-        <!-- Expired State -->
         <div id="expiredState" class="expired-screen" style="display:none;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="64" height="64"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
             <h2>Link Expired</h2>
@@ -101,24 +95,17 @@
         }
 
         function setupUpload() {
-            const uploadBtn = document.getElementById('uploadBtn');
-            const fileInput = document.getElementById('fileInput');
-            const sendBtn = document.getElementById('sendBtn');
+            document.getElementById('uploadBtn').addEventListener('click', () => document.getElementById('fileInput').click());
 
-            uploadBtn.addEventListener('click', () => fileInput.click());
-
-            fileInput.addEventListener('change', () => {
-                if (fileInput.files.length) {
-                    // Add to selected files
-                    for (const f of fileInput.files) {
-                        selectedFiles.push(f);
-                    }
+            document.getElementById('fileInput').addEventListener('change', function() {
+                if (this.files.length) {
+                    for (const f of this.files) selectedFiles.push(f);
                     renderPreviews();
-                    fileInput.value = '';
+                    this.value = '';
                 }
             });
 
-            sendBtn.addEventListener('click', doUpload);
+            document.getElementById('sendBtn').addEventListener('click', doUpload);
 
             document.getElementById('uploadMoreBtn').addEventListener('click', () => {
                 selectedFiles = [];
@@ -127,7 +114,6 @@
                 document.getElementById('previewGrid').style.display = 'none';
                 document.getElementById('sendBtn').style.display = 'none';
                 document.getElementById('statusMsg').textContent = '';
-                document.getElementById('headerSub').textContent = 'Select photos to upload';
             });
         }
 
@@ -135,7 +121,7 @@
             const grid = document.getElementById('previewGrid');
             const sendBtn = document.getElementById('sendBtn');
 
-            if (selectedFiles.length === 0) {
+            if (!selectedFiles.length) {
                 grid.style.display = 'none';
                 sendBtn.style.display = 'none';
                 return;
@@ -150,9 +136,7 @@
                 const item = document.createElement('div');
                 item.className = 'preview-item';
 
-                const isPdf = file.name.toLowerCase().endsWith('.pdf');
-
-                if (isPdf) {
+                if (file.name.toLowerCase().endsWith('.pdf')) {
                     item.innerHTML = '<div class="pdf-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</div>';
                 } else {
                     const img = document.createElement('img');
@@ -170,14 +154,72 @@
                 const removeBtn = document.createElement('button');
                 removeBtn.className = 'preview-remove';
                 removeBtn.innerHTML = '&times;';
-                removeBtn.addEventListener('click', () => {
-                    selectedFiles.splice(i, 1);
-                    renderPreviews();
-                });
+                removeBtn.addEventListener('click', () => { selectedFiles.splice(i, 1); renderPreviews(); });
                 item.appendChild(removeBtn);
 
                 grid.appendChild(item);
             });
+        }
+
+        // Compress image to small JPEG
+        function compressImage(file) {
+            return new Promise((resolve) => {
+                if (!file.type.startsWith('image/')) { resolve(file); return; }
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                img.onload = () => {
+                    URL.revokeObjectURL(url);
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height;
+                    const maxDim = 1200;
+                    if (w > maxDim || h > maxDim) {
+                        const scale = maxDim / Math.max(w, h);
+                        w = Math.round(w * scale);
+                        h = Math.round(h * scale);
+                    }
+                    canvas.width = w;
+                    canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    canvas.toBlob((blob) => {
+                        if (!blob) { resolve(file); return; }
+                        resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
+                    }, 'image/jpeg', 0.6);
+                };
+                img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+                img.src = url;
+            });
+        }
+
+        // Get signed upload URL from our API, then PUT file directly to Supabase
+        async function uploadOneFile(file) {
+            // Step 1: compress
+            const compressed = await compressImage(file);
+            const safeName = compressed.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+            // Step 2: get signed upload URL (tiny JSON request — just sends filename)
+            const res = await fetch('/api/get-upload-url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: token, filename: safeName })
+            });
+            const text = await res.text();
+            let data;
+            try { data = JSON.parse(text); } catch { throw new Error('Server error: ' + text.substring(0, 100)); }
+            if (!res.ok) {
+                if (res.status === 401) throw new Error('EXPIRED');
+                throw new Error(data.error || 'Failed to get upload URL');
+            }
+
+            // Step 3: upload file directly to Supabase via signed URL (no size limit from Vercel)
+            const uploadRes = await fetch(data.signedUrl, {
+                method: 'PUT',
+                headers: { 'Content-Type': compressed.type || 'image/jpeg' },
+                body: compressed
+            });
+            if (!uploadRes.ok) {
+                const errText = await uploadRes.text().catch(() => 'unknown');
+                throw new Error('Upload failed: ' + errText.substring(0, 100));
+            }
         }
 
         async function doUpload() {
@@ -192,85 +234,47 @@
             statusMsg.textContent = '';
             statusMsg.className = 'status';
 
-            // Convert files to base64
-            const fileData = [];
-            for (let i = 0; i < selectedFiles.length; i++) {
-                progressFill.style.width = ((i / selectedFiles.length) * 50) + '%';
-                statusMsg.textContent = 'Preparing file ' + (i + 1) + ' of ' + selectedFiles.length + '...';
+            let uploaded = 0;
+            let failed = 0;
+            const total = selectedFiles.length;
 
-                const file = selectedFiles[i];
-                const base64 = await fileToBase64(file);
-                fileData.push({
-                    name: file.name,
-                    data: base64,
-                    type: file.type
-                });
+            for (let i = 0; i < total; i++) {
+                progressFill.style.width = Math.round((i / total) * 100) + '%';
+                statusMsg.textContent = 'Uploading ' + (i + 1) + ' of ' + total + '...';
+
+                try {
+                    await uploadOneFile(selectedFiles[i]);
+                    uploaded++;
+                } catch (e) {
+                    if (e.message === 'EXPIRED') {
+                        document.getElementById('uploadState').style.display = 'none';
+                        document.getElementById('expiredState').style.display = 'block';
+                        return;
+                    }
+                    failed++;
+                    console.error(selectedFiles[i].name, e.message);
+                }
             }
 
-            progressFill.style.width = '60%';
-            statusMsg.textContent = 'Uploading to server...';
+            progressFill.style.width = '100%';
 
-            try {
-                // Send in batches of 5 to avoid payload limits
-                let totalUploaded = 0;
-                const batchSize = 3;
-
-                for (let i = 0; i < fileData.length; i += batchSize) {
-                    const batch = fileData.slice(i, i + batchSize);
-                    const progress = 60 + ((i / fileData.length) * 35);
-                    progressFill.style.width = progress + '%';
-                    statusMsg.textContent = 'Uploading batch ' + (Math.floor(i / batchSize) + 1) + '...';
-
-                    const res = await fetch('/api/upload-receipt-file', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ token, files: batch })
-                    });
-
-                    const result = await res.json();
-
-                    if (!res.ok) {
-                        if (res.status === 401) {
-                            document.getElementById('uploadState').style.display = 'none';
-                            document.getElementById('expiredState').style.display = 'block';
-                            return;
-                        }
-                        throw new Error(result.error || 'Upload failed');
-                    }
-
-                    totalUploaded += result.uploaded;
-                }
-
-                progressFill.style.width = '100%';
-
-                // Show done screen
+            if (uploaded > 0) {
                 setTimeout(() => {
                     document.getElementById('uploadState').style.display = 'none';
                     document.getElementById('doneState').style.display = 'block';
-                    document.getElementById('doneTitle').textContent = totalUploaded + ' Receipt' + (totalUploaded > 1 ? 's' : '') + ' Uploaded!';
-                    document.getElementById('doneMsg').textContent = 'They will appear in your admin panel.';
+                    document.getElementById('doneTitle').textContent = uploaded + ' Receipt' + (uploaded > 1 ? 's' : '') + ' Uploaded!';
+                    document.getElementById('doneMsg').textContent = failed > 0
+                        ? (failed + ' failed — you can try those again.')
+                        : 'They will appear in your admin panel.';
                     selectedFiles = [];
                 }, 500);
-
-            } catch (err) {
-                statusMsg.textContent = 'Error: ' + err.message;
+            } else {
+                statusMsg.textContent = 'Upload failed. Check your connection and try again.';
                 statusMsg.className = 'status error';
                 sendBtn.disabled = false;
                 sendBtn.textContent = 'Try Again';
                 progressBar.style.display = 'none';
             }
-        }
-
-        function fileToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => {
-                    const base64 = reader.result.split(',')[1];
-                    resolve(base64);
-                };
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
         }
     </script>
 </body>
