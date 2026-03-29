@@ -1120,14 +1120,14 @@
                         const compressed = await compressImage(file, 1);
                         await uploadToStorage(filePath, compressed);
                         uploaded++;
-                    } catch (e) { failed++; console.error('Upload failed:', file.name, e.message); }
+                    } catch (e) { failed++; alert('Upload error [' + file.name + ']: ' + e.message); }
                 }
 
                 if (uploaded > 0) {
                     showToast(uploaded + ' receipt' + (uploaded > 1 ? 's' : '') + ' uploaded' + (failed > 0 ? ' (' + failed + ' failed)' : ''));
                     loadReceipts();
                 } else {
-                    showToast('Upload failed — try fewer files or smaller images', 'error');
+                    showToast('Upload failed — see error alert for details', 'error');
                 }
                 resetDropZone();
             } else {
@@ -1147,7 +1147,7 @@
                         const compressed = await compressImage(file, 1);
                         await uploadToStorage(filePath, compressed);
                         uploaded++;
-                    } catch (e) { showToast('Failed: ' + file.name, 'error'); console.error('Upload failed:', e.message); }
+                    } catch (e) { alert('Upload error [' + file.name + ']: ' + e.message); }
                 }
 
                 if (uploaded > 0) {
