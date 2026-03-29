@@ -404,9 +404,9 @@
             allJobs = data || [];
 
             const jobOptions = allJobs.map(j => '<option value="' + j.id + '">' + escapeHtml(j.name) + '</option>').join('');
-            document.getElementById('uploadJobSelect').innerHTML = '<option value="_unassigned">No job (general)</option>' + jobOptions;
+            document.getElementById('uploadJobSelect').innerHTML = '<option value="">No job (company expense)</option>' + jobOptions;
             document.getElementById('filterJobSelect').innerHTML = '<option value="all">All receipts</option><option value="_unassigned">Unassigned</option>' + jobOptions;
-            document.getElementById('aiJob').innerHTML = '<option value="">No job</option>' + jobOptions;
+            document.getElementById('aiJob').innerHTML = '<option value="">No job (company expense)</option>' + jobOptions;
         }
 
         // ==================== Receipts ====================
@@ -712,7 +712,7 @@
             const expiresAt = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString();
             const { error } = await sb.from('hw_upload_tokens').insert({
                 token: token,
-                job_id: jobId === '_unassigned' ? null : jobId,
+                job_id: jobId || null,
                 expires_at: expiresAt
             });
 
@@ -950,7 +950,7 @@
         const categoryOptions = ['materials','tools','software','fuel','supplies','permits','subcontractor','equipment_rental','vehicle','meals','other'];
 
         function buildExpensePanel(expense, idx) {
-            const jobOpts = '<option value="">No job</option>' + allJobs.map(j =>
+            const jobOpts = '<option value=""' + (!expense.job_id ? ' selected' : '') + '>No job (company expense)</option>' + allJobs.map(j =>
                 '<option value="' + j.id + '"' + (j.id === expense.job_id ? ' selected' : '') + '>' + escapeHtml(j.name) + '</option>'
             ).join('');
             const catOpts = categoryOptions.map(c =>
