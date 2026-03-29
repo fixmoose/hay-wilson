@@ -1076,6 +1076,28 @@
             });
         }
 
+        // Direct upload bypassing Supabase JS client (handles non-JSON errors)
+        async function uploadToStorage(filePath, fileBlob) {
+            const session = await sb.auth.getSession();
+            const token = session.data.session?.access_token;
+            const url = 'https://mxxabikquupnwvlspzyz.supabase.co/storage/v1/object/hw-receipts/' + filePath.split('/').map(encodeURIComponent).join('/');
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': fileBlob.type || 'image/jpeg',
+                    'Cache-Control': '3600',
+                    'x-upsert': 'false'
+                },
+                body: fileBlob
+            });
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error('Upload failed (' + res.status + '): ' + text.substring(0, 200));
+            }
+            return await res.json();
+        }
+
         let currentGroupId = null;
         let currentPageNum = 0;
 
@@ -1096,10 +1118,9 @@
 
                     try {
                         const compressed = await compressImage(file, 1);
-                        const { error } = await sb.storage.from('hw-receipts').upload(filePath, compressed, { contentType: 'image/jpeg', cacheControl: '3600', upsert: false });
-                        if (error) { failed++; console.error('Upload error:', file.name, error.message || error); }
-                        else { uploaded++; }
-                    } catch (e) { failed++; console.error('Upload exception:', file.name, e); }
+                        await uploadToStorage(filePath, compressed);
+                        uploaded++;
+                    } catch (e) { failed++; console.error('Upload failed:', file.name, e.message); }
                 }
 
                 if (uploaded > 0) {
@@ -1124,10 +1145,9 @@
 
                     try {
                         const compressed = await compressImage(file, 1);
-                        const { error } = await sb.storage.from('hw-receipts').upload(filePath, compressed, { contentType: 'image/jpeg', cacheControl: '3600', upsert: false });
-                        if (error) { showToast('Failed: ' + file.name, 'error'); }
-                        else { uploaded++; }
-                    } catch (e) { showToast('Failed: ' + file.name, 'error'); console.error(e); }
+                        await uploadToStorage(filePath, compressed);
+                        uploaded++;
+                    } catch (e) { showToast('Failed: ' + file.name, 'error'); console.error('Upload failed:', e.message); }
                 }
 
                 if (uploaded > 0) {
