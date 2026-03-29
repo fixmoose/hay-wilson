@@ -262,8 +262,18 @@
 
             tbody.innerHTML = sorted.map(c => {
                 const gcBadge = c.is_gc ? ' <span class="badge badge-gc">GC</span>' : '';
-                const gcPrefix = (!c.is_gc && c.parent_gc_id && c.parent_gc)
-                    ? '<span class="gc-prefix">(' + escapeHtml(getInitials(c.parent_gc.name)) + ')</span> '
+                let gcName = '';
+                if (!c.is_gc && c.parent_gc_id) {
+                    if (c.parent_gc && c.parent_gc.name) {
+                        gcName = c.parent_gc.name;
+                    } else {
+                        // Fallback: look up GC from loaded clients list
+                        const gcClient = allClients.find(g => g.id === c.parent_gc_id);
+                        if (gcClient) gcName = gcClient.name;
+                    }
+                }
+                const gcPrefix = gcName
+                    ? '<span class="gc-prefix">(' + escapeHtml(getInitials(gcName)) + ')</span> '
                     : '';
                 const indentClass = (!c.is_gc && c.parent_gc_id) ? ' sub-client-row' : '';
                 return `<tr class="clickable${indentClass}" data-id="${c.id}">
