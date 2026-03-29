@@ -11,6 +11,76 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/admin/admin-styles.css">
+    <style>
+        /* Invoice builder styles */
+        .invoice-builder { display: none; }
+        .invoice-builder.active { display: block; }
+
+        .client-selector { padding: 1.25rem; }
+        .client-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; margin-top: 1rem; }
+        .client-card {
+            padding: 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: var(--transition);
+            background: var(--bg-white);
+        }
+        .client-card:hover { border-color: var(--primary-light); background: rgba(59,130,246,0.03); }
+        .client-card.selected { border-color: var(--primary-color); background: rgba(30,58,138,0.05); }
+        .client-card-name { font-weight: 600; font-size: 1rem; margin-bottom: 0.25rem; }
+        .client-card-email { font-size: 0.8rem; color: var(--text-light); }
+        .client-card-meta { font-size: 0.75rem; color: var(--text-light); margin-top: 0.5rem; display: flex; gap: 0.75rem; }
+        .client-card-badge { display: inline-block; background: #e0e7ff; color: #3730a3; font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.4rem; border-radius: 4px; margin-left: 0.5rem; }
+
+        .job-group { margin-bottom: 1.5rem; }
+        .job-group-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.75rem 1rem;
+            background: var(--bg-light);
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600; font-size: 0.9rem;
+        }
+        .job-group-header label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+        .job-group-subtotal { font-size: 0.85rem; color: var(--text-light); font-weight: 500; }
+
+        .line-item {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.875rem;
+        }
+        .line-item:last-child { border-bottom: none; }
+        .line-item input[type="checkbox"] { flex-shrink: 0; width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary-color); }
+        .line-item-desc { flex: 1; }
+        .line-item-type { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-light); margin-left: 0.5rem; }
+        .line-item-amount { font-weight: 600; white-space: nowrap; }
+        .line-item-amount.credit { color: var(--danger); }
+        .line-item-amount.expense { color: var(--accent-dark); }
+
+        .section-label { padding: 0.5rem 1rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-light); background: #fafbfc; border-bottom: 1px solid var(--border-color); font-weight: 600; }
+
+        .invoice-summary {
+            position: sticky; bottom: 0;
+            background: var(--bg-white);
+            border-top: 2px solid var(--border-color);
+            padding: 1rem 1.25rem;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 1rem;
+        }
+        .invoice-summary-total { font-size: 1.25rem; font-weight: 700; }
+        .invoice-summary-detail { font-size: 0.8rem; color: var(--text-light); }
+        .invoice-summary-actions { display: flex; gap: 0.75rem; align-items: center; }
+
+        .no-items-msg { padding: 2rem; text-align: center; color: var(--text-light); font-size: 0.9rem; }
+
+        /* Existing invoices table extras */
+        .invoice-amount { font-weight: 600; }
+        .invoice-link { color: var(--primary-light); text-decoration: none; font-size: 0.8rem; }
+        .invoice-link:hover { text-decoration: underline; }
+
+        .view-toggle { display: flex; gap: 0.5rem; }
+    </style>
 </head>
 <body>
     <div class="admin-topbar">
@@ -37,6 +107,8 @@
         </ul>
     </aside>
 
+    <div class="toast-container" id="toastContainer"></div>
+
     <main class="admin-main">
         <a href="/admin/" class="back-link">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
@@ -44,11 +116,82 @@
         </a>
         <div class="admin-page-header">
             <h2>Invoices</h2>
+            <div class="view-toggle">
+                <button class="btn btn-primary btn-sm" id="newInvoiceBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    New Invoice
+                </button>
+            </div>
         </div>
-        <div class="admin-card">
-            <div style="padding:2rem;text-align:center;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-light)" stroke-width="1.5" width="48" height="48" style="margin-bottom:1rem;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                <p style="color:var(--text-light);font-size:1.1rem;">Invoices page coming soon.</p>
+
+        <!-- ==================== EXISTING INVOICES LIST ==================== -->
+        <div id="invoiceListView">
+            <div class="filter-tabs" id="statusFilters">
+                <button class="filter-tab active" data-filter="all">All</button>
+                <button class="filter-tab" data-filter="draft">Draft</button>
+                <button class="filter-tab" data-filter="sent">Sent</button>
+                <button class="filter-tab" data-filter="paid">Paid</button>
+                <button class="filter-tab" data-filter="void">Void</button>
+            </div>
+            <div class="admin-card">
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Client</th>
+                                <th>Job</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Due</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoiceTableBody">
+                            <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== NEW INVOICE BUILDER ==================== -->
+        <div class="invoice-builder" id="invoiceBuilder">
+            <!-- Step 1: Pick client -->
+            <div id="step1" class="admin-card">
+                <div class="admin-card-header">
+                    <h3>Step 1: Select Client to Invoice</h3>
+                    <button class="btn btn-outline btn-sm" id="cancelBuilder">Cancel</button>
+                </div>
+                <div class="client-selector">
+                    <div class="search-bar" style="max-width:100%;margin-bottom:1rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text" id="clientSearch" placeholder="Search clients..." class="form-control" style="padding-left:2.25rem;">
+                    </div>
+                    <div class="client-cards" id="clientCards">
+                        <div class="loading"><div class="spinner"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Select line items -->
+            <div id="step2" style="display:none;">
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h3>Step 2: Select Items for <span id="builderClientName"></span></h3>
+                        <button class="btn btn-outline btn-sm" id="backToStep1">Back to Clients</button>
+                    </div>
+                    <div id="lineItemsContainer"></div>
+                    <div class="invoice-summary" id="invoiceSummary" style="display:none;">
+                        <div>
+                            <div class="invoice-summary-total" id="summaryTotal">$0.00</div>
+                            <div class="invoice-summary-detail" id="summaryDetail">0 items selected</div>
+                        </div>
+                        <div class="invoice-summary-actions">
+                            <button class="btn btn-primary" id="createInvoiceBtn" disabled>Create Invoice</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -59,16 +202,580 @@
             'https://mxxabikquupnwvlspzyz.supabase.co',
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14eGFiaWtxdXVwbnd2bHNwenl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDMwNTgsImV4cCI6MjA3NzIxOTA1OH0.WC_mupqYMneJnYmr9vmDZd0vXroBnaLwZlYX44J_HFQ'
         );
+
+        let session = null;
+        let allCustomers = [];
+        let allJobs = [];
+        let allInvoices = [];
+
+        // Currently selected builder state
+        let selectedClient = null;
+        let billingJobs = [];       // jobs belonging to selected client (or sub-clients for GC)
+        let jobCharges = {};        // { jobId: [charges] }
+        let jobExpenses = {};       // { jobId: [expenses] }
+
+        // ==================== Init ====================
         (async () => {
-            const { data: { session } } = await sb.auth.getSession();
-            if (!session) { window.location.href = '/admin/login.html'; return; }
-            document.getElementById('adminUser').textContent = session.user.email;
+            const { data: { session: s } } = await sb.auth.getSession();
+            if (!s) { window.location.href = '/admin/login.html'; return; }
+            session = s;
+            document.getElementById('adminUser').textContent = s.user.email;
             document.getElementById('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); window.location.href = '/admin/login.html'; });
+
             const sidebar = document.getElementById('adminSidebar');
             const toggle = document.getElementById('sidebarToggle');
             toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
             document.addEventListener('click', (e) => { if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggle.contains(e.target)) sidebar.classList.remove('open'); });
+
+            setupEventListeners();
+            await loadData();
         })();
+
+        // ==================== Data Loading ====================
+        async function loadData() {
+            const [custRes, jobRes, invRes] = await Promise.all([
+                sb.from('hw_customers').select('*'),
+                sb.from('hw_jobs').select('*, hw_customers(id, name, email, is_gc, parent_gc_id, stripe_customer_id)'),
+                sb.from('hw_invoices').select('*, hw_jobs(id, name, customer_id, hw_customers(id, name))').order('created_at', { ascending: false }),
+            ]);
+            allCustomers = custRes.data || [];
+            allJobs = jobRes.data || [];
+            allInvoices = invRes.data || [];
+            renderInvoiceList();
+        }
+
+        // ==================== Event Listeners ====================
+        function setupEventListeners() {
+            document.getElementById('newInvoiceBtn').addEventListener('click', openBuilder);
+            document.getElementById('cancelBuilder').addEventListener('click', closeBuilder);
+            document.getElementById('backToStep1').addEventListener('click', () => {
+                document.getElementById('step1').style.display = '';
+                document.getElementById('step2').style.display = 'none';
+                selectedClient = null;
+            });
+            document.getElementById('clientSearch').addEventListener('input', renderClientCards);
+            document.getElementById('createInvoiceBtn').addEventListener('click', createInvoice);
+
+            // Status filter tabs
+            document.querySelectorAll('#statusFilters .filter-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('#statusFilters .filter-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    renderInvoiceList();
+                });
+            });
+        }
+
+        // ==================== Invoice List ====================
+        function renderInvoiceList() {
+            const filter = document.querySelector('#statusFilters .filter-tab.active').dataset.filter;
+            let filtered = allInvoices;
+            if (filter !== 'all') filtered = filtered.filter(i => i.status === filter);
+
+            const tbody = document.getElementById('invoiceTableBody');
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>No invoices found</p></div></td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(inv => {
+                const jobName = inv.hw_jobs ? inv.hw_jobs.name : 'N/A';
+                const clientName = inv.hw_jobs && inv.hw_jobs.hw_customers ? inv.hw_jobs.hw_customers.name : 'N/A';
+                const createdDate = inv.created_at ? new Date(inv.created_at).toLocaleDateString() : '';
+                const dueDate = inv.due_date ? new Date(inv.due_date).toLocaleDateString() : '';
+                const isOverdue = inv.status === 'sent' && inv.due_date && new Date(inv.due_date) < new Date();
+                const rowClass = isOverdue ? 'row-overdue-30' : '';
+                return `<tr class="${rowClass}">
+                    <td>${createdDate}</td>
+                    <td>${esc(clientName)}</td>
+                    <td>${esc(jobName)}</td>
+                    <td class="invoice-amount">${formatCurrency(inv.amount)}</td>
+                    <td><span class="badge badge-${inv.status}">${inv.status}</span>${isOverdue ? ' <span style="color:var(--danger);font-size:0.7rem;font-weight:600;">OVERDUE</span>' : ''}</td>
+                    <td>${dueDate}</td>
+                    <td>${renderInvoiceActions(inv)}</td>
+                </tr>`;
+            }).join('');
+
+            // Wire action buttons
+            tbody.querySelectorAll('[data-action]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const action = e.currentTarget.dataset.action;
+                    const id = e.currentTarget.dataset.id;
+                    const inv = allInvoices.find(i => i.id === id);
+                    if (!inv) return;
+                    if (action === 'send') sendInvoice(inv);
+                    else if (action === 'paid') markPaid(inv);
+                    else if (action === 'void') voidInvoice(inv);
+                    else if (action === 'view') window.open(inv.stripe_invoice_url, '_blank');
+                });
+            });
+        }
+
+        function renderInvoiceActions(inv) {
+            let html = '';
+            if (inv.stripe_invoice_url) {
+                html += `<button class="btn btn-outline btn-sm" data-action="view" data-id="${inv.id}" title="View in Stripe">View</button> `;
+            }
+            if (inv.status === 'draft') {
+                html += `<button class="btn btn-primary btn-sm" data-action="send" data-id="${inv.id}">Send</button> `;
+                html += `<button class="btn btn-outline btn-sm" data-action="void" data-id="${inv.id}" style="color:var(--danger);border-color:var(--danger);">Void</button>`;
+            } else if (inv.status === 'sent') {
+                html += `<button class="btn btn-success btn-sm" data-action="paid" data-id="${inv.id}">Mark Paid</button> `;
+                html += `<button class="btn btn-outline btn-sm" data-action="void" data-id="${inv.id}" style="color:var(--danger);border-color:var(--danger);">Void</button>`;
+            }
+            return html || '<span style="color:var(--text-light);font-size:0.8rem;">--</span>';
+        }
+
+        // ==================== Invoice Builder ====================
+        function openBuilder() {
+            document.getElementById('invoiceListView').style.display = 'none';
+            document.getElementById('invoiceBuilder').classList.add('active');
+            document.getElementById('step1').style.display = '';
+            document.getElementById('step2').style.display = 'none';
+            selectedClient = null;
+            renderClientCards();
+        }
+
+        function closeBuilder() {
+            document.getElementById('invoiceBuilder').classList.remove('active');
+            document.getElementById('invoiceListView').style.display = '';
+            selectedClient = null;
+        }
+
+        function renderClientCards() {
+            const search = (document.getElementById('clientSearch').value || '').toLowerCase();
+            const container = document.getElementById('clientCards');
+
+            // Build a list of "billable clients": direct clients + GC parents
+            // For GCs: show the GC, they'll invoice for all sub-customer jobs
+            // For direct clients (no parent_gc_id, not a GC): show them directly
+            // We want unique billing targets
+            const billingTargets = [];
+            const seen = new Set();
+
+            allCustomers.forEach(c => {
+                if (c.is_gc) {
+                    // This is a GC — always show as billing target
+                    if (!seen.has(c.id)) {
+                        const subCustomerIds = allCustomers.filter(sc => sc.parent_gc_id === c.id).map(sc => sc.id);
+                        const gcJobCount = allJobs.filter(j => subCustomerIds.includes(j.customer_id) || j.customer_id === c.id).length;
+                        billingTargets.push({ ...c, _type: 'gc', _jobCount: gcJobCount });
+                        seen.add(c.id);
+                    }
+                }
+            });
+
+            allCustomers.forEach(c => {
+                if (!c.is_gc && !c.parent_gc_id && !seen.has(c.id)) {
+                    // Direct client — not a sub-customer of a GC
+                    const jobCount = allJobs.filter(j => j.customer_id === c.id).length;
+                    if (jobCount > 0) {
+                        billingTargets.push({ ...c, _type: 'direct', _jobCount: jobCount });
+                        seen.add(c.id);
+                    }
+                }
+            });
+
+            // Also include sub-customers that belong to a GC — BUT they bill through the GC
+            // So we only show the GC. However, if a sub-customer has jobs but no parent GC in the system,
+            // we should still show them
+            allCustomers.forEach(c => {
+                if (!c.is_gc && c.parent_gc_id && !seen.has(c.id)) {
+                    // Check if parent GC exists
+                    const parentExists = allCustomers.some(p => p.id === c.parent_gc_id);
+                    if (!parentExists) {
+                        const jobCount = allJobs.filter(j => j.customer_id === c.id).length;
+                        if (jobCount > 0) {
+                            billingTargets.push({ ...c, _type: 'direct', _jobCount: jobCount });
+                            seen.add(c.id);
+                        }
+                    }
+                }
+            });
+
+            let filtered = billingTargets;
+            if (search) {
+                filtered = billingTargets.filter(c => c.name.toLowerCase().includes(search) || (c.email || '').toLowerCase().includes(search));
+            }
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<p style="color:var(--text-light);grid-column:1/-1;">No clients found with jobs.</p>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(c => `
+                <div class="client-card" data-id="${c.id}">
+                    <div class="client-card-name">${esc(c.name)}${c._type === 'gc' ? '<span class="client-card-badge">GC</span>' : ''}</div>
+                    <div class="client-card-email">${esc(c.email || 'No email')}</div>
+                    <div class="client-card-meta">
+                        <span>${c._jobCount} job${c._jobCount !== 1 ? 's' : ''}</span>
+                    </div>
+                </div>
+            `).join('');
+
+            container.querySelectorAll('.client-card').forEach(card => {
+                card.addEventListener('click', () => selectClient(card.dataset.id));
+            });
+        }
+
+        async function selectClient(clientId) {
+            selectedClient = allCustomers.find(c => c.id === clientId);
+            if (!selectedClient) return;
+
+            document.getElementById('step1').style.display = 'none';
+            document.getElementById('step2').style.display = '';
+            document.getElementById('builderClientName').textContent = selectedClient.name;
+
+            // Find all jobs for this billing target
+            if (selectedClient.is_gc) {
+                // GC: find all sub-customers + direct jobs
+                const subCustomerIds = allCustomers.filter(c => c.parent_gc_id === selectedClient.id).map(c => c.id);
+                billingJobs = allJobs.filter(j => subCustomerIds.includes(j.customer_id) || j.customer_id === selectedClient.id);
+            } else {
+                billingJobs = allJobs.filter(j => j.customer_id === selectedClient.id);
+            }
+
+            // Load charges and expenses for all those jobs
+            const jobIds = billingJobs.map(j => j.id);
+            if (jobIds.length === 0) {
+                document.getElementById('lineItemsContainer').innerHTML = '<div class="no-items-msg">No jobs found for this client.</div>';
+                document.getElementById('invoiceSummary').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('lineItemsContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+            const [chargesRes, expensesRes] = await Promise.all([
+                sb.from('hw_charges').select('*').in('job_id', jobIds).eq('is_paid', false),
+                sb.from('hw_expenses').select('*').in('job_id', jobIds).eq('reimbursable', true).eq('reimbursed', false),
+            ]);
+
+            const charges = chargesRes.data || [];
+            const expenses = expensesRes.data || [];
+
+            // Group by job
+            jobCharges = {};
+            jobExpenses = {};
+            jobIds.forEach(id => { jobCharges[id] = []; jobExpenses[id] = []; });
+            charges.forEach(c => { if (jobCharges[c.job_id]) jobCharges[c.job_id].push(c); });
+            expenses.forEach(e => { if (jobExpenses[e.job_id]) jobExpenses[e.job_id].push(e); });
+
+            renderLineItems();
+        }
+
+        function renderLineItems() {
+            const container = document.getElementById('lineItemsContainer');
+            const jobsWithItems = billingJobs.filter(j =>
+                (jobCharges[j.id] && jobCharges[j.id].length > 0) ||
+                (jobExpenses[j.id] && jobExpenses[j.id].length > 0)
+            );
+
+            if (jobsWithItems.length === 0) {
+                container.innerHTML = '<div class="no-items-msg">No unpaid charges or unreimbursed expenses for this client.</div>';
+                document.getElementById('invoiceSummary').style.display = 'none';
+                return;
+            }
+
+            let html = '';
+            jobsWithItems.forEach(job => {
+                const charges = jobCharges[job.id] || [];
+                const expenses = jobExpenses[job.id] || [];
+                const customerName = job.hw_customers ? job.hw_customers.name : '';
+                const jobLabel = selectedClient.is_gc && customerName ? `${job.name} (${customerName})` : job.name;
+
+                html += `<div class="job-group" data-job-id="${job.id}">`;
+                html += `<div class="job-group-header">
+                    <label><input type="checkbox" class="job-toggle" data-job-id="${job.id}" checked> ${esc(jobLabel)}</label>
+                    <span class="job-group-subtotal" id="subtotal-${job.id}"></span>
+                </div>`;
+
+                if (charges.length > 0) {
+                    html += `<div class="section-label">Charges</div>`;
+                    charges.forEach(c => {
+                        const amt = parseFloat(c.amount) || 0;
+                        const isCredit = c.charge_type === 'credit';
+                        const displayAmt = isCredit ? -amt : amt;
+                        html += `<div class="line-item">
+                            <input type="checkbox" class="item-check" data-job-id="${job.id}" data-type="charge" data-id="${c.id}" data-amount="${displayAmt}" checked>
+                            <span class="line-item-desc">${esc(c.description || 'Charge')}<span class="line-item-type">${c.charge_type}</span></span>
+                            <span class="line-item-amount${isCredit ? ' credit' : ''}">${isCredit ? '-' : ''}${formatCurrency(amt)}</span>
+                        </div>`;
+                    });
+                }
+
+                if (expenses.length > 0) {
+                    html += `<div class="section-label">Reimbursable Expenses</div>`;
+                    expenses.forEach(e => {
+                        const amt = parseFloat(e.amount) || 0;
+                        html += `<div class="line-item">
+                            <input type="checkbox" class="item-check" data-job-id="${job.id}" data-type="expense" data-id="${e.id}" data-amount="${amt}" checked>
+                            <span class="line-item-desc">${esc(e.vendor || '')}${e.vendor && e.description ? ' — ' : ''}${esc(e.description || 'Expense')}</span>
+                            <span class="line-item-amount expense">${formatCurrency(amt)}</span>
+                        </div>`;
+                    });
+                }
+
+                html += `</div>`;
+            });
+
+            container.innerHTML = html;
+            document.getElementById('invoiceSummary').style.display = '';
+
+            // Wire checkboxes
+            container.querySelectorAll('.job-toggle').forEach(toggle => {
+                toggle.addEventListener('change', (e) => {
+                    const jobId = e.target.dataset.jobId;
+                    const checked = e.target.checked;
+                    container.querySelectorAll(`.item-check[data-job-id="${jobId}"]`).forEach(cb => { cb.checked = checked; });
+                    updateSummary();
+                });
+            });
+
+            container.querySelectorAll('.item-check').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    // Update job toggle state
+                    const jobId = cb.dataset.jobId;
+                    const allInJob = container.querySelectorAll(`.item-check[data-job-id="${jobId}"]`);
+                    const allChecked = Array.from(allInJob).every(c => c.checked);
+                    const someChecked = Array.from(allInJob).some(c => c.checked);
+                    const toggle = container.querySelector(`.job-toggle[data-job-id="${jobId}"]`);
+                    if (toggle) {
+                        toggle.checked = allChecked;
+                        toggle.indeterminate = !allChecked && someChecked;
+                    }
+                    updateSummary();
+                });
+            });
+
+            updateSummary();
+        }
+
+        function updateSummary() {
+            const checks = document.querySelectorAll('#lineItemsContainer .item-check:checked');
+            let total = 0;
+            let count = 0;
+            const jobSubtotals = {};
+
+            checks.forEach(cb => {
+                const amt = parseFloat(cb.dataset.amount) || 0;
+                total += amt;
+                count++;
+                const jid = cb.dataset.jobId;
+                jobSubtotals[jid] = (jobSubtotals[jid] || 0) + amt;
+            });
+
+            // Update per-job subtotals
+            billingJobs.forEach(j => {
+                const el = document.getElementById('subtotal-' + j.id);
+                if (el) {
+                    const sub = jobSubtotals[j.id] || 0;
+                    el.textContent = sub > 0 ? formatCurrency(sub) : '';
+                }
+            });
+
+            document.getElementById('summaryTotal').textContent = formatCurrency(total);
+            document.getElementById('summaryDetail').textContent = count + ' item' + (count !== 1 ? 's' : '') + ' selected';
+            document.getElementById('createInvoiceBtn').disabled = total <= 0;
+        }
+
+        // ==================== Create Invoice ====================
+        async function createInvoice() {
+            const btn = document.getElementById('createInvoiceBtn');
+            btn.disabled = true;
+            btn.textContent = 'Creating...';
+
+            try {
+                // Determine billing customer
+                const billingCustomer = selectedClient;
+                if (!billingCustomer.email) {
+                    throw new Error('Billing client has no email. Add one in Clients first.');
+                }
+
+                // Collect selected items
+                const checks = document.querySelectorAll('#lineItemsContainer .item-check:checked');
+                let total = 0;
+                const selectedChargeIds = [];
+                const selectedExpenseIds = [];
+                const jobItems = {}; // { jobId: { charges: [], expenses: [] } }
+
+                checks.forEach(cb => {
+                    const amt = parseFloat(cb.dataset.amount) || 0;
+                    total += amt;
+                    const jobId = cb.dataset.jobId;
+                    if (!jobItems[jobId]) jobItems[jobId] = { charges: [], expenses: [] };
+                    if (cb.dataset.type === 'charge') {
+                        selectedChargeIds.push(cb.dataset.id);
+                        jobItems[jobId].charges.push(cb.dataset.id);
+                    } else {
+                        selectedExpenseIds.push(cb.dataset.id);
+                        jobItems[jobId].expenses.push(cb.dataset.id);
+                    }
+                });
+
+                if (total <= 0) throw new Error('Invoice total must be greater than $0');
+
+                // Build description with job breakdown
+                const descParts = [];
+                Object.keys(jobItems).forEach(jobId => {
+                    const job = billingJobs.find(j => j.id === jobId);
+                    if (!job) return;
+                    const parts = [];
+                    const jCharges = jobItems[jobId].charges.length;
+                    const jExpenses = jobItems[jobId].expenses.length;
+                    if (jCharges > 0) parts.push(jCharges + ' charge' + (jCharges !== 1 ? 's' : ''));
+                    if (jExpenses > 0) parts.push(jExpenses + ' reimbursable expense' + (jExpenses !== 1 ? 's' : ''));
+                    descParts.push(job.name + ': ' + parts.join(', '));
+                });
+                const description = descParts.join(' | ');
+
+                // Ensure Stripe customer exists
+                let stripeCustomerId = billingCustomer.stripe_customer_id;
+                if (!stripeCustomerId) {
+                    const res = await fetch('/api/stripe-create-customer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+                        body: JSON.stringify({ name: billingCustomer.name, email: billingCustomer.email })
+                    });
+                    const data = await res.json();
+                    if (data.error) throw new Error(data.error);
+                    stripeCustomerId = data.stripe_customer_id;
+                    await sb.from('hw_customers').update({ stripe_customer_id: stripeCustomerId }).eq('id', billingCustomer.id);
+                    billingCustomer.stripe_customer_id = stripeCustomerId;
+                }
+
+                // Create Stripe invoice via API
+                const res = await fetch('/api/stripe-create-invoice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+                    body: JSON.stringify({
+                        stripe_customer_id: stripeCustomerId,
+                        amount_cents: Math.round(total * 100),
+                        description: description
+                    })
+                });
+                const invoiceData = await res.json();
+                if (invoiceData.error) throw new Error(invoiceData.error);
+
+                // Pick the first job as the linked job (for the hw_invoices FK)
+                const primaryJobId = Object.keys(jobItems)[0];
+
+                // Save invoice record
+                const { error: insertErr } = await sb.from('hw_invoices').insert({
+                    job_id: primaryJobId,
+                    stripe_invoice_id: invoiceData.stripe_invoice_id,
+                    stripe_invoice_url: invoiceData.stripe_invoice_url,
+                    amount: total,
+                    status: 'draft'
+                });
+                if (insertErr) throw insertErr;
+
+                showToast('Invoice created as draft (' + formatCurrency(total) + ')');
+                closeBuilder();
+                await loadData();
+
+            } catch (err) {
+                showToast('Failed: ' + err.message, 'error');
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Create Invoice';
+        }
+
+        // ==================== Invoice Actions ====================
+        async function sendInvoice(inv) {
+            if (!confirm('Send this invoice for ' + formatCurrency(inv.amount) + '?')) return;
+
+            try {
+                const res = await fetch('/api/stripe-send-invoice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+                    body: JSON.stringify({ stripe_invoice_id: inv.stripe_invoice_id })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                await sb.from('hw_invoices').update({
+                    status: 'sent',
+                    stripe_invoice_url: data.stripe_invoice_url || inv.stripe_invoice_url
+                }).eq('id', inv.id);
+
+                // Update job status
+                if (inv.job_id) {
+                    await sb.from('hw_jobs').update({ status: 'invoiced' }).eq('id', inv.job_id);
+                }
+
+                showToast('Invoice sent');
+                await loadData();
+            } catch (err) {
+                showToast('Failed to send: ' + err.message, 'error');
+            }
+        }
+
+        async function markPaid(inv) {
+            if (!confirm('Confirm payment received for ' + formatCurrency(inv.amount) + '?')) return;
+
+            try {
+                const today = new Date().toISOString().split('T')[0];
+
+                // Mark invoice as paid
+                await sb.from('hw_invoices').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', inv.id);
+
+                // Mark all unpaid charges on this job as paid
+                if (inv.job_id) {
+                    const { data: unpaidCharges } = await sb.from('hw_charges').select('id').eq('job_id', inv.job_id).eq('is_paid', false);
+                    if (unpaidCharges && unpaidCharges.length > 0) {
+                        await sb.from('hw_charges').update({ is_paid: true, paid_date: today }).in('id', unpaidCharges.map(c => c.id));
+                    }
+
+                    // Mark reimbursable expenses as reimbursed
+                    const { data: pendingReimb } = await sb.from('hw_expenses').select('id').eq('job_id', inv.job_id).eq('reimbursable', true).eq('reimbursed', false);
+                    if (pendingReimb && pendingReimb.length > 0) {
+                        await sb.from('hw_expenses').update({ reimbursed: true, reimbursed_date: today }).in('id', pendingReimb.map(e => e.id));
+                    }
+
+                    // Update job status
+                    await sb.from('hw_jobs').update({ status: 'paid' }).eq('id', inv.job_id);
+                }
+
+                showToast('Payment confirmed');
+                await loadData();
+            } catch (err) {
+                showToast('Failed: ' + err.message, 'error');
+            }
+        }
+
+        async function voidInvoice(inv) {
+            if (!confirm('Void this invoice? This cannot be undone.')) return;
+
+            try {
+                await sb.from('hw_invoices').update({ status: 'void' }).eq('id', inv.id);
+                showToast('Invoice voided');
+                await loadData();
+            } catch (err) {
+                showToast('Failed: ' + err.message, 'error');
+            }
+        }
+
+        // ==================== Helpers ====================
+        function formatCurrency(n) {
+            return '$' + (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function esc(str) {
+            if (!str) return '';
+            const d = document.createElement('div');
+            d.textContent = str;
+            return d.innerHTML;
+        }
+
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            toast.textContent = msg;
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 4000);
+        }
     </script>
 </body>
 </html>
