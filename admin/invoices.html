@@ -229,8 +229,8 @@
                 sb.from('hw_customers').select('*'),
                 sb.from('hw_jobs').select('*, hw_customers(id, name, email, is_gc, parent_gc_id, stripe_customer_id)'),
                 sb.from('hw_invoices').select('*, hw_jobs(id, name, customer_id, hw_customers(id, name))').order('created_at', { ascending: false }),
-                sb.from('hw_charges').select('*').eq('is_paid', false),
-                sb.from('hw_expenses').select('*').eq('reimbursable', true).eq('reimbursed', false),
+                sb.from('hw_charges').select('*').eq('is_paid', false).is('invoice_id', null),
+                sb.from('hw_expenses').select('*').eq('reimbursable', true).eq('reimbursed', false).is('invoice_id', null),
             ]);
             allCustomers = custRes.data || [];
             allJobs = jobRes.data || [];
@@ -546,18 +546,31 @@
                     const primaryJobId = Array.from(group.jobIds)[0];
                     const totalAmount = totalCents / 100;
 
-                    await sb.from('hw_invoices').insert({
+                    const { data: invRecord, error: insertErr } = await sb.from('hw_invoices').insert({
                         job_id: primaryJobId,
                         stripe_invoice_id: invoiceData.stripe_invoice_id,
                         stripe_invoice_url: invoiceData.stripe_invoice_url,
                         amount: totalAmount,
                         status: 'draft'
-                    });
+                    }).select('id').single();
+                    if (insertErr) throw insertErr;
+
+                    // Mark charges and expenses as invoiced
+                    const invoiceId = invRecord.id;
+                    if (group.chargeIds.length > 0) {
+                        await sb.from('hw_charges').update({ invoice_id: invoiceId }).in('id', group.chargeIds);
+                    }
+                    if (group.expenseIds.length > 0) {
+                        await sb.from('hw_expenses').update({ invoice_id: invoiceId }).in('id', group.expenseIds);
+                    }
 
                     createdCount++;
                 }
 
                 showToast(createdCount + ' invoice' + (createdCount !== 1 ? 's' : '') + ' created as draft');
+
+                // Switch to Invoice History tab
+                switchTab('history');
                 await loadData();
 
             } catch (err) {
@@ -663,12 +676,23 @@
         }
 
         async function voidInvoice(inv) {
-            if (!confirm('Void this invoice? This cannot be undone.')) return;
+            if (!confirm('Void this invoice? Items will return to uninvoiced.')) return;
             try {
+                // Release charges and expenses back to uninvoiced
+                await sb.from('hw_charges').update({ invoice_id: null }).eq('invoice_id', inv.id);
+                await sb.from('hw_expenses').update({ invoice_id: null }).eq('invoice_id', inv.id);
                 await sb.from('hw_invoices').update({ status: 'void' }).eq('id', inv.id);
-                showToast('Invoice voided');
+                showToast('Invoice voided — items returned to uninvoiced');
                 await loadData();
             } catch (err) { showToast('Failed: ' + err.message, 'error'); }
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            const btn = document.querySelector(`.tab-bar button[data-tab="${tabName}"]`);
+            if (btn) btn.classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
         }
 
         // ==================== Helpers ====================
