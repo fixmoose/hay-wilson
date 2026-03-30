@@ -425,7 +425,7 @@
             allJobs = data || [];
 
             const jobOptions = allJobs.map(j => '<option value="' + j.id + '">' + escapeHtml(j.name) + '</option>').join('');
-            document.getElementById('uploadJobSelect').innerHTML = '<option value="">No job (company expense)</option>' + jobOptions;
+            document.getElementById('uploadJobSelect').innerHTML = '<option value="_unassigned">No job (company expense)</option>' + jobOptions;
             document.getElementById('filterJobSelect').innerHTML = '<option value="all">All receipts</option><option value="_unassigned">Unassigned</option>' + jobOptions;
             document.getElementById('aiJob').innerHTML = '<option value="">No job (company expense)</option>' + jobOptions;
         }
@@ -734,7 +734,7 @@
         async function uploadFiles(files) {
             const dropZone = document.getElementById('uploadDropZone');
             const origHtml = dropZone.innerHTML;
-            const folder = document.getElementById('uploadJobSelect').value;
+            const folder = document.getElementById('uploadJobSelect').value || '_unassigned';
             let uploaded = 0;
 
             for (const file of files) {
@@ -801,7 +801,7 @@
             const expiresAt = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString();
             const { error } = await sb.from('hw_upload_tokens').insert({
                 token: token,
-                job_id: jobId || null,
+                job_id: (jobId && jobId !== '_unassigned') ? jobId : null,
                 expires_at: expiresAt
             });
 
