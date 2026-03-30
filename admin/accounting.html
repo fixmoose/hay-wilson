@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accounting - H&amp;W Admin</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/admin/admin-styles.css">
+    <style>
+        .acct-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:1rem; }
+        .acct-card { background:var(--bg-light); border-radius:10px; padding:1rem 1.25rem; }
+        .acct-card-cat { font-size:0.8rem; color:var(--text-light); text-transform:capitalize; margin-bottom:0.25rem; }
+        .acct-card-amount { font-size:1.3rem; font-weight:700; color:var(--text-dark); }
+        .acct-card-count { font-size:0.75rem; color:var(--text-light); margin-top:0.15rem; }
+        .acct-total { background:var(--primary-dark); color:white; border-radius:10px; padding:1rem 1.25rem; }
+        .acct-total .acct-card-cat { color:rgba(255,255,255,0.7); }
+        .acct-total .acct-card-amount { color:white; font-size:1.5rem; }
+        .acct-total .acct-card-count { color:rgba(255,255,255,0.6); }
+        .acct-reimb { background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:1rem 1.25rem; }
+        .acct-reimb .acct-card-cat { color:#1d4ed8; }
+        .acct-reimb .acct-card-amount { color:#1d4ed8; font-size:1.3rem; }
+        .acct-reimb .acct-card-count { color:#3b82f6; }
+        .acct-reimbursed { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:1rem 1.25rem; }
+        .acct-reimbursed .acct-card-cat { color:#16a34a; }
+        .acct-reimbursed .acct-card-amount { color:#16a34a; font-size:1.3rem; }
+        .acct-reimbursed .acct-card-count { color:#22c55e; }
+        .acct-table { width:100%; border-collapse:collapse; margin-top:1rem; font-size:0.85rem; }
+        .acct-table th { text-align:left; padding:0.6rem 0.75rem; border-bottom:2px solid var(--border-color); color:var(--text-light); font-weight:500; font-size:0.8rem; }
+        .acct-table td { padding:0.6rem 0.75rem; border-bottom:1px solid var(--bg-light); }
+        .acct-table .cat-badge { display:inline-block; padding:0.15rem 0.5rem; border-radius:4px; font-size:0.75rem; background:var(--bg-light); text-transform:capitalize; }
+        .acct-table .row-actions { white-space:nowrap; }
+        .acct-table .row-actions button { background:none; border:none; cursor:pointer; padding:0.25rem; color:var(--text-light); transition:color 0.15s; }
+        .acct-table .row-actions button:hover { color:var(--primary-light); }
+        .acct-table .row-actions .btn-row-delete:hover { color:#dc2626; }
+        .reimb-badge { display:inline-block; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.7rem; background:#dbeafe; color:#1d4ed8; font-weight:500; margin-left:0.35rem; }
+        .reimbursed-badge { display:inline-block; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.7rem; background:#dcfce7; color:#16a34a; font-weight:500; margin-left:0.35rem; }
+        .edit-expense-panel { border:1px solid var(--border-color); border-radius:10px; padding:1rem; margin-bottom:0.75rem; background:var(--bg-light); }
+        .edit-expense-panel:last-child { margin-bottom:0; }
+        .edit-expense-panel h4 { margin:0 0 0.75rem; font-size:0.9rem; color:var(--primary-dark); display:flex; justify-content:space-between; align-items:center; }
+        .edit-expense-panel h4 .del-expense { background:none; border:none; cursor:pointer; color:var(--text-light); font-size:0.8rem; padding:0.2rem 0.5rem; border-radius:4px; }
+        .edit-expense-panel h4 .del-expense:hover { color:#dc2626; background:rgba(220,38,38,0.06); }
+        .edit-expense-panel .ai-field { margin-bottom:0.65rem; }
+        .edit-expense-panel .ai-field:last-child { margin-bottom:0; }
+        .edit-row { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
+        @media(max-width:500px) { .edit-row { grid-template-columns:1fr; } }
+        .ai-field { margin-bottom:1rem; }
+        .ai-field label { display:block; font-size:0.8rem; color:var(--text-light); margin-bottom:0.25rem; font-weight:500; }
+        .ai-field input, .ai-field select { width:100%; padding:0.5rem 0.75rem; border-radius:6px; border:1px solid var(--border-color); font-size:0.9rem; box-sizing:border-box; }
+        .ai-modal-header { padding:1.25rem; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; }
+        .ai-modal-header h3 { margin:0; }
+        .ai-modal-footer { padding:1rem 1.25rem; border-top:1px solid var(--border-color); display:flex; gap:0.75rem; justify-content:flex-end; }
+        .edit-modal { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; display:none; align-items:center; justify-content:center; padding:1rem; }
+        .edit-modal.active { display:flex; }
+        .edit-modal-content { background:white; border-radius:16px; max-width:560px; width:100%; max-height:90vh; overflow-y:auto; }
+        .filter-bar { display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap; margin-bottom:0.5rem; }
+        .filter-bar select { padding:0.4rem 1.5rem 0.4rem 0.6rem; border-radius:6px; border:1px solid var(--border-color); font-size:0.8rem; background:white; }
+        .filter-bar .filter-label { font-size:0.8rem; color:var(--text-light); }
+    </style>
+</head>
+<body>
+    <div class="admin-topbar">
+        <div class="admin-topbar-left">
+            <button class="mobile-sidebar-toggle" id="sidebarToggle">&#9776;</button>
+            <h1>H&W <span>Admin</span></h1>
+        </div>
+        <div class="admin-topbar-right">
+            <span class="admin-user" id="adminUser"></span>
+            <button class="btn-logout" id="logoutBtn">Logout</button>
+        </div>
+    </div>
+
+    <aside class="admin-sidebar" id="adminSidebar">
+        <ul class="admin-nav">
+            <li><a href="/admin/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Dashboard</a></li>
+            <li><a href="/admin/jobs.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Jobs</a></li>
+            <li><a href="/admin/clients.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Clients</a></li>
+            <li><a href="/admin/invoices.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Invoices</a></li>
+            <li><a href="/admin/documents.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Documents</a></li>
+            <li><a href="/admin/receipts.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>Receipts</a></li>
+            <li><a href="/admin/accounting.html" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Accounting</a></li>
+            <li><div class="nav-divider"></div></li>
+            <li><a href="/" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>View Site</a></li>
+        </ul>
+    </aside>
+
+    <main class="admin-main">
+        <div class="admin-page-header">
+            <h2>Accounting</h2>
+            <span class="receipt-count" id="expenseCount"></span>
+        </div>
+
+        <div class="filter-bar">
+            <span class="filter-label">Filter by job:</span>
+            <select id="filterJob">
+                <option value="all">All expenses</option>
+                <option value="_none">Company expenses (no job)</option>
+            </select>
+            <span class="filter-label">Category:</span>
+            <select id="filterCategory">
+                <option value="all">All categories</option>
+                <option value="materials">Materials</option>
+                <option value="tools">Tools</option>
+                <option value="software">Software</option>
+                <option value="fuel">Fuel</option>
+                <option value="supplies">Supplies</option>
+                <option value="permits">Permits</option>
+                <option value="subcontractor">Subcontractor</option>
+                <option value="equipment_rental">Equipment Rental</option>
+                <option value="vehicle">Vehicle</option>
+                <option value="meals">Meals</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+
+        <div class="admin-card">
+            <div style="padding:1.25rem;">
+                <div class="acct-grid" id="acctGrid">
+                    <div style="text-align:center;padding:1rem;color:var(--text-light);font-size:0.85rem;">Loading expenses...</div>
+                </div>
+                <table class="acct-table" id="acctTable" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Vendor</th>
+                            <th>Category</th>
+                            <th>Job</th>
+                            <th style="text-align:right;">Amount</th>
+                            <th style="width:70px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="acctTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Edit Expense Modal -->
+    <div class="edit-modal" id="editModal">
+        <div class="edit-modal-content">
+            <div class="ai-modal-header">
+                <h3 id="editModalTitle">Edit Expenses</h3>
+                <button class="modal-close" id="editModalClose">&times;</button>
+            </div>
+            <div class="ai-modal-body" id="editModalBody" style="max-height:70vh;overflow-y:auto;"></div>
+            <div class="ai-modal-footer" style="justify-content:space-between;">
+                <button class="btn btn-outline" id="editDownloadReceipt" style="display:none;" title="Download receipt">&#11015; Receipt</button>
+                <div style="display:flex;gap:0.5rem;">
+                    <button class="btn btn-outline" id="editCancel">Cancel</button>
+                    <button class="btn btn-primary" id="editSave">Save All Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const sb = window.supabase.createClient(
+            'https://mxxabikquupnwvlspzyz.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14eGFiaWtxdXVwbnd2bHNwenl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDMwNTgsImV4cCI6MjA3NzIxOTA1OH0.WC_mupqYMneJnYmr9vmDZd0vXroBnaLwZlYX44J_HFQ'
+        );
+
+        function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function formatCurrency(a) { return '$' + (parseFloat(a) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+        function showToast(msg, type) {
+            type = type || 'success';
+            let c = document.querySelector('.toast-container');
+            if (!c) { c = document.createElement('div'); c.className = 'toast-container'; document.body.appendChild(c); }
+            const t = document.createElement('div'); t.className = 'toast toast-' + type; t.textContent = msg; c.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(100%)'; setTimeout(() => t.remove(), 300); }, 3000);
+        }
+
+        let allJobs = [];
+        let allExpenses = [];
+        let filterJob = 'all';
+        let filterCategory = 'all';
+
+        (async () => {
+            try {
+                const { data: { session } } = await sb.auth.getSession();
+                if (!session) { window.location.href = '/admin/login.html'; return; }
+                document.getElementById('adminUser').textContent = session.user.email;
+                document.getElementById('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); window.location.href = '/admin/login.html'; });
+
+                const sidebar = document.getElementById('adminSidebar');
+                const toggle = document.getElementById('sidebarToggle');
+                toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+                document.addEventListener('click', (e) => { if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggle.contains(e.target)) sidebar.classList.remove('open'); });
+
+                setupEditModal();
+                setupFilters();
+                await loadJobs();
+                await loadExpenses();
+            } catch (err) {
+                console.error('Init error:', err);
+                showToast('Page init error: ' + err.message, 'error');
+            }
+        })();
+
+        async function loadJobs() {
+            const { data } = await sb.from('hw_jobs').select('id, name, customer_id, hw_customers(name, is_gc, parent_gc:hw_customers!parent_gc_id(name))').order('name');
+            allJobs = data || [];
+
+            const jobOpts = allJobs.map(j => '<option value="' + j.id + '">' + escapeHtml(j.name) + '</option>').join('');
+            document.getElementById('filterJob').innerHTML = '<option value="all">All expenses</option><option value="_none">Company expenses (no job)</option>' + jobOpts;
+        }
+
+        function jobHasGC(jobId) {
+            const job = allJobs.find(j => j.id === jobId);
+            if (!job?.hw_customers) return false;
+            return !!(job.hw_customers.is_gc || job.hw_customers.parent_gc?.name);
+        }
+
+        async function loadExpenses() {
+            const { data, error } = await sb
+                .from('hw_expenses')
+                .select('*, hw_jobs(name)')
+                .order('expense_date', { ascending: false });
+
+            if (error) { console.error('loadExpenses error:', error); showToast('Failed to load expenses: ' + error.message, 'error'); return; }
+            allExpenses = data || [];
+            renderAccounting();
+        }
+
+        function getFilteredExpenses() {
+            let filtered = allExpenses;
+            if (filterJob === '_none') filtered = filtered.filter(e => !e.job_id);
+            else if (filterJob !== 'all') filtered = filtered.filter(e => e.job_id === filterJob);
+            if (filterCategory !== 'all') filtered = filtered.filter(e => (e.category || 'other') === filterCategory);
+            return filtered;
+        }
+
+        function renderAccounting() {
+            const grid = document.getElementById('acctGrid');
+            const table = document.getElementById('acctTable');
+            const tbody = document.getElementById('acctTableBody');
+            const countEl = document.getElementById('expenseCount');
+            const filtered = getFilteredExpenses();
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-light);grid-column:1/-1;"><p>No expenses found.</p></div>';
+                table.style.display = 'none';
+                countEl.textContent = allExpenses.length + ' total';
+                return;
+            }
+
+            countEl.textContent = (filtered.length < allExpenses.length ? filtered.length + ' of ' : '') + allExpenses.length + ' expense' + (allExpenses.length !== 1 ? 's' : '');
+
+            // Group by category
+            const cats = {};
+            let total = 0;
+            let reimbPendingTotal = 0, reimbPendingCount = 0;
+            let reimbDoneTotal = 0, reimbDoneCount = 0;
+            filtered.forEach(e => {
+                const cat = e.category || 'other';
+                if (!cats[cat]) cats[cat] = { count: 0, total: 0 };
+                cats[cat].count++;
+                cats[cat].total += parseFloat(e.amount) || 0;
+                total += parseFloat(e.amount) || 0;
+                if (e.reimbursable && e.reimbursed) { reimbDoneTotal += parseFloat(e.amount) || 0; reimbDoneCount++; }
+                else if (e.reimbursable) { reimbPendingTotal += parseFloat(e.amount) || 0; reimbPendingCount++; }
+            });
+
+            const catOrder = ['materials', 'tools', 'software', 'fuel', 'supplies', 'permits', 'subcontractor', 'equipment_rental', 'vehicle', 'meals', 'other'];
+            const activeCats = catOrder.filter(c => cats[c]);
+
+            grid.innerHTML =
+                '<div class="acct-total"><div class="acct-card-cat">Total Expenses</div><div class="acct-card-amount">' + formatCurrency(total) + '</div><div class="acct-card-count">' + filtered.length + ' items</div></div>' +
+                (reimbPendingCount > 0 ? '<div class="acct-reimb"><div class="acct-card-cat">To Be Reimbursed</div><div class="acct-card-amount">' + formatCurrency(reimbPendingTotal) + '</div><div class="acct-card-count">' + reimbPendingCount + ' pending</div></div>' : '') +
+                (reimbDoneCount > 0 ? '<div class="acct-reimbursed"><div class="acct-card-cat">Reimbursed</div><div class="acct-card-amount">' + formatCurrency(reimbDoneTotal) + '</div><div class="acct-card-count">' + reimbDoneCount + ' completed</div></div>' : '') +
+                activeCats.map(c =>
+                    '<div class="acct-card"><div class="acct-card-cat">' + c.replace('_', ' ') + '</div><div class="acct-card-amount">' + formatCurrency(cats[c].total) + '</div><div class="acct-card-count">' + cats[c].count + ' item' + (cats[c].count !== 1 ? 's' : '') + '</div></div>'
+                ).join('');
+
+            table.style.display = 'table';
+            tbody.innerHTML = filtered.map(e => {
+                const date = e.expense_date ? new Date(e.expense_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+                const cat = (e.category || 'other').replace('_', ' ');
+                return '<tr data-expense-id="' + e.id + '">' +
+                    '<td>' + date + '</td>' +
+                    '<td>' + escapeHtml(e.vendor || e.description || '-') +
+                        (e.reimbursed ? '<span class="reimbursed-badge">Reimbursed</span>' :
+                         e.reimbursable ? '<span class="reimb-badge">Reimb.</span>' : '') +
+                    '</td>' +
+                    '<td><span class="cat-badge">' + cat + '</span></td>' +
+                    '<td>' + escapeHtml(e.hw_jobs?.name || '-') + '</td>' +
+                    '<td style="text-align:right;font-weight:500;">' + formatCurrency(e.amount) + '</td>' +
+                    '<td class="row-actions">' +
+                        '<button class="btn-row-edit" data-edit="' + e.id + '" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
+                        '<button class="btn-row-delete" data-delete="' + e.id + '" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+                    '</td>' +
+                    '</tr>';
+            }).join('');
+
+            tbody.querySelectorAll('[data-edit]').forEach(btn => {
+                btn.addEventListener('click', () => openEditModal(btn.dataset.edit));
+            });
+            tbody.querySelectorAll('[data-delete]').forEach(btn => {
+                btn.addEventListener('click', () => deleteExpense(btn.dataset.delete));
+            });
+        }
+
+        function setupFilters() {
+            document.getElementById('filterJob').addEventListener('change', (e) => {
+                filterJob = e.target.value;
+                renderAccounting();
+            });
+            document.getElementById('filterCategory').addEventListener('change', (e) => {
+                filterCategory = e.target.value;
+                renderAccounting();
+            });
+        }
+
+        // ==================== Edit Expense ====================
+        const categoryOptions = ['materials','tools','software','fuel','supplies','permits','subcontractor','equipment_rental','vehicle','meals','other'];
+
+        function buildExpensePanel(expense, idx) {
+            const jobOpts = '<option value=""' + (!expense.job_id ? ' selected' : '') + '>No job (company expense)</option>' + allJobs.map(j =>
+                '<option value="' + j.id + '"' + (j.id === expense.job_id ? ' selected' : '') + '>' + escapeHtml(j.name) + '</option>'
+            ).join('');
+            const catOpts = categoryOptions.map(c =>
+                '<option value="' + c + '"' + (c === (expense.category || 'other') ? ' selected' : '') + '>' + c.charAt(0).toUpperCase() + c.slice(1).replace('_',' ') + '</option>'
+            ).join('');
+            const hasGC = jobHasGC(expense.job_id);
+            const isReimb = hasGC ? true : (expense.reimbursable || false);
+            const isDone = expense.reimbursed || false;
+
+            return `<div class="edit-expense-panel" data-expense-id="${expense.id}">
+                <h4>
+                    <span>${escapeHtml(expense.vendor || 'Expense')} — ${formatCurrency(expense.amount)}</span>
+                    <button class="del-expense" data-del-id="${expense.id}" title="Delete this expense">&times; Delete</button>
+                </h4>
+                <div class="edit-row">
+                    <div class="ai-field"><label>Vendor</label><input type="text" class="ep-vendor" value="${escapeHtml(expense.vendor || '')}"></div>
+                    <div class="ai-field"><label>Amount ($)</label><input type="number" class="ep-amount" step="0.01" value="${expense.amount || ''}"></div>
+                </div>
+                <div class="edit-row">
+                    <div class="ai-field"><label>Date</label><input type="date" class="ep-date" value="${expense.expense_date || ''}"></div>
+                    <div class="ai-field"><label>Category</label><select class="ep-category">${catOpts}</select></div>
+                </div>
+                <div class="ai-field"><label>Description</label><input type="text" class="ep-description" value="${escapeHtml(expense.description || '')}"></div>
+                <div class="ai-field"><label>Job</label><select class="ep-job">${jobOpts}</select></div>
+                <div class="ai-field ep-reimb-row" style="${hasGC ? 'color:#16a34a;font-size:0.8rem;' : ''}"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;"><input type="checkbox" class="ep-reimbursable" ${isReimb ? 'checked' : ''} ${hasGC ? 'checked disabled' : ''}> ${hasGC ? 'Auto-reimbursable (GC job)' : 'Reimbursable by GC'}</label></div>
+                <div class="ep-reimb-section" style="display:${isReimb ? 'block' : 'none'};border-top:1px solid var(--border-color);padding-top:0.5rem;margin-top:0.25rem;">
+                    <div class="ai-field"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;"><input type="checkbox" class="ep-reimbursed" ${isDone ? 'checked' : ''}> Reimbursed</label></div>
+                    <div class="edit-row ep-reimb-details" style="display:${isDone ? 'grid' : 'none'};">
+                        <div class="ai-field"><label>Reimbursed By</label><input type="text" class="ep-reimbursed-by" value="${escapeHtml(expense.reimbursed_by || '')}" placeholder="e.g. Adriatic Builders"></div>
+                        <div class="ai-field"><label>Reimbursed Date</label><input type="date" class="ep-reimbursed-date" value="${expense.reimbursed_date || ''}"></div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function openEditModal(expenseId) {
+            const expense = allExpenses.find(e => e.id === expenseId);
+            if (!expense) return;
+
+            const receiptPath = expense.receipt_path;
+            const relatedExpenses = receiptPath
+                ? allExpenses.filter(e => e.receipt_path === receiptPath)
+                : [expense];
+
+            document.getElementById('editModalTitle').textContent = relatedExpenses.length > 1
+                ? 'Edit ' + relatedExpenses.length + ' Expenses (same receipt)'
+                : 'Edit Expense';
+
+            const body = document.getElementById('editModalBody');
+            body.innerHTML = relatedExpenses.map((exp, i) => buildExpensePanel(exp, i)).join('');
+
+            // Wire up job change -> auto-reimbursable
+            body.querySelectorAll('.ep-job').forEach(sel => {
+                sel.addEventListener('change', () => {
+                    const panel = sel.closest('.edit-expense-panel');
+                    const hasGC = jobHasGC(sel.value);
+                    const cb = panel.querySelector('.ep-reimbursable');
+                    const row = panel.querySelector('.ep-reimb-row');
+                    if (hasGC) {
+                        cb.checked = true; cb.disabled = true;
+                        row.style.color = '#16a34a'; row.style.fontSize = '0.8rem';
+                        row.querySelector('label').lastChild.textContent = ' Auto-reimbursable (GC job)';
+                    } else {
+                        cb.disabled = false; row.style.color = ''; row.style.fontSize = '';
+                        row.querySelector('label').lastChild.textContent = ' Reimbursable by GC';
+                    }
+                    panel.querySelector('.ep-reimb-section').style.display = cb.checked ? 'block' : 'none';
+                });
+            });
+            body.querySelectorAll('.ep-reimbursable').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    cb.closest('.edit-expense-panel').querySelector('.ep-reimb-section').style.display = cb.checked ? 'block' : 'none';
+                });
+            });
+            body.querySelectorAll('.ep-reimbursed').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    cb.closest('.edit-expense-panel').querySelector('.ep-reimb-details').style.display = cb.checked ? 'grid' : 'none';
+                });
+            });
+            body.querySelectorAll('.del-expense').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    await deleteExpense(btn.dataset.delId);
+                    document.getElementById('editModal').classList.remove('active');
+                });
+            });
+
+            const dlBtn = document.getElementById('editDownloadReceipt');
+            if (receiptPath) { dlBtn.style.display = ''; dlBtn.dataset.path = receiptPath; }
+            else { dlBtn.style.display = 'none'; }
+
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        async function deleteExpense(expenseId) {
+            const expense = allExpenses.find(e => e.id === expenseId);
+            if (!expense) return;
+            if (!confirm('Delete expense' + (expense.vendor ? ' from ' + expense.vendor : '') + '?')) return;
+
+            const { error } = await sb.from('hw_expenses').delete().eq('id', expenseId);
+            if (error) { showToast('Failed to delete: ' + error.message, 'error'); return; }
+            showToast('Expense deleted');
+            await loadExpenses();
+        }
+
+        function setupEditModal() {
+            const modal = document.getElementById('editModal');
+            document.getElementById('editModalClose').addEventListener('click', () => modal.classList.remove('active'));
+            document.getElementById('editCancel').addEventListener('click', () => modal.classList.remove('active'));
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+
+            document.getElementById('editDownloadReceipt').addEventListener('click', async () => {
+                const path = document.getElementById('editDownloadReceipt').dataset.path;
+                if (!path) return;
+                const { data } = await sb.storage.from('hw-receipts').createSignedUrl(path, 300);
+                if (!data) { showToast('Download failed', 'error'); return; }
+                const a = document.createElement('a'); a.href = data.signedUrl; a.download = path.split('/').pop(); a.target = '_blank'; document.body.appendChild(a); a.click(); a.remove();
+            });
+
+            document.getElementById('editSave').addEventListener('click', async () => {
+                const btn = document.getElementById('editSave');
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+
+                const panels = document.querySelectorAll('.edit-expense-panel');
+                let errors = 0;
+                let lastErr = '';
+                for (const panel of panels) {
+                    const id = panel.dataset.expenseId;
+                    const jobId = panel.querySelector('.ep-job').value || null;
+                    const hasGC = jobHasGC(jobId);
+                    const isReimb = hasGC || panel.querySelector('.ep-reimbursable').checked;
+                    const isDone = panel.querySelector('.ep-reimbursed')?.checked || false;
+                    const payload = {
+                        vendor: panel.querySelector('.ep-vendor').value.trim() || null,
+                        amount: parseFloat(panel.querySelector('.ep-amount').value) || 0,
+                        expense_date: panel.querySelector('.ep-date').value || null,
+                        category: panel.querySelector('.ep-category').value || 'other',
+                        description: panel.querySelector('.ep-description').value.trim() || null,
+                        job_id: jobId,
+                        reimbursable: isReimb,
+                        reimbursed: isReimb && isDone,
+                        reimbursed_by: isReimb && isDone ? (panel.querySelector('.ep-reimbursed-by').value.trim() || null) : null,
+                        reimbursed_date: isReimb && isDone ? (panel.querySelector('.ep-reimbursed-date').value || null) : null
+                    };
+                    const { error } = await sb.from('hw_expenses').update(payload).eq('id', id);
+                    if (error) { errors++; lastErr = error.message; }
+                }
+
+                if (errors) {
+                    showToast('Failed to save: ' + (lastErr || 'unknown error'), 'error');
+                } else {
+                    showToast(panels.length > 1 ? panels.length + ' expenses updated' : 'Expense updated');
+                    modal.classList.remove('active');
+                }
+                await loadExpenses();
+                btn.disabled = false;
+                btn.textContent = 'Save All Changes';
+            });
+        }
+    </script>
+</body>
+</html>

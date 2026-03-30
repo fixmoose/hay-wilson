@@ -91,43 +91,6 @@
         .ai-field input, .ai-field select { width:100%; padding:0.5rem 0.75rem; border-radius:6px; border:1px solid var(--border-color); font-size:0.9rem; box-sizing:border-box; }
         .ai-field .ai-items { font-size:0.8rem; color:var(--text-light); line-height:1.6; }
         .ai-modal-footer { padding:1rem 1.25rem; border-top:1px solid var(--border-color); display:flex; gap:0.75rem; justify-content:flex-end; }
-        /* Accounting */
-        .acct-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:1rem; }
-        .acct-card { background:var(--bg-light); border-radius:10px; padding:1rem 1.25rem; }
-        .acct-card-cat { font-size:0.8rem; color:var(--text-light); text-transform:capitalize; margin-bottom:0.25rem; }
-        .acct-card-amount { font-size:1.3rem; font-weight:700; color:var(--text-dark); }
-        .acct-card-count { font-size:0.75rem; color:var(--text-light); margin-top:0.15rem; }
-        .acct-total { background:var(--primary-dark); color:white; border-radius:10px; padding:1rem 1.25rem; }
-        .acct-total .acct-card-cat { color:rgba(255,255,255,0.7); }
-        .acct-total .acct-card-amount { color:white; font-size:1.5rem; }
-        .acct-total .acct-card-count { color:rgba(255,255,255,0.6); }
-        .acct-table { width:100%; border-collapse:collapse; margin-top:1rem; font-size:0.85rem; }
-        .acct-table th { text-align:left; padding:0.6rem 0.75rem; border-bottom:2px solid var(--border-color); color:var(--text-light); font-weight:500; font-size:0.8rem; }
-        .acct-table td { padding:0.6rem 0.75rem; border-bottom:1px solid var(--bg-light); }
-        .acct-table .cat-badge { display:inline-block; padding:0.15rem 0.5rem; border-radius:4px; font-size:0.75rem; background:var(--bg-light); text-transform:capitalize; }
-        .acct-table .row-actions { white-space:nowrap; }
-        .acct-table .row-actions button { background:none; border:none; cursor:pointer; padding:0.25rem; color:var(--text-light); transition:color 0.15s; }
-        .acct-table .row-actions button:hover { color:var(--primary-light); }
-        .acct-table .row-actions .btn-row-delete:hover { color:#dc2626; }
-        .reimb-badge { display:inline-block; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.7rem; background:#dbeafe; color:#1d4ed8; font-weight:500; margin-left:0.35rem; }
-        .reimbursed-badge { display:inline-block; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.7rem; background:#dcfce7; color:#16a34a; font-weight:500; margin-left:0.35rem; }
-        .edit-expense-panel { border:1px solid var(--border-color); border-radius:10px; padding:1rem; margin-bottom:0.75rem; background:var(--bg-light); }
-        .edit-expense-panel:last-child { margin-bottom:0; }
-        .edit-expense-panel h4 { margin:0 0 0.75rem; font-size:0.9rem; color:var(--primary-dark); display:flex; justify-content:space-between; align-items:center; }
-        .edit-expense-panel h4 .del-expense { background:none; border:none; cursor:pointer; color:var(--text-light); font-size:0.8rem; padding:0.2rem 0.5rem; border-radius:4px; }
-        .edit-expense-panel h4 .del-expense:hover { color:#dc2626; background:rgba(220,38,38,0.06); }
-        .edit-expense-panel .ai-field { margin-bottom:0.65rem; }
-        .edit-expense-panel .ai-field:last-child { margin-bottom:0; }
-        .edit-row { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
-        @media(max-width:500px) { .edit-row { grid-template-columns:1fr; } }
-        .acct-reimb { background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:1rem 1.25rem; }
-        .acct-reimb .acct-card-cat { color:#1d4ed8; }
-        .acct-reimb .acct-card-amount { color:#1d4ed8; font-size:1.3rem; }
-        .acct-reimb .acct-card-count { color:#3b82f6; }
-        .acct-reimbursed { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:1rem 1.25rem; }
-        .acct-reimbursed .acct-card-cat { color:#16a34a; }
-        .acct-reimbursed .acct-card-amount { color:#16a34a; font-size:1.3rem; }
-        .acct-reimbursed .acct-card-count { color:#22c55e; }
         /* Edit Expense Modal */
         .edit-modal { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; display:none; align-items:center; justify-content:center; padding:1rem; }
         .edit-modal.active { display:flex; }
@@ -154,6 +117,7 @@
             <li><a href="/admin/invoices.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Invoices</a></li>
             <li><a href="/admin/documents.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Documents</a></li>
             <li><a href="/admin/receipts.html" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>Receipts</a></li>
+            <li><a href="/admin/accounting.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Accounting</a></li>
             <li><div class="nav-divider"></div></li>
             <li><a href="/" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>View Site</a></li>
         </ul>
@@ -229,32 +193,6 @@
                     <p>No receipts yet</p>
                 </div>
                 <div class="pagination-controls" id="paginationControls" style="display:none;"></div>
-            </div>
-        </div>
-
-        <!-- Accounting Summary -->
-        <div class="admin-card" style="margin-top:1.25rem;">
-            <div class="admin-card-header">
-                <h3>Accounting</h3>
-                <span class="receipt-count" id="expenseCount"></span>
-            </div>
-            <div style="padding:1.25rem;">
-                <div class="acct-grid" id="acctGrid">
-                    <div style="text-align:center;padding:1rem;color:var(--text-light);font-size:0.85rem;">Loading expenses...</div>
-                </div>
-                <table class="acct-table" id="acctTable" style="display:none;">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Vendor</th>
-                            <th>Category</th>
-                            <th>Job</th>
-                            <th style="text-align:right;">Amount</th>
-                            <th style="width:70px;"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="acctTableBody"></tbody>
-                </table>
             </div>
         </div>
     </main>
@@ -958,82 +896,8 @@
 
             if (error) { console.error('loadExpenses error:', error); showToast('Failed to load expenses: ' + error.message, 'error'); return; }
             allExpenses = data || [];
-            renderAccounting();
         }
 
-        function renderAccounting() {
-            const grid = document.getElementById('acctGrid');
-            const table = document.getElementById('acctTable');
-            const tbody = document.getElementById('acctTableBody');
-            const countEl = document.getElementById('expenseCount');
-
-            if (allExpenses.length === 0) {
-                grid.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-light);grid-column:1/-1;"><p>No expenses recorded yet. Use AI Read on a receipt to get started.</p></div>';
-                table.style.display = 'none';
-                countEl.textContent = '';
-                return;
-            }
-
-            countEl.textContent = allExpenses.length + ' expense' + (allExpenses.length !== 1 ? 's' : '');
-
-            // Group by category
-            const cats = {};
-            let total = 0;
-            let reimbPendingTotal = 0, reimbPendingCount = 0;
-            let reimbDoneTotal = 0, reimbDoneCount = 0;
-            allExpenses.forEach(e => {
-                const cat = e.category || 'other';
-                if (!cats[cat]) cats[cat] = { count: 0, total: 0 };
-                cats[cat].count++;
-                cats[cat].total += parseFloat(e.amount) || 0;
-                total += parseFloat(e.amount) || 0;
-                if (e.reimbursable && e.reimbursed) { reimbDoneTotal += parseFloat(e.amount) || 0; reimbDoneCount++; }
-                else if (e.reimbursable) { reimbPendingTotal += parseFloat(e.amount) || 0; reimbPendingCount++; }
-            });
-
-            // Render category cards
-            const catOrder = ['materials', 'tools', 'software', 'fuel', 'supplies', 'permits', 'subcontractor', 'equipment_rental', 'vehicle', 'meals', 'other'];
-            const activeCats = catOrder.filter(c => cats[c]);
-
-            grid.innerHTML =
-                '<div class="acct-total"><div class="acct-card-cat">Total Expenses</div><div class="acct-card-amount">' + formatCurrency(total) + '</div><div class="acct-card-count">' + allExpenses.length + ' items</div></div>' +
-                (reimbPendingCount > 0 ? '<div class="acct-reimb"><div class="acct-card-cat">To Be Reimbursed</div><div class="acct-card-amount">' + formatCurrency(reimbPendingTotal) + '</div><div class="acct-card-count">' + reimbPendingCount + ' pending</div></div>' : '') +
-                (reimbDoneCount > 0 ? '<div class="acct-reimbursed"><div class="acct-card-cat">Reimbursed</div><div class="acct-card-amount">' + formatCurrency(reimbDoneTotal) + '</div><div class="acct-card-count">' + reimbDoneCount + ' completed</div></div>' : '') +
-                activeCats.map(c =>
-                    '<div class="acct-card"><div class="acct-card-cat">' + c.replace('_', ' ') + '</div><div class="acct-card-amount">' + formatCurrency(cats[c].total) + '</div><div class="acct-card-count">' + cats[c].count + ' item' + (cats[c].count !== 1 ? 's' : '') + '</div></div>'
-                ).join('');
-
-            // Render expense table
-            table.style.display = 'table';
-            tbody.innerHTML = allExpenses.map(e => {
-                const date = e.expense_date ? new Date(e.expense_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
-                const cat = (e.category || 'other').replace('_', ' ');
-                return '<tr data-expense-id="' + e.id + '">' +
-                    '<td>' + date + '</td>' +
-                    '<td>' + escapeHtml(e.vendor || e.description || '-') +
-                        (e.reimbursed ? '<span class="reimbursed-badge">Reimbursed</span>' :
-                         e.reimbursable ? '<span class="reimb-badge">Reimb.</span>' : '') +
-                    '</td>' +
-                    '<td><span class="cat-badge">' + cat + '</span></td>' +
-                    '<td>' + escapeHtml(e.hw_jobs?.name || '-') + '</td>' +
-                    '<td style="text-align:right;font-weight:500;">' + formatCurrency(e.amount) + '</td>' +
-                    '<td class="row-actions">' +
-                        '<button class="btn-row-edit" data-edit="' + e.id + '" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
-                        '<button class="btn-row-delete" data-delete="' + e.id + '" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
-                    '</td>' +
-                    '</tr>';
-            }).join('');
-
-            // Wire up edit buttons
-            tbody.querySelectorAll('[data-edit]').forEach(btn => {
-                btn.addEventListener('click', () => openEditModal(btn.dataset.edit));
-            });
-
-            // Wire up delete buttons
-            tbody.querySelectorAll('[data-delete]').forEach(btn => {
-                btn.addEventListener('click', () => deleteExpense(btn.dataset.delete));
-            });
-        }
 
         // ==================== Edit Expense (Multi-expense support) ====================
         const categoryOptions = ['materials','tools','software','fuel','supplies','permits','subcontractor','equipment_rental','vehicle','meals','other'];
