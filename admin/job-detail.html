@@ -47,6 +47,7 @@
         .charge-row .charge-meta { font-size:0.75rem; color:var(--text-light); margin-top:0.1rem; }
         .charge-row .charge-amount { font-weight:600; white-space:nowrap; }
         .charge-row .charge-amount.paid { color:var(--success); }
+        .charge-row .charge-amount.invoiced { color:#1e40af; }
         .charge-row .charge-actions { display:flex; gap:0.25rem; }
         .charge-row .charge-actions button { background:none; border:none; cursor:pointer; padding:0.2rem; color:var(--text-light); transition:color 0.15s; }
         .charge-row .charge-actions button:hover { color:var(--primary-light); }
@@ -213,7 +214,7 @@
                     <div class="section-card-body" id="invoiceBody">
                         <div class="info-row"><span class="label">Uninvoiced Charges</span><span class="value" id="invoiceUnpaid">-</span></div>
                         <div class="info-row"><span class="label">Uninvoiced Expenses</span><span class="value" id="invoiceReimb">-</span></div>
-                        <div class="info-row" id="invoicedRow" style="display:none;"><span class="label">Invoiced</span><span class="value" id="invoicedInfo">-</span></div>
+                        <div id="invoicesList" style="margin-top:0.5rem;"></div>
                         <div id="invoiceActions" style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;"></div>
                     </div>
                 </div>
@@ -486,10 +487,6 @@
             const uninvoicedExpenses = reimbExpenses.filter(e => !e.reimbursed && !e.invoice_id);
             const uninvoicedExpTotal = uninvoicedExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
 
-            // Invoiced items
-            const invoicedCharges = allCharges.filter(c => c.invoice_id);
-            const invoicedExpenses = reimbExpenses.filter(e => e.invoice_id);
-
             document.getElementById('invoiceUnpaid').textContent = uninvoicedCharges.length > 0
                 ? formatCurrency(uninvoicedChargesTotal) + ' (' + uninvoicedCharges.length + ' item' + (uninvoicedCharges.length !== 1 ? 's' : '') + ')'
                 : '$0.00';
@@ -498,25 +495,49 @@
                 ? formatCurrency(uninvoicedExpTotal) + ' (' + uninvoicedExpenses.length + ' receipt' + (uninvoicedExpenses.length !== 1 ? 's' : '') + ')'
                 : '$0.00';
 
-            // Show invoiced row if any items are on an invoice
-            const invoicedRow = document.getElementById('invoicedRow');
-            if (invoicedCharges.length > 0 || invoicedExpenses.length > 0) {
-                invoicedRow.style.display = '';
-                const totalInvoiced = invoicedCharges.length + invoicedExpenses.length;
-                const latestInv = jobInvoices[0];
-                const statusLabel = latestInv ? latestInv.status : 'invoiced';
-                document.getElementById('invoicedInfo').innerHTML = totalInvoiced + ' item' + (totalInvoiced !== 1 ? 's' : '') +
-                    (latestInv ? ' — <span class="badge badge-' + statusLabel + '">' + statusLabel + '</span>' : '');
+            // Render invoice cards
+            const listEl = document.getElementById('invoicesList');
+            if (jobInvoices.length > 0) {
+                listEl.innerHTML = '<div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-light);font-weight:600;margin-bottom:0.35rem;margin-top:0.25rem;">Invoices</div>' +
+                    jobInvoices.map(inv => {
+                        const date = inv.created_at ? new Date(inv.created_at).toLocaleDateString() : '';
+                        const paidDate = inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : '';
+                        const statusColors = { draft: '#6b7280', sent: '#2563eb', paid: '#16a34a', void: '#dc2626' };
+                        const color = statusColors[inv.status] || '#6b7280';
+
+                        // Count items on this invoice
+                        const invCharges = allCharges.filter(c => c.invoice_id === inv.id).length;
+                        const invExpenses = reimbExpenses.filter(e => e.invoice_id === inv.id).length;
+                        const itemCount = invCharges + invExpenses;
+
+                        let detail = '';
+                        if (invCharges > 0) detail += invCharges + ' charge' + (invCharges !== 1 ? 's' : '');
+                        if (invExpenses > 0) detail += (detail ? ', ' : '') + invExpenses + ' expense' + (invExpenses !== 1 ? 's' : '');
+                        if (inv.status === 'paid' && paidDate) detail += (detail ? ' — ' : '') + 'Paid ' + paidDate;
+
+                        return '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0.6rem;background:var(--bg-light);border-radius:8px;margin-bottom:0.35rem;border-left:3px solid ' + color + ';">' +
+                            '<div style="flex:1;min-width:0;">' +
+                                '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">' +
+                                    '<span style="font-weight:600;font-size:0.9rem;">' + formatCurrency(inv.amount) + '</span>' +
+                                    '<span class="badge badge-' + inv.status + '">' + inv.status + '</span>' +
+                                    '<span style="font-size:0.75rem;color:var(--text-light);">' + date + '</span>' +
+                                '</div>' +
+                                (detail ? '<div style="font-size:0.75rem;color:var(--text-light);margin-top:0.15rem;">' + detail + '</div>' : '') +
+                            '</div>' +
+                            (inv.stripe_invoice_url ? '<a href="' + inv.stripe_invoice_url + '" target="_blank" class="invoice-btn invoice-btn-view" style="font-size:0.75rem;padding:0.25rem 0.5rem;">View</a>' : '') +
+                        '</div>';
+                    }).join('');
             } else {
-                invoicedRow.style.display = 'none';
+                listEl.innerHTML = '';
             }
 
-            // Actions — always link to central invoices page
+            // Actions
             const actions = document.getElementById('invoiceActions');
             if (uninvoicedCharges.length > 0 || uninvoicedExpenses.length > 0) {
-                actions.innerHTML = '<a href="/admin/invoices.html" class="invoice-btn invoice-btn-create">Go to Invoices to bill</a>';
+                const uninvoicedTotal = uninvoicedChargesTotal + uninvoicedExpTotal;
+                actions.innerHTML = '<a href="/admin/invoices.html" class="invoice-btn invoice-btn-create">Go to Invoices — ' + formatCurrency(uninvoicedTotal) + ' ready to bill</a>';
             } else if (jobInvoices.length > 0) {
-                actions.innerHTML = '<a href="/admin/invoices.html" class="invoice-btn invoice-btn-view">View in Invoices</a>';
+                actions.innerHTML = '<a href="/admin/invoices.html" class="invoice-btn invoice-btn-view">Manage Invoices</a>';
             } else {
                 actions.innerHTML = '<span style="font-size:0.8rem;color:var(--text-light);">Add charges to invoice</span>';
             }
@@ -649,14 +670,15 @@
                     '<div class="charge-info">' +
                         '<div class="charge-desc">' + escapeHtml(c.description) +
                             ' <span class="charge-type-badge type-' + c.charge_type + '">' + (typeLabels[c.charge_type] || c.charge_type) + '</span>' +
-                            (c.is_paid ? ' <span class="charge-type-badge" style="background:#dcfce7;color:#16a34a;">Paid</span>' : '') +
+                            (c.is_paid ? ' <span class="charge-type-badge" style="background:#dcfce7;color:#16a34a;">Paid</span>' :
+                             c.invoice_id ? ' <span class="charge-type-badge" style="background:#dbeafe;color:#1e40af;">Invoiced</span>' : '') +
                         '</div>' +
                         '<div class="charge-meta">' +
                             (c.charge_date ? formatDate(c.charge_date) : '') +
                             (c.notes ? (c.charge_date ? ' &mdash; ' : '') + escapeHtml(c.notes) : '') +
                         '</div>' +
                     '</div>' +
-                    '<div class="charge-amount' + (c.is_paid ? ' paid' : '') + '">' + (isCredit ? '-' : '') + formatCurrency(amt) + '</div>' +
+                    '<div class="charge-amount' + (c.is_paid ? ' paid' : '') + (c.invoice_id && !c.is_paid ? ' invoiced' : '') + '">' + (isCredit ? '-' : '') + formatCurrency(amt) + '</div>' +
                     '<div class="charge-actions">' +
                         '<button data-charge-edit="' + c.id + '" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
                     '</div>' +

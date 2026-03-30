@@ -70,6 +70,28 @@
         .no-items-msg { padding: 2rem; text-align: center; color: var(--text-light); font-size: 0.9rem; }
         .invoice-amount { font-weight: 600; }
 
+        .invoice-row { cursor: pointer; transition: background 0.15s; }
+        .invoice-row:hover { background: var(--bg-light); }
+        .invoice-detail-row td { padding: 0 !important; background: #f8fafc; }
+        .invoice-detail {
+            padding: 1rem 1.25rem;
+            border-top: 1px solid var(--border-color);
+        }
+        .invoice-detail-grid { display: flex; gap: 2rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+        .invoice-detail-grid .detail-col { font-size: 0.8rem; }
+        .invoice-detail-grid .detail-label { color: var(--text-light); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.15rem; }
+        .invoice-detail-items { margin-top: 0.5rem; }
+        .invoice-detail-items .detail-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.35rem 0; border-bottom: 1px solid var(--border-color);
+            font-size: 0.8rem;
+        }
+        .invoice-detail-items .detail-item:last-child { border-bottom: none; }
+        .invoice-detail-items .detail-item-type { font-size: 0.6rem; text-transform: uppercase; background: var(--bg-light); padding: 0.1rem 0.3rem; border-radius: 3px; color: var(--text-light); margin-left: 0.5rem; }
+        .invoice-detail-items .detail-item-amount { font-weight: 600; white-space: nowrap; }
+        .invoice-detail-actions { margin-top: 0.75rem; display: flex; gap: 0.5rem; }
+        .invoice-detail-empty { color: var(--text-light); font-size: 0.8rem; font-style: italic; }
+
         .tab-bar { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-color); }
         .tab-bar button { padding: 0.6rem 1.25rem; font-size: 0.85rem; font-weight: 500; border: none; background: none; cursor: pointer; color: var(--text-light); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: var(--transition); }
         .tab-bar button.active { color: var(--primary-color); border-bottom-color: var(--primary-color); font-weight: 600; }
@@ -482,25 +504,30 @@
             try {
                 // Group checked items by billing client
                 const checks = document.querySelectorAll('#builderContainer .item-check:checked');
-                const byBilling = {}; // billingId → { items: [...], chargeIds: [], expenseIds: [] }
+                const byBilling = {}; // billingId → { chargeItems: [], expenseItems: [], chargeIds: [], expenseIds: [] }
 
                 checks.forEach(cb => {
                     const bid = cb.dataset.billingId;
-                    if (!byBilling[bid]) byBilling[bid] = { items: [], chargeIds: [], expenseIds: [], jobIds: new Set() };
+                    if (!byBilling[bid]) byBilling[bid] = { chargeItems: [], expenseItems: [], chargeIds: [], expenseIds: [], jobIds: new Set() };
                     const amt = parseFloat(cb.dataset.amount) || 0;
                     const jobId = cb.dataset.jobId;
                     const job = allJobs.find(j => j.id === jobId);
                     const jobName = job ? job.name : '';
                     const desc = cb.dataset.desc || 'Item';
 
-                    byBilling[bid].items.push({
+                    const lineItem = {
                         amount_cents: Math.round(amt * 100),
                         description: jobName ? jobName + ': ' + desc : desc
-                    });
+                    };
                     byBilling[bid].jobIds.add(jobId);
 
-                    if (cb.dataset.type === 'charge') byBilling[bid].chargeIds.push(cb.dataset.id);
-                    else byBilling[bid].expenseIds.push(cb.dataset.id);
+                    if (cb.dataset.type === 'charge') {
+                        byBilling[bid].chargeItems.push(lineItem);
+                        byBilling[bid].chargeIds.push(cb.dataset.id);
+                    } else {
+                        byBilling[bid].expenseItems.push(lineItem);
+                        byBilling[bid].expenseIds.push(cb.dataset.id);
+                    }
                 });
 
                 const billingIds = Object.keys(byBilling);
@@ -512,7 +539,9 @@
                     if (!billingClient) throw new Error('Billing client not found');
                     if (!billingClient.email) throw new Error(billingClient.name + ' has no email. Add one in Clients first.');
 
-                    const totalCents = group.items.reduce((sum, i) => sum + i.amount_cents, 0);
+                    // Charges first, then reimbursements
+                    const items = [...group.chargeItems, ...group.expenseItems];
+                    const totalCents = items.reduce((sum, i) => sum + i.amount_cents, 0);
                     if (totalCents <= 0) continue;
 
                     // Ensure Stripe customer
@@ -536,7 +565,7 @@
                         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
                         body: JSON.stringify({
                             stripe_customer_id: stripeCustomerId,
-                            line_items: group.items
+                            line_items: items
                         })
                     });
                     const invoiceData = await res.json();
@@ -582,6 +611,8 @@
         }
 
         // ==================== Invoice History ====================
+        let expandedInvoiceId = null;
+
         function renderInvoiceList() {
             const filter = document.querySelector('#statusFilters .filter-tab.active').dataset.filter;
             let filtered = allInvoices;
@@ -593,14 +624,16 @@
                 return;
             }
 
-            tbody.innerHTML = filtered.map(inv => {
+            let html = '';
+            filtered.forEach(inv => {
                 const jobName = inv.hw_jobs ? inv.hw_jobs.name : 'N/A';
                 const clientName = inv.hw_jobs && inv.hw_jobs.hw_customers ? inv.hw_jobs.hw_customers.name : 'N/A';
                 const createdDate = inv.created_at ? new Date(inv.created_at).toLocaleDateString() : '';
                 const dueDate = inv.due_date ? new Date(inv.due_date).toLocaleDateString() : '';
                 const isOverdue = inv.status === 'sent' && inv.due_date && new Date(inv.due_date) < new Date();
-                const rowClass = isOverdue ? 'row-overdue-30' : '';
-                return `<tr class="${rowClass}">
+                const rowClass = isOverdue ? 'invoice-row row-overdue-30' : 'invoice-row';
+                const isExpanded = expandedInvoiceId === inv.id;
+                html += `<tr class="${rowClass}" data-invoice-id="${inv.id}">
                     <td>${createdDate}</td>
                     <td>${esc(clientName)}</td>
                     <td>${esc(jobName)}</td>
@@ -609,10 +642,25 @@
                     <td>${dueDate}</td>
                     <td>${renderInvoiceActions(inv)}</td>
                 </tr>`;
-            }).join('');
+                html += `<tr class="invoice-detail-row" data-detail-for="${inv.id}" style="${isExpanded ? '' : 'display:none;'}">
+                    <td colspan="7"><div class="invoice-detail" id="detail-${inv.id}">${isExpanded ? '<div class="loading"><div class="spinner"></div></div>' : ''}</div></td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+
+            // Wire row clicks to expand/collapse
+            tbody.querySelectorAll('.invoice-row').forEach(row => {
+                row.addEventListener('click', (e) => {
+                    // Don't toggle if clicking an action button
+                    if (e.target.closest('[data-action]')) return;
+                    const invId = row.dataset.invoiceId;
+                    toggleInvoiceDetail(invId);
+                });
+            });
 
             tbody.querySelectorAll('[data-action]').forEach(btn => {
                 btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     const action = e.currentTarget.dataset.action;
                     const id = e.currentTarget.dataset.id;
                     const inv = allInvoices.find(i => i.id === id);
@@ -623,6 +671,87 @@
                     else if (action === 'view') window.open(inv.stripe_invoice_url, '_blank');
                 });
             });
+        }
+
+        async function toggleInvoiceDetail(invId) {
+            const detailRow = document.querySelector(`[data-detail-for="${invId}"]`);
+            if (!detailRow) return;
+
+            if (expandedInvoiceId === invId) {
+                // Collapse
+                detailRow.style.display = 'none';
+                expandedInvoiceId = null;
+                return;
+            }
+
+            // Collapse any other open row
+            if (expandedInvoiceId) {
+                const prev = document.querySelector(`[data-detail-for="${expandedInvoiceId}"]`);
+                if (prev) prev.style.display = 'none';
+            }
+
+            expandedInvoiceId = invId;
+            detailRow.style.display = '';
+            const container = document.getElementById('detail-' + invId);
+            container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+            // Fetch charges and expenses linked to this invoice
+            const inv = allInvoices.find(i => i.id === invId);
+            if (!inv) return;
+
+            const [chargesRes, expensesRes] = await Promise.all([
+                sb.from('hw_charges').select('*, hw_jobs(name)').eq('invoice_id', invId),
+                sb.from('hw_expenses').select('*, hw_jobs(name)').eq('invoice_id', invId),
+            ]);
+            const charges = chargesRes.data || [];
+            const expenses = expensesRes.data || [];
+
+            let html = '<div class="invoice-detail-grid">';
+            html += `<div class="detail-col"><div class="detail-label">Stripe ID</div>${inv.stripe_invoice_id || 'N/A'}</div>`;
+            html += `<div class="detail-col"><div class="detail-label">Created</div>${inv.created_at ? new Date(inv.created_at).toLocaleString() : 'N/A'}</div>`;
+            if (inv.paid_at) html += `<div class="detail-col"><div class="detail-label">Paid</div>${new Date(inv.paid_at).toLocaleString()}</div>`;
+            html += '</div>';
+
+            html += '<div class="invoice-detail-items">';
+            if (charges.length === 0 && expenses.length === 0) {
+                html += '<div class="invoice-detail-empty">No line items linked to this invoice.</div>';
+            } else {
+                if (charges.length > 0) {
+                    html += '<div class="section-label" style="margin:0 -1.25rem;padding-left:1.25rem;">Contracts & Charges</div>';
+                    charges.forEach(c => {
+                        const jobName = c.hw_jobs ? c.hw_jobs.name : '';
+                        const isCredit = c.charge_type === 'credit';
+                        const amt = parseFloat(c.amount) || 0;
+                        const desc = (jobName ? jobName + ': ' : '') + (c.description || 'Charge');
+                        html += `<div class="detail-item">
+                            <span>${esc(desc)}<span class="detail-item-type">${c.charge_type || 'charge'}</span></span>
+                            <span class="detail-item-amount" style="${isCredit ? 'color:var(--danger)' : ''}">${isCredit ? '-' : ''}${formatCurrency(amt)}</span>
+                        </div>`;
+                    });
+                }
+                if (expenses.length > 0) {
+                    html += '<div class="section-label" style="margin:0 -1.25rem;padding-left:1.25rem;">Reimbursements</div>';
+                    expenses.forEach(e => {
+                        const jobName = e.hw_jobs ? e.hw_jobs.name : '';
+                        const amt = parseFloat(e.amount) || 0;
+                        const desc = (jobName ? jobName + ': ' : '') + (e.vendor || '') + (e.vendor && e.description ? ' — ' : '') + (e.description || 'Expense');
+                        html += `<div class="detail-item">
+                            <span>${esc(desc)}<span class="detail-item-type">expense</span></span>
+                            <span class="detail-item-amount" style="color:var(--accent-dark)">${formatCurrency(amt)}</span>
+                        </div>`;
+                    });
+                }
+            }
+            html += '</div>';
+
+            // Action links at bottom of detail
+            html += '<div class="invoice-detail-actions">';
+            if (inv.stripe_invoice_url) {
+                html += `<a href="${inv.stripe_invoice_url}" target="_blank" class="btn btn-outline btn-sm">View in Stripe</a>`;
+            }
+            html += '</div>';
+
+            container.innerHTML = html;
         }
 
         function renderInvoiceActions(inv) {
