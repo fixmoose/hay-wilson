@@ -591,7 +591,7 @@
                         await sb.from('hw_charges').update({ invoice_id: invoiceId }).in('id', group.chargeIds);
                     }
                     if (group.expenseIds.length > 0) {
-                        await sb.from('hw_expenses').update({ invoice_id: invoiceId }).in('id', group.expenseIds);
+                        await sb.from('hw_expenses').update({ invoice_id: invoiceId, reimbursed: true, reimbursed_date: new Date().toISOString().split('T')[0] }).in('id', group.expenseIds);
                     }
 
                     createdCount++;
@@ -796,7 +796,7 @@
                 if (inv.job_id) {
                     const { data: unpaid } = await sb.from('hw_charges').select('id').eq('job_id', inv.job_id).eq('is_paid', false);
                     if (unpaid && unpaid.length > 0) await sb.from('hw_charges').update({ is_paid: true, paid_date: today }).in('id', unpaid.map(c => c.id));
-                    const { data: reimb } = await sb.from('hw_expenses').select('id').eq('job_id', inv.job_id).eq('reimbursable', true).eq('reimbursed', false);
+                    const { data: reimb } = await sb.from('hw_expenses').select('id').eq('invoice_id', inv.id).eq('reimbursed', false);
                     if (reimb && reimb.length > 0) await sb.from('hw_expenses').update({ reimbursed: true, reimbursed_date: today }).in('id', reimb.map(e => e.id));
                     await sb.from('hw_jobs').update({ status: 'paid' }).eq('id', inv.job_id);
                 }
@@ -810,7 +810,7 @@
             try {
                 // Release charges and expenses back to uninvoiced
                 await sb.from('hw_charges').update({ invoice_id: null }).eq('invoice_id', inv.id);
-                await sb.from('hw_expenses').update({ invoice_id: null }).eq('invoice_id', inv.id);
+                await sb.from('hw_expenses').update({ invoice_id: null, reimbursed: false, reimbursed_date: null }).eq('invoice_id', inv.id);
                 await sb.from('hw_invoices').update({ status: 'void' }).eq('id', inv.id);
                 showToast('Invoice voided — items returned to uninvoiced');
                 await loadData();
