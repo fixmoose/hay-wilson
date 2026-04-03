@@ -67,9 +67,6 @@
         .receipt-delete { position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,0.6); color:white; border:none; cursor:pointer; font-size:14px; display:none; align-items:center; justify-content:center; line-height:1; }
         .receipt-item:hover .receipt-delete { display:flex; }
         .receipt-page-badge { position:absolute; top:4px; left:4px; background:var(--primary-light); color:white; font-size:0.65rem; font-weight:600; padding:0.15rem 0.4rem; border-radius:4px; }
-        .upload-drop-zone { border:2px dashed var(--border-color); border-radius:8px; padding:1.5rem; text-align:center; color:var(--text-light); cursor:pointer; transition:border-color 0.2s, background 0.2s; }
-        .upload-drop-zone:hover, .upload-drop-zone.dragover { border-color:var(--primary-light); background:rgba(37,99,235,0.04); }
-        .upload-drop-zone input { display:none; }
         .invoice-btn { padding:0.5rem 1rem; border-radius:6px; font-size:0.85rem; font-weight:500; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:0.35rem; transition:opacity 0.15s; }
         .invoice-btn:disabled { opacity:0.5; cursor:not-allowed; }
         .invoice-btn-create { background:var(--primary-light); color:white; }
@@ -174,14 +171,15 @@
                 <div class="section-card">
                     <div class="section-card-header">
                         <h4>Receipts</h4>
+                        <div style="display:flex;gap:0.5rem;">
+                            <button class="btn btn-outline btn-sm" id="downloadAllReceiptsBtn" style="display:none;" title="Download all receipts as ZIP">Download All</button>
+                            <button class="btn btn-outline btn-sm" id="shareReceiptsBtn" style="display:none;" title="Copy shareable links">Share Links</button>
+                        </div>
                     </div>
                     <div class="section-card-body" id="receiptsBody">
                         <div class="receipt-grid" id="receiptGrid"></div>
-                        <div class="upload-drop-zone" id="receiptDropZone">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28" style="margin-bottom:0.25rem;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                            <p style="margin:0;font-size:0.85rem;">Tap to upload or drag & drop</p>
-                            <p style="margin:0.25rem 0 0;font-size:0.75rem;">Images or PDFs</p>
-                            <input type="file" id="receiptFileInput" multiple accept="image/*,.pdf">
+                        <div id="receiptEmptyMsg" style="text-align:center;padding:1rem;color:var(--text-light);font-size:0.85rem;display:none;">
+                            No receipts yet. Upload via <a href="/admin/receipts.html" style="color:var(--primary-light);">Receipts</a> page or phone.
                         </div>
                     </div>
                 </div>
@@ -348,7 +346,7 @@
             setupStatusChange();
             setupEditModal();
             setupCharges();
-            setupReceiptUpload();
+            setupReceiptActions();
         })();
 
         // ==================== Load Job ====================
@@ -779,12 +777,26 @@
         // ==================== Receipts ====================
         const receiptGroupPaths = {}; // groupKey -> [paths]
 
+        let allReceiptPaths = []; // flat list of all receipt file paths for this job
+
         async function loadReceipts() {
             const grid = document.getElementById('receiptGrid');
+            const emptyMsg = document.getElementById('receiptEmptyMsg');
+            const dlBtn = document.getElementById('downloadAllReceiptsBtn');
+            const shareBtn = document.getElementById('shareReceiptsBtn');
             const { data, error } = await sb.storage.from('hw-receipts').list(jobId + '/', { sortBy: { column: 'created_at', order: 'desc' } });
 
             if (error) { console.error('Receipts error:', error); return; }
-            if (!data || data.length === 0) { grid.style.display = 'none'; return; }
+            if (!data || data.length === 0) {
+                grid.style.display = 'none';
+                emptyMsg.style.display = 'block';
+                dlBtn.style.display = 'none';
+                shareBtn.style.display = 'none';
+                return;
+            }
+            emptyMsg.style.display = 'none';
+            dlBtn.style.display = '';
+            shareBtn.style.display = '';
 
             // Group files by receipt group (grp_XXX prefix) or treat as standalone
             const groups = {};
@@ -797,9 +809,12 @@
 
             // Sort pages within each group, store paths in JS map
             Object.keys(receiptGroupPaths).forEach(k => delete receiptGroupPaths[k]);
+            allReceiptPaths = [];
             Object.entries(groups).forEach(([key, pages]) => {
                 pages.sort((a, b) => a.pageNum - b.pageNum);
-                receiptGroupPaths[key] = pages.map(p => jobId + '/' + p.name);
+                const paths = pages.map(p => jobId + '/' + p.name);
+                receiptGroupPaths[key] = paths;
+                allReceiptPaths.push(...paths);
             });
 
             grid.style.display = 'grid';
@@ -853,188 +868,64 @@
             });
         }
 
-        // Upload handling
-        function setupReceiptUpload() {
-            const dropZone = document.getElementById('receiptDropZone');
-            const fileInput = document.getElementById('receiptFileInput');
+        // Download/Share receipts
+        function setupReceiptActions() {
+            document.getElementById('downloadAllReceiptsBtn').addEventListener('click', async () => {
+                if (allReceiptPaths.length === 0) return;
+                const btn = document.getElementById('downloadAllReceiptsBtn');
+                btn.disabled = true;
+                btn.textContent = 'Downloading...';
 
-            dropZone.addEventListener('click', () => fileInput.click());
-
-            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-            dropZone.addEventListener('drop', (e) => {
-                e.preventDefault();
-                dropZone.classList.remove('dragover');
-                if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
-            });
-
-            fileInput.addEventListener('change', () => {
-                if (fileInput.files.length) uploadFiles(fileInput.files);
-                fileInput.value = '';
-            });
-        }
-
-        // Compress image to JPEG, shrink until under 500KB
-        function compressImage(file) {
-            return new Promise((resolve) => {
-                if (!file.type.startsWith('image/')) { resolve(file); return; }
-                const img = new Image();
-                const url = URL.createObjectURL(file);
-                img.onload = () => {
-                    URL.revokeObjectURL(url);
-                    // Step 1: shrink dimensions — phone photos can be 4000-8000px
-                    const canvas = document.createElement('canvas');
-                    let w = img.width, h = img.height;
-                    const maxDim = 3500;
-                    if (w > maxDim || h > maxDim) {
-                        const scale = maxDim / Math.max(w, h);
-                        w = Math.round(w * scale);
-                        h = Math.round(h * scale);
+                for (const path of allReceiptPaths) {
+                    const { data: signedData } = await sb.storage.from('hw-receipts').createSignedUrl(path, 300);
+                    if (signedData) {
+                        const a = document.createElement('a');
+                        a.href = signedData.signedUrl;
+                        a.download = path.split('/').pop();
+                        a.target = '_blank';
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        // Small delay between downloads so browser doesn't block them
+                        await new Promise(r => setTimeout(r, 300));
                     }
-                    canvas.width = w;
-                    canvas.height = h;
-                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    // Step 2: encode as JPEG at 0.7 quality for better receipt readability
-                    canvas.toBlob((blob) => {
-                        if (!blob) { resolve(file); return; }
-                        resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
-                    }, 'image/jpeg', 0.7);
-                };
-                img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
-                img.src = url;
+                }
+                btn.disabled = false;
+                btn.textContent = 'Download All';
+                showToast(allReceiptPaths.length + ' receipt' + (allReceiptPaths.length !== 1 ? 's' : '') + ' downloaded');
             });
-        }
 
-        // Upload to Supabase Storage — uses JS client with safe JSON handling
-        async function uploadToStorage(filePath, fileBlob) {
-            try {
-                const { data, error } = await sb.storage.from('hw-receipts').upload(filePath, fileBlob, {
-                    contentType: fileBlob.type || 'image/jpeg',
-                    cacheControl: '3600',
-                    upsert: false
-                });
-                if (error) throw new Error(error.message || JSON.stringify(error));
-                return data;
-            } catch (e) {
-                // If Supabase client chokes on response, try direct fetch as fallback
-                try {
-                    const session = await sb.auth.getSession();
-                    const token = session.data.session?.access_token;
-                    const url = 'https://mxxabikquupnwvlspzyz.supabase.co/storage/v1/object/hw-receipts/' + filePath.split('/').map(encodeURIComponent).join('/');
-                    const res = await fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': 'Bearer ' + token,
-                            'Content-Type': fileBlob.type || 'image/jpeg',
-                            'x-upsert': 'false'
-                        },
-                        body: fileBlob
-                    });
-                    if (!res.ok) {
-                        const text = await res.text().catch(() => 'unknown error');
-                        throw new Error(res.status + ': ' + text.substring(0, 100));
+            document.getElementById('shareReceiptsBtn').addEventListener('click', async () => {
+                if (allReceiptPaths.length === 0) return;
+                const btn = document.getElementById('shareReceiptsBtn');
+                btn.disabled = true;
+                btn.textContent = 'Generating...';
+
+                // Generate signed URLs valid for 7 days
+                const links = [];
+                for (const path of allReceiptPaths) {
+                    const { data: signedData } = await sb.storage.from('hw-receipts').createSignedUrl(path, 7 * 24 * 3600);
+                    if (signedData) links.push(signedData.signedUrl);
+                }
+
+                if (links.length > 0) {
+                    const text = links.join('\n');
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        showToast(links.length + ' link' + (links.length !== 1 ? 's' : '') + ' copied (valid 7 days)');
+                    } catch (e) {
+                        // Fallback: open in new window
+                        const w = window.open('', '_blank');
+                        if (w) {
+                            w.document.write('<pre style="word-break:break-all;white-space:pre-wrap;">' + text.replace(/</g, '&lt;') + '</pre>');
+                            w.document.title = 'Receipt Links';
+                            showToast('Links opened in new tab (valid 7 days)');
+                        }
                     }
-                    return true;
-                } catch (e2) {
-                    throw new Error(e2.message || 'Upload failed');
                 }
-            }
-        }
-
-        let currentGroupId = null;
-        let currentPageNum = 0;
-
-        async function uploadFiles(files) {
-            const dropZone = document.getElementById('receiptDropZone');
-            let uploaded = 0;
-            const isBulk = files.length > 1 && !currentGroupId; // multiple new files = separate receipts
-
-            if (isBulk) {
-                // Bulk upload: each file is its own receipt (no grouping)
-                const batchId = Date.now();
-                let failed = 0, lastErr = '';
-                for (let i = 0; i < files.length; i++) {
-                    const file = files[i];
-                    dropZone.innerHTML = '<p style="margin:0;font-size:0.85rem;">Uploading ' + (i + 1) + ' of ' + files.length + '...</p>';
-                    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-                    const filePath = jobId + '/' + batchId + '_' + i + '_' + safeName;
-
-                    try {
-                        const compressed = await compressImage(file);
-                        await uploadToStorage(filePath, compressed);
-                        uploaded++;
-                    } catch (e) { failed++; lastErr = e.message; }
-                }
-
-                if (uploaded > 0) {
-                    showToast(uploaded + ' receipt' + (uploaded > 1 ? 's' : '') + ' uploaded' + (failed > 0 ? ' (' + failed + ' failed)' : ''));
-                    loadReceipts();
-                } else {
-                    showToast('Upload failed: ' + (lastErr || 'unknown'), 'error');
-                }
-                resetDropZone();
-            } else {
-                // Single file or adding page to existing group
-                if (!currentGroupId) {
-                    currentGroupId = 'grp_' + Date.now();
-                    currentPageNum = 0;
-                }
-
-                for (const file of files) {
-                    dropZone.innerHTML = '<p style="margin:0;font-size:0.85rem;">Uploading...</p>';
-                    currentPageNum++;
-                    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-                    const filePath = jobId + '/' + currentGroupId + '_p' + currentPageNum + '_' + safeName;
-
-                    try {
-                        const compressed = await compressImage(file);
-                        await uploadToStorage(filePath, compressed);
-                        uploaded++;
-                    } catch (e) { showToast('Failed: ' + e.message, 'error'); }
-                }
-
-                if (uploaded > 0) {
-                    showToast('Page ' + currentPageNum + ' uploaded');
-                    loadReceipts();
-                    showAddPagePrompt();
-                } else {
-                    resetDropZone();
-                }
-            }
-        }
-
-        function showAddPagePrompt() {
-            const dropZone = document.getElementById('receiptDropZone');
-            dropZone.innerHTML =
-                '<p style="margin:0;font-size:0.85rem;font-weight:600;">Receipt has ' + currentPageNum + ' page' + (currentPageNum > 1 ? 's' : '') + '</p>' +
-                '<div style="display:flex;gap:0.5rem;margin-top:0.5rem;justify-content:center;">' +
-                    '<button id="addPageBtn" style="padding:0.4rem 1rem;border-radius:6px;border:1px solid var(--primary-light);background:white;color:var(--primary-light);cursor:pointer;font-size:0.85rem;font-weight:500;">+ Add Page</button>' +
-                    '<button id="doneReceiptBtn" style="padding:0.4rem 1rem;border-radius:6px;border:none;background:var(--primary-light);color:white;cursor:pointer;font-size:0.85rem;font-weight:500;">Done</button>' +
-                '</div>';
-
-            // Remove old listeners by replacing node approach — just add new ones
-            document.getElementById('addPageBtn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                document.getElementById('receiptFileInput').click();
+                btn.disabled = false;
+                btn.textContent = 'Share Links';
             });
-            document.getElementById('doneReceiptBtn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                currentGroupId = null;
-                currentPageNum = 0;
-                resetDropZone();
-            });
-
-            // Temporarily remove drop zone click-to-upload (buttons handle it)
-            dropZone.onclick = null;
-        }
-
-        function resetDropZone() {
-            const dropZone = document.getElementById('receiptDropZone');
-            dropZone.innerHTML =
-                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28" style="margin-bottom:0.25rem;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
-                '<p style="margin:0;font-size:0.85rem;">Tap to upload or drag & drop</p>' +
-                '<p style="margin:0.25rem 0 0;font-size:0.75rem;">Images or PDFs</p>';
-            dropZone.onclick = () => document.getElementById('receiptFileInput').click();
         }
     </script>
 </body>
