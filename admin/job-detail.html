@@ -64,9 +64,6 @@
         .receipt-thumb { width:100%; height:120px; object-fit:cover; display:block; background:var(--bg-light); image-orientation:from-image; }
         .receipt-thumb-pdf { width:100%; height:120px; display:flex; align-items:center; justify-content:center; background:var(--bg-light); color:var(--text-light); font-size:0.8rem; flex-direction:column; gap:0.25rem; }
         .receipt-name { padding:0.4rem 0.5rem; font-size:0.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-dark); border-top:1px solid var(--border-color); }
-        .receipt-delete { position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,0.6); color:white; border:none; cursor:pointer; font-size:14px; display:none; align-items:center; justify-content:center; line-height:1; }
-        .receipt-item:hover .receipt-delete { display:flex; }
-        .receipt-page-badge { position:absolute; top:4px; left:4px; background:var(--primary-light); color:white; font-size:0.65rem; font-weight:600; padding:0.15rem 0.4rem; border-radius:4px; }
         .invoice-btn { padding:0.5rem 1rem; border-radius:6px; font-size:0.85rem; font-weight:500; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:0.35rem; transition:opacity 0.15s; }
         .invoice-btn:disabled { opacity:0.5; cursor:not-allowed; }
         .invoice-btn-create { background:var(--primary-light); color:white; }
@@ -775,19 +772,35 @@
         }
 
         // ==================== Receipts ====================
-        const receiptGroupPaths = {}; // groupKey -> [paths]
 
-        let allReceiptPaths = []; // flat list of all receipt file paths for this job
+        let allReceiptPaths = []; // unique receipt paths for this job
 
         async function loadReceipts() {
             const grid = document.getElementById('receiptGrid');
             const emptyMsg = document.getElementById('receiptEmptyMsg');
             const dlBtn = document.getElementById('downloadAllReceiptsBtn');
             const shareBtn = document.getElementById('shareReceiptsBtn');
-            const { data, error } = await sb.storage.from('hw-receipts').list(jobId + '/', { sortBy: { column: 'created_at', order: 'desc' } });
+
+            // Get unique receipt paths from expenses linked to this job
+            const { data: expenses, error } = await sb.from('hw_expenses')
+                .select('receipt_path, vendor, amount')
+                .eq('job_id', jobId)
+                .not('receipt_path', 'is', null);
 
             if (error) { console.error('Receipts error:', error); return; }
-            if (!data || data.length === 0) {
+
+            // Deduplicate paths (multiple expenses can share one receipt photo)
+            const pathMap = {};
+            (expenses || []).forEach(e => {
+                if (!e.receipt_path) return;
+                if (!pathMap[e.receipt_path]) pathMap[e.receipt_path] = [];
+                pathMap[e.receipt_path].push(e);
+            });
+
+            const uniquePaths = Object.keys(pathMap);
+            allReceiptPaths = uniquePaths;
+
+            if (uniquePaths.length === 0) {
                 grid.style.display = 'none';
                 emptyMsg.style.display = 'block';
                 dlBtn.style.display = 'none';
@@ -798,43 +811,24 @@
             dlBtn.style.display = '';
             shareBtn.style.display = '';
 
-            // Group files by receipt group (grp_XXX prefix) or treat as standalone
-            const groups = {};
-            data.forEach(file => {
-                const match = file.name.match(/^(grp_\d+)_p(\d+)_/);
-                const groupKey = match ? match[1] : file.name;
-                if (!groups[groupKey]) groups[groupKey] = [];
-                groups[groupKey].push({ ...file, pageNum: match ? parseInt(match[2]) : 1 });
-            });
-
-            // Sort pages within each group, store paths in JS map
-            Object.keys(receiptGroupPaths).forEach(k => delete receiptGroupPaths[k]);
-            allReceiptPaths = [];
-            Object.entries(groups).forEach(([key, pages]) => {
-                pages.sort((a, b) => a.pageNum - b.pageNum);
-                const paths = pages.map(p => jobId + '/' + p.name);
-                receiptGroupPaths[key] = paths;
-                allReceiptPaths.push(...paths);
-            });
-
             grid.style.display = 'grid';
-            grid.innerHTML = Object.entries(groups).map(([groupKey, pages]) => {
-                const firstFile = pages[0];
-                const path = jobId + '/' + firstFile.name;
-                const isPdf = firstFile.name.toLowerCase().endsWith('.pdf');
-                const pageCount = pages.length;
+            grid.innerHTML = uniquePaths.map(path => {
+                const fileName = path.split('/').pop();
+                const isPdf = fileName.toLowerCase().endsWith('.pdf');
+                const exps = pathMap[path];
+                const label = exps.length === 1
+                    ? escapeHtml(exps[0].vendor || fileName)
+                    : exps.map(e => escapeHtml(e.vendor)).join(', ');
 
-                return '<div class="receipt-item" data-path="' + escapeHtml(path) + '" data-group="' + escapeHtml(groupKey) + '" data-name="' + escapeHtml(firstFile.name) + '">' +
+                return '<div class="receipt-item" data-path="' + escapeHtml(path) + '">' +
                     (isPdf
                         ? '<div class="receipt-thumb-pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</div>'
                         : '<img class="receipt-thumb" src="" alt="" data-path="' + escapeHtml(path) + '">') +
-                    (pageCount > 1 ? '<span class="receipt-page-badge">' + pageCount + ' pages</span>' : '') +
-                    '<div class="receipt-name">' + (pageCount > 1 ? 'Receipt (' + pageCount + ' pg)' : escapeHtml(firstFile.name)) + '</div>' +
-                    '<button class="receipt-delete" title="Delete">&times;</button>' +
+                    '<div class="receipt-name" title="' + escapeHtml(label) + '">' + label + '</div>' +
                 '</div>';
             }).join('');
 
-            // Load signed URLs for images
+            // Load signed URLs for image thumbnails
             grid.querySelectorAll('img.receipt-thumb').forEach(async (img) => {
                 const { data: signedData } = await sb.storage.from('hw-receipts').createSignedUrl(img.dataset.path, 3600);
                 if (signedData) img.src = signedData.signedUrl;
@@ -842,28 +836,9 @@
 
             // Click to view
             grid.querySelectorAll('.receipt-item').forEach(item => {
-                item.addEventListener('click', async (e) => {
-                    if (e.target.closest('.receipt-delete')) return;
-                    const paths = receiptGroupPaths[item.dataset.group] || [item.dataset.path];
-                    for (const p of paths) {
-                        const { data: signedData } = await sb.storage.from('hw-receipts').createSignedUrl(p, 3600);
-                        if (signedData) window.open(signedData.signedUrl, '_blank');
-                    }
-                });
-            });
-
-            // Delete
-            grid.querySelectorAll('.receipt-delete').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    const item = btn.closest('.receipt-item');
-                    const paths = receiptGroupPaths[item.dataset.group] || [item.dataset.path];
-                    const label = paths.length > 1 ? 'this receipt (' + paths.length + ' pages)' : item.dataset.name;
-                    if (!confirm('Delete ' + label + '?')) return;
-                    const { error } = await sb.storage.from('hw-receipts').remove(paths);
-                    if (error) { showToast('Failed to delete', 'error'); return; }
-                    showToast('Receipt deleted');
-                    loadReceipts();
+                item.addEventListener('click', async () => {
+                    const { data: signedData } = await sb.storage.from('hw-receipts').createSignedUrl(item.dataset.path, 3600);
+                    if (signedData) window.open(signedData.signedUrl, '_blank');
                 });
             });
         }
