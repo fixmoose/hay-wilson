@@ -331,6 +331,7 @@
                 return '<tr data-expense-id="' + e.id + '">' +
                     '<td>' + date + '</td>' +
                     '<td>' + escapeHtml(e.vendor || e.description || '-') +
+                        (e.description && e.vendor ? '<div style="font-size:0.75rem;color:var(--text-light);margin-top:0.1rem;">' + escapeHtml(e.description.length > 60 ? e.description.substring(0, 60) + '...' : e.description) + '</div>' : '') +
                         (e.reimbursed ? '<span class="reimbursed-badge">Reimbursed</span>' :
                          e.reimbursable ? '<span class="reimb-badge">Reimb.</span>' : '') +
                     '</td>' +

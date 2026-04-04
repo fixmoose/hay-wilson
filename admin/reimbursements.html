@@ -215,7 +215,7 @@
         async function loadData() {
             const [{ data: methods, error }, { data: expenses }, { data: reimbs }, { data: vDefaults }, { data: mileage }] = await Promise.all([
                 sb.from('hw_payment_methods').select('*').order('owner').order('name'),
-                sb.from('hw_expenses').select('id, vendor, amount, expense_date, payment_method_id, internal_reimbursement_id, job_id, hw_jobs(name)').order('expense_date', { ascending: false }),
+                sb.from('hw_expenses').select('id, vendor, description, amount, expense_date, payment_method_id, internal_reimbursement_id, job_id, hw_jobs(name)').order('expense_date', { ascending: false }),
                 sb.from('hw_internal_reimbursements').select('*').order('paid_date', { ascending: false }),
                 sb.from('hw_vendor_payment_defaults').select('*'),
                 sb.from('hw_mileage_log').select('id, trip_date, from_address, to_address, miles, trip_type, job_id, internal_reimbursement_id, hw_jobs(name)').order('trip_date', { ascending: false })
@@ -370,7 +370,9 @@
                     const hasDefault = e.vendor && vendorDefaults[e.vendor.toLowerCase()];
                     html += '<div class="reimb-expense-row">' +
                         '<input type="checkbox" data-id="' + e.id + '" data-amount="' + e.amount + '" data-type="expense">' +
-                        '<span class="reimb-expense-vendor">' + escapeHtml(e.vendor || 'Unknown') + (jobName ? ' <span style="color:var(--text-light);font-size:0.8rem;">(' + escapeHtml(jobName) + ')</span>' : '') + '</span>' +
+                        '<span class="reimb-expense-vendor">' + escapeHtml(e.vendor || 'Unknown') + (jobName ? ' <span style="color:var(--text-light);font-size:0.8rem;">(' + escapeHtml(jobName) + ')</span>' : '') +
+                            (e.description ? '<div style="font-size:0.75rem;color:var(--text-light);margin-top:0.1rem;">' + escapeHtml(e.description.length > 50 ? e.description.substring(0, 50) + '...' : e.description) + '</div>' : '') +
+                        '</span>' +
                         '<span class="reimb-expense-pm">' +
                             '<select data-expense-id="' + e.id + '">' + buildPmOptions(e.payment_method_id) + '</select>' +
                             (hasDefault ? '<div class="default-saved">Default saved</div>' : '<label><input type="checkbox" class="remember-cb" data-expense-id="' + e.id + '"> Default for ' + escapeHtml(e.vendor || '?') + '</label>') +
