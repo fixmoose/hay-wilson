@@ -124,6 +124,29 @@ CREATE POLICY "Auth delete receipts" ON storage.objects
     FOR DELETE TO authenticated
     USING (bucket_id = 'hw-receipts');
 
+-- 8. Payment Methods Table
+CREATE TABLE hw_payment_methods (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'credit_card'
+        CHECK (type IN ('credit_card', 'debit_card', 'bank_account')),
+    last4 TEXT NOT NULL,
+    owner TEXT NOT NULL DEFAULT 'company'
+        CHECK (owner IN ('personal', 'company')),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE hw_payment_methods ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Auth full access" ON hw_payment_methods FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE TRIGGER hw_payment_methods_updated BEFORE UPDATE ON hw_payment_methods
+    FOR EACH ROW EXECUTE FUNCTION hw_update_timestamp();
+
+-- Add payment_method_id to expenses
+ALTER TABLE hw_expenses ADD COLUMN payment_method_id UUID REFERENCES hw_payment_methods(id) ON DELETE SET NULL;
+
 -- ============================================================
 -- AUTH SETUP
 -- Go to Supabase Dashboard > Authentication > Users > Add User

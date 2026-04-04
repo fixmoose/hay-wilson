@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Methods - H&amp;W Admin</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/admin/admin-styles.css?v=4">
+    <style>
+        .owner-badge { display:inline-block; padding:0.15rem 0.5rem; border-radius:999px; font-size:0.75rem; font-weight:600; }
+        .owner-personal { background:#fef3c7; color:#92400e; }
+        .owner-company { background:#dbeafe; color:#1e40af; }
+        .last4 { font-family:monospace; font-size:1rem; letter-spacing:0.1em; }
+        .type-icon { display:inline-flex; align-items:center; gap:0.35rem; }
+        .type-icon svg { width:18px; height:18px; }
+        .summary-row { display:flex; gap:1rem; margin-bottom:1rem; flex-wrap:wrap; }
+        .summary-box { background:white; border:1px solid var(--border-color); border-radius:10px; padding:1rem 1.25rem; flex:1; min-width:180px; }
+        .summary-box-label { font-size:0.8rem; color:var(--text-light); margin-bottom:0.25rem; }
+        .summary-box-value { font-size:1.25rem; font-weight:700; }
+        .summary-box-value.personal { color:#92400e; }
+        .summary-box-value.company { color:#1e40af; }
+    </style>
+</head>
+<body>
+    <div class="admin-topbar">
+        <div class="admin-topbar-left">
+            <button class="mobile-sidebar-toggle" id="sidebarToggle">&#9776;</button>
+            <h1>H&W <span>Admin</span></h1>
+        </div>
+        <div class="admin-topbar-right">
+            <span class="admin-user" id="adminUser"></span>
+            <button class="btn-logout" id="logoutBtn">Logout</button>
+        </div>
+    </div>
+    <aside class="admin-sidebar" id="adminSidebar">
+        <ul class="admin-nav">
+            <li><a href="/admin/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Dashboard</a></li>
+            <li><a href="/admin/jobs.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Jobs</a></li>
+            <li><a href="/admin/clients.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Clients</a></li>
+            <li><a href="/admin/invoices.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Invoices</a></li>
+            <li><a href="/admin/documents.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Documents</a></li>
+            <li><a href="/admin/receipts.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>Receipts</a></li>
+            <li><a href="/admin/accounting.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Accounting</a></li>
+            <li><a href="/admin/payment-methods.html" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Payment Methods</a></li>
+            <li><div class="nav-divider"></div></li>
+            <li><a href="/" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>View Site</a></li>
+        </ul>
+    </aside>
+
+    <main class="admin-main">
+        <div class="admin-page-header">
+            <h2>Payment Methods</h2>
+            <button class="btn btn-primary" id="addBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Card / Account
+            </button>
+        </div>
+
+        <div class="summary-row" id="summaryRow" style="display:none;">
+            <div class="summary-box">
+                <div class="summary-box-label">Personal (Reimbursable)</div>
+                <div class="summary-box-value personal" id="summPersonal">0</div>
+            </div>
+            <div class="summary-box">
+                <div class="summary-box-label">Company</div>
+                <div class="summary-box-value company" id="summCompany">0</div>
+            </div>
+            <div class="summary-box">
+                <div class="summary-box-label">Pending Reimbursement</div>
+                <div class="summary-box-value personal" id="summPending">$0.00</div>
+            </div>
+        </div>
+
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h3>All Payment Methods</h3>
+            </div>
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Last 4</th>
+                            <th>Owner</th>
+                            <th>Expenses</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add/Edit Modal -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add Payment Method</h3>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="pmForm">
+                    <input type="hidden" id="pmId">
+                    <div class="form-group">
+                        <label for="pmName">Name *</label>
+                        <input type="text" id="pmName" class="form-control" placeholder="e.g. Chase Visa, H&W Business Checking" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="pmType">Type</label>
+                            <select id="pmType" class="form-control">
+                                <option value="credit_card">Credit Card</option>
+                                <option value="debit_card">Debit Card</option>
+                                <option value="bank_account">Bank Account (ACH)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="pmLast4">Last 4 Digits *</label>
+                            <input type="text" id="pmLast4" class="form-control" maxlength="4" pattern="\d{4}" placeholder="1234" required style="font-family:monospace;font-size:1.1rem;letter-spacing:0.15em;">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="pmOwner">Owner *</label>
+                        <select id="pmOwner" class="form-control">
+                            <option value="personal">Personal (Dejan) - reimbursable</option>
+                            <option value="company">Company (H&W)</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="cancelBtn">Cancel</button>
+                <button class="btn btn-danger" id="deleteBtn" style="display:none;">Delete</button>
+                <button class="btn btn-primary" id="saveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const sb = window.supabase.createClient(
+            'https://mxxabikquupnwvlspzyz.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14eGFiaWtxdXVwbnd2bHNwenl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDMwNTgsImV4cCI6MjA3NzIxOTA1OH0.WC_mupqYMneJnYmr9vmDZd0vXroBnaLwZlYX44J_HFQ'
+        );
+
+        function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function formatCurrency(n) { return '$' + (parseFloat(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+        function showToast(msg, type = 'success') {
+            let c = document.querySelector('.toast-container');
+            if (!c) { c = document.createElement('div'); c.className = 'toast-container'; document.body.appendChild(c); }
+            const t = document.createElement('div'); t.className = 'toast toast-' + type; t.textContent = msg; c.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
+        }
+
+        let allMethods = [];
+        let expenseCounts = {};
+        let expenseTotals = {};
+
+        (async () => {
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) { window.location.href = '/admin/login.html'; return; }
+            document.getElementById('adminUser').textContent = session.user.email;
+            document.getElementById('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); window.location.href = '/admin/login.html'; });
+
+            const sidebar = document.getElementById('adminSidebar');
+            const toggle = document.getElementById('sidebarToggle');
+            toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+            document.addEventListener('click', (e) => { if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggle.contains(e.target)) sidebar.classList.remove('open'); });
+
+            await loadData();
+            setupModal();
+        })();
+
+        async function loadData() {
+            const [{ data: methods, error }, { data: expenses }] = await Promise.all([
+                sb.from('hw_payment_methods').select('*').order('owner').order('name'),
+                sb.from('hw_expenses').select('id, payment_method_id, amount, reimbursable, reimbursed')
+            ]);
+            if (error) { console.error(error); showToast('Failed to load payment methods: ' + error.message, 'error'); return; }
+            allMethods = methods || [];
+
+            // Count expenses and totals per payment method
+            expenseCounts = {};
+            expenseTotals = {};
+            let pendingReimb = 0;
+            (expenses || []).forEach(e => {
+                if (e.payment_method_id) {
+                    expenseCounts[e.payment_method_id] = (expenseCounts[e.payment_method_id] || 0) + 1;
+                    expenseTotals[e.payment_method_id] = (expenseTotals[e.payment_method_id] || 0) + (parseFloat(e.amount) || 0);
+                }
+                if (e.reimbursable && !e.reimbursed) pendingReimb += parseFloat(e.amount) || 0;
+            });
+
+            const personalCount = allMethods.filter(m => m.owner === 'personal').length;
+            const companyCount = allMethods.filter(m => m.owner === 'company').length;
+
+            if (allMethods.length > 0) {
+                document.getElementById('summaryRow').style.display = 'flex';
+                document.getElementById('summPersonal').textContent = personalCount;
+                document.getElementById('summCompany').textContent = companyCount;
+                document.getElementById('summPending').textContent = formatCurrency(pendingReimb);
+            }
+
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            if (!allMethods.length) {
+                tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:48px;height:48px;margin-bottom:0.5rem;"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg><p>No payment methods yet</p><p style="font-size:0.85rem;color:var(--text-light);">Add your credit cards and bank accounts to track expenses</p></div></td></tr>';
+                return;
+            }
+
+            const typeLabels = { credit_card: 'Credit Card', debit_card: 'Debit Card', bank_account: 'Bank Account' };
+            const typeIcons = {
+                credit_card: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>',
+                debit_card: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>',
+                bank_account: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M3 10h18"/><path d="M12 3l9 7H3l9-7z"/><path d="M5 10v8"/><path d="M19 10v8"/><path d="M9 10v8"/><path d="M15 10v8"/></svg>'
+            };
+
+            tbody.innerHTML = allMethods.map(m => {
+                const cnt = expenseCounts[m.id] || 0;
+                const total = expenseTotals[m.id] || 0;
+                return `<tr class="clickable" data-id="${m.id}">
+                    <td><strong>${escapeHtml(m.name)}</strong></td>
+                    <td><span class="type-icon">${typeIcons[m.type] || ''}${typeLabels[m.type] || m.type}</span></td>
+                    <td><span class="last4">&bull;&bull;&bull;&bull; ${escapeHtml(m.last4)}</span></td>
+                    <td><span class="owner-badge owner-${m.owner}">${m.owner === 'personal' ? 'Personal' : 'Company'}</span></td>
+                    <td>${cnt}</td>
+                    <td>${formatCurrency(total)}</td>
+                </tr>`;
+            }).join('');
+
+            tbody.querySelectorAll('tr.clickable').forEach(row => {
+                row.addEventListener('click', () => {
+                    const m = allMethods.find(x => x.id === row.dataset.id);
+                    if (m) openModal(m);
+                });
+            });
+        }
+
+        function setupModal() {
+            const modal = document.getElementById('modal');
+            const close = () => modal.classList.remove('active');
+
+            document.getElementById('addBtn').addEventListener('click', () => openModal());
+            document.getElementById('modalClose').addEventListener('click', close);
+            document.getElementById('cancelBtn').addEventListener('click', close);
+            modal.addEventListener('click', e => { if (e.target === modal) close(); });
+
+            // Only allow digits in last4
+            document.getElementById('pmLast4').addEventListener('input', e => {
+                e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
+            });
+
+            document.getElementById('saveBtn').addEventListener('click', async () => {
+                const name = document.getElementById('pmName').value.trim();
+                const last4 = document.getElementById('pmLast4').value.trim();
+                if (!name) { showToast('Name is required', 'error'); return; }
+                if (!/^\d{4}$/.test(last4)) { showToast('Last 4 digits must be exactly 4 numbers', 'error'); return; }
+
+                const payload = {
+                    name,
+                    type: document.getElementById('pmType').value,
+                    last4,
+                    owner: document.getElementById('pmOwner').value
+                };
+
+                const id = document.getElementById('pmId').value;
+                const saveBtn = document.getElementById('saveBtn');
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Saving...';
+
+                try {
+                    if (id) {
+                        const { error } = await sb.from('hw_payment_methods').update(payload).eq('id', id);
+                        if (error) throw error;
+                        showToast('Payment method updated');
+                    } else {
+                        const { error } = await sb.from('hw_payment_methods').insert(payload);
+                        if (error) throw error;
+                        showToast('Payment method added');
+                    }
+                    close();
+                    await loadData();
+                } catch (err) {
+                    showToast('Error: ' + err.message, 'error');
+                } finally {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Save';
+                }
+            });
+
+            document.getElementById('deleteBtn').addEventListener('click', async () => {
+                const id = document.getElementById('pmId').value;
+                if (!id) return;
+                if (!confirm('Delete this payment method? Existing expenses will keep their data but lose the link.')) return;
+
+                try {
+                    const { error } = await sb.from('hw_payment_methods').delete().eq('id', id);
+                    if (error) throw error;
+                    showToast('Payment method deleted');
+                    close();
+                    await loadData();
+                } catch (err) {
+                    showToast('Error: ' + err.message, 'error');
+                }
+            });
+        }
+
+        function openModal(method = null) {
+            const modal = document.getElementById('modal');
+            document.getElementById('pmForm').reset();
+            document.getElementById('pmId').value = '';
+
+            if (method) {
+                document.getElementById('modalTitle').textContent = 'Edit Payment Method';
+                document.getElementById('pmId').value = method.id;
+                document.getElementById('pmName').value = method.name || '';
+                document.getElementById('pmType').value = method.type || 'credit_card';
+                document.getElementById('pmLast4').value = method.last4 || '';
+                document.getElementById('pmOwner').value = method.owner || 'personal';
+                document.getElementById('deleteBtn').style.display = 'inline-flex';
+            } else {
+                document.getElementById('modalTitle').textContent = 'Add Payment Method';
+                document.getElementById('deleteBtn').style.display = 'none';
+            }
+
+            modal.classList.add('active');
+        }
+    </script>
+</body>
+</html>
