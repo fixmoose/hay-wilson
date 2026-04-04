@@ -86,6 +86,36 @@
         .invoice-btn-create { background:var(--primary-light); color:white; }
         .invoice-btn-send { background:#16a34a; color:white; }
         .invoice-btn-view { background:var(--bg-light); color:var(--text-dark); border:1px solid var(--border-color); }
+
+        /* Document upload */
+        .doc-dropzone { border:2px dashed var(--border-color); border-radius:10px; padding:1.5rem 1rem; text-align:center; cursor:pointer; transition:all 0.2s; color:var(--text-light); font-size:0.85rem; }
+        .doc-dropzone:hover, .doc-dropzone.dragover { border-color:var(--primary-light); background:rgba(37,99,235,0.04); color:var(--primary-light); }
+        .doc-dropzone svg { margin-bottom:0.5rem; }
+        .doc-dropzone input { display:none; }
+        .doc-list { display:flex; flex-direction:column; gap:0.5rem; }
+        .doc-item { display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.6rem; background:var(--bg-light); border-radius:8px; font-size:0.85rem; transition:background 0.15s; }
+        .doc-item:hover { background:#e8ecf1; }
+        .doc-item-icon { width:32px; height:32px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:0.65rem; font-weight:700; text-transform:uppercase; }
+        .doc-item-icon.pdf { background:#fee2e2; color:#dc2626; }
+        .doc-item-icon.img { background:#dbeafe; color:#2563eb; }
+        .doc-item-icon.other { background:#f3f4f6; color:#6b7280; }
+        .doc-item-info { flex:1; min-width:0; }
+        .doc-item-name { font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-dark); }
+        .doc-item-meta { font-size:0.75rem; color:var(--text-light); display:flex; gap:0.5rem; align-items:center; margin-top:0.1rem; }
+        .doc-type-badge { display:inline-block; padding:0.1rem 0.35rem; border-radius:3px; font-size:0.65rem; font-weight:600; text-transform:uppercase; background:#e0e7ff; color:#4338ca; }
+        .doc-type-badge.plan_set { background:#dbeafe; color:#1d4ed8; }
+        .doc-type-badge.permit { background:#fef9c3; color:#a16207; }
+        .doc-type-badge.inspection { background:#dcfce7; color:#16a34a; }
+        .doc-type-badge.proposal { background:#ede9fe; color:#7c3aed; }
+        .doc-type-badge.contract { background:#fce7f3; color:#be185d; }
+        .doc-item-actions { display:flex; gap:0.25rem; }
+        .doc-item-actions button { background:none; border:none; cursor:pointer; padding:0.25rem; color:var(--text-light); transition:color 0.15s; }
+        .doc-item-actions button:hover { color:var(--primary-light); }
+        .doc-item-actions .btn-doc-del:hover { color:#dc2626; }
+        .doc-upload-progress { margin-top:0.5rem; }
+        .doc-upload-bar { height:4px; background:var(--bg-light); border-radius:2px; overflow:hidden; }
+        .doc-upload-bar-fill { height:100%; background:var(--primary-light); transition:width 0.3s; border-radius:2px; }
+        .doc-upload-status { font-size:0.75rem; color:var(--text-light); margin-top:0.25rem; }
     </style>
 </head>
 <body>
@@ -131,6 +161,7 @@
                     <div class="job-meta">
                         <span>Client: <a href="#" id="clientLink">-</a></span>
                         <span id="billToWrap" style="display:none;">Bill To: <strong id="billToName">-</strong></span>
+                        <span id="addressWrap" style="display:none;">Address: <strong id="jobAddress">-</strong></span>
                         <span>Started: <span id="startDate">-</span></span>
                         <span>End: <span id="endDate">-</span></span>
                     </div>
@@ -174,11 +205,20 @@
                 <div class="section-card">
                     <div class="section-card-header">
                         <h4>Plan Set & Documents</h4>
-                        <button class="btn btn-outline btn-sm" id="addDocBtn">Upload</button>
+                        <span style="font-size:0.75rem;color:var(--text-light);" id="docCount"></span>
                     </div>
-                    <div class="section-card-body empty" id="docsBody">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32" style="margin-bottom:0.5rem;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                        <p>No documents yet</p>
+                    <div class="section-card-body" id="docsBody">
+                        <div class="doc-dropzone" id="docDropzone">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <p style="margin:0;">Drop files here or <strong>click to upload</strong></p>
+                            <p style="margin:0.25rem 0 0;font-size:0.75rem;">Plans, permits, inspection cards, contracts, photos...</p>
+                            <input type="file" id="docFileInput" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.dwg,.dxf">
+                        </div>
+                        <div class="doc-upload-progress" id="docUploadProgress" style="display:none;">
+                            <div class="doc-upload-bar"><div class="doc-upload-bar-fill" id="docUploadBarFill" style="width:0%"></div></div>
+                            <div class="doc-upload-status" id="docUploadStatus">Uploading...</div>
+                        </div>
+                        <div class="doc-list" id="docList" style="margin-top:0.75rem;"></div>
                     </div>
                 </div>
 
@@ -391,6 +431,7 @@
             setupEditModal();
             setupCharges();
             setupReceiptActions();
+            setupDocuments();
         })();
 
         // ==================== Load Job ====================
@@ -424,6 +465,11 @@
             document.getElementById('statusSelect').value = job.status || 'pending';
             document.getElementById('startDate').textContent = formatDate(job.start_date);
             document.getElementById('endDate').textContent = formatDate(job.end_date);
+
+            // Address
+            const addrWrap = document.getElementById('addressWrap');
+            if (job.address) { addrWrap.style.display = ''; document.getElementById('jobAddress').textContent = job.address; }
+            else { addrWrap.style.display = 'none'; }
 
             // Client link with GC prefix + billing contact
             const clientLink = document.getElementById('clientLink');
@@ -617,6 +663,7 @@
                     document.getElementById('editModalTitle').textContent = 'Edit Job Details';
                     body.innerHTML = `
                         <div class="form-group"><label for="eName">Job Name *</label><input type="text" id="eName" class="form-control" value="${escapeHtml(job.name)}" required></div>
+                        <div class="form-group"><label for="eAddress">Job Site Address</label><input type="text" id="eAddress" class="form-control" value="${escapeHtml(job.address || '')}" placeholder="e.g. 123 Main St, San Jose, CA"></div>
                         <div class="form-row">
                             <div class="form-group"><label for="eStart">Start Date</label><input type="date" id="eStart" class="form-control" value="${formatDateInput(job.start_date)}"></div>
                             <div class="form-group"><label for="eEnd">End Date</label><input type="date" id="eEnd" class="form-control" value="${formatDateInput(job.end_date)}"></div>
@@ -635,7 +682,6 @@
 
             // Placeholder buttons (not yet wired to DB)
             document.getElementById('editPermitBtn').addEventListener('click', () => showToast('Permit tracking coming soon', 'info'));
-            document.getElementById('addDocBtn').addEventListener('click', () => showToast('Document upload coming soon', 'info'));
             document.getElementById('addExpenseBtn').addEventListener('click', () => showToast('Expense tracking coming soon', 'info'));
 
             form.addEventListener('submit', async (e) => {
@@ -650,6 +696,7 @@
                     if (currentEdit === 'notes') {
                         updates = {
                             name: document.getElementById('eName').value.trim(),
+                            address: document.getElementById('eAddress').value.trim() || null,
                             start_date: document.getElementById('eStart').value || null,
                             end_date: document.getElementById('eEnd').value || null,
                             description: document.getElementById('eDesc').value.trim() || null
@@ -1097,6 +1144,286 @@
                 status.textContent = 'Opening email client...';
                 setTimeout(() => { status.style.display = 'none'; }, 3000);
             });
+        }
+
+        // ==================== Documents ====================
+        let allDocs = [];
+
+        function setupDocuments() {
+            const dropzone = document.getElementById('docDropzone');
+            const fileInput = document.getElementById('docFileInput');
+
+            // Click to open file picker
+            dropzone.addEventListener('click', () => fileInput.click());
+
+            // Drag & drop
+            dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+            dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) handleDocUpload(e.dataTransfer.files);
+            });
+
+            // File input change
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length) handleDocUpload(fileInput.files);
+                fileInput.value = '';
+            });
+
+            // Initial load
+            loadDocuments();
+        }
+
+        async function loadDocuments() {
+            const { data, error } = await sb
+                .from('hw_job_documents')
+                .select('*')
+                .eq('job_id', jobId)
+                .order('created_at', { ascending: false });
+
+            if (error) { console.error('Docs error:', error); return; }
+            allDocs = data || [];
+            renderDocuments();
+        }
+
+        function docTypeLabel(t) {
+            const labels = { plan_set: 'Plan Set', permit: 'Permit', inspection: 'Inspection', proposal: 'Proposal', contract: 'Contract', photo: 'Photo', report: 'Report', other: 'Document' };
+            return labels[t] || t;
+        }
+
+        function docIconClass(fileName) {
+            const ext = (fileName || '').split('.').pop().toLowerCase();
+            if (ext === 'pdf') return 'pdf';
+            if (['jpg','jpeg','png','gif','webp','heic','heif','bmp','tiff'].includes(ext)) return 'img';
+            return 'other';
+        }
+
+        function docIconLabel(fileName) {
+            const ext = (fileName || '').split('.').pop().toLowerCase();
+            if (ext === 'pdf') return 'PDF';
+            if (['jpg','jpeg','png','gif','webp','heic','heif'].includes(ext)) return 'IMG';
+            if (['doc','docx'].includes(ext)) return 'DOC';
+            if (['xls','xlsx'].includes(ext)) return 'XLS';
+            if (['dwg','dxf'].includes(ext)) return 'CAD';
+            return ext.toUpperCase().slice(0, 3);
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function renderDocuments() {
+            const list = document.getElementById('docList');
+            const countEl = document.getElementById('docCount');
+
+            if (allDocs.length === 0) {
+                list.innerHTML = '';
+                countEl.textContent = '';
+                return;
+            }
+
+            countEl.textContent = allDocs.length + ' file' + (allDocs.length !== 1 ? 's' : '');
+
+            list.innerHTML = allDocs.map(doc => {
+                const iconCls = docIconClass(doc.file_name);
+                const iconLbl = docIconLabel(doc.file_name);
+                const typeBadge = doc.doc_type && doc.doc_type !== 'other'
+                    ? '<span class="doc-type-badge ' + doc.doc_type + '">' + docTypeLabel(doc.doc_type) + '</span>'
+                    : '';
+
+                return '<div class="doc-item" data-doc-id="' + doc.id + '">' +
+                    '<div class="doc-item-icon ' + iconCls + '">' + iconLbl + '</div>' +
+                    '<div class="doc-item-info">' +
+                        '<div class="doc-item-name" title="' + escapeHtml(doc.file_name) + '">' + escapeHtml(doc.file_name) + '</div>' +
+                        '<div class="doc-item-meta">' +
+                            typeBadge +
+                            '<span>' + formatFileSize(doc.file_size) + '</span>' +
+                            '<span>' + new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</span>' +
+                            (doc.notes ? '<span title="' + escapeHtml(doc.notes) + '">' + escapeHtml(doc.notes.substring(0, 40)) + '</span>' : '') +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="doc-item-actions">' +
+                        '<button data-doc-view="' + doc.id + '" title="View/Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>' +
+                        '<button class="btn-doc-del" data-doc-delete="' + doc.id + '" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+
+            // Wire up actions
+            list.querySelectorAll('[data-doc-view]').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const doc = allDocs.find(d => d.id === btn.dataset.docView);
+                    if (!doc) return;
+                    const { data } = await sb.storage.from('hw-receipts').createSignedUrl(doc.file_path, 3600);
+                    if (data) window.open(data.signedUrl, '_blank');
+                    else showToast('Failed to get download link', 'error');
+                });
+            });
+
+            list.querySelectorAll('[data-doc-delete]').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const doc = allDocs.find(d => d.id === btn.dataset.docDelete);
+                    if (!doc || !confirm('Delete document "' + doc.file_name + '"?')) return;
+
+                    // Delete from storage and DB
+                    await sb.storage.from('hw-receipts').remove([doc.file_path]);
+                    const { error } = await sb.from('hw_job_documents').delete().eq('id', doc.id);
+                    if (error) { showToast('Failed to delete', 'error'); return; }
+                    showToast('Document deleted');
+                    await loadDocuments();
+                });
+            });
+        }
+
+        async function handleDocUpload(files) {
+            const progressEl = document.getElementById('docUploadProgress');
+            const barFill = document.getElementById('docUploadBarFill');
+            const statusEl = document.getElementById('docUploadStatus');
+
+            progressEl.style.display = 'block';
+            const total = files.length;
+            let done = 0;
+            let uploaded = [];
+
+            for (const file of files) {
+                statusEl.textContent = 'Uploading ' + (done + 1) + ' of ' + total + ': ' + file.name;
+                barFill.style.width = ((done / total) * 100) + '%';
+
+                const ts = Date.now();
+                const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const storagePath = '_docs/' + jobId + '/' + ts + '_' + safeName;
+
+                try {
+                    const { error: upErr } = await sb.storage.from('hw-receipts').upload(storagePath, file, {
+                        contentType: file.type || 'application/octet-stream',
+                        cacheControl: '3600',
+                        upsert: false
+                    });
+                    if (upErr) throw upErr;
+
+                    // Auto-detect doc type from filename
+                    const docType = guessDocType(file.name);
+
+                    // Insert DB record
+                    const { data: docRow, error: dbErr } = await sb.from('hw_job_documents').insert({
+                        job_id: jobId,
+                        file_name: file.name,
+                        file_path: storagePath,
+                        doc_type: docType,
+                        file_size: file.size
+                    }).select().single();
+
+                    if (dbErr) throw dbErr;
+                    uploaded.push(docRow);
+                } catch (err) {
+                    console.error('Upload failed:', file.name, err);
+                    showToast('Failed to upload ' + file.name + ': ' + err.message, 'error');
+                }
+
+                done++;
+                barFill.style.width = ((done / total) * 100) + '%';
+            }
+
+            progressEl.style.display = 'none';
+            barFill.style.width = '0%';
+
+            if (uploaded.length > 0) {
+                showToast(uploaded.length + ' document' + (uploaded.length !== 1 ? 's' : '') + ' uploaded');
+                await loadDocuments();
+
+                // Process documents in background — extract text, categorize, find address
+                processUploadedDocs(uploaded);
+            }
+        }
+
+        function guessDocType(fileName) {
+            const lower = fileName.toLowerCase();
+            if (/plan|drawing|blueprint|floor|elevation|layout|schematic|dwg|dxf/i.test(lower)) return 'plan_set';
+            if (/permit|permit[-_]?card/i.test(lower)) return 'permit';
+            if (/inspect/i.test(lower)) return 'inspection';
+            if (/proposal|quote|estimate|bid/i.test(lower)) return 'proposal';
+            if (/contract|agreement|scope/i.test(lower)) return 'contract';
+            if (/report|summary/i.test(lower)) return 'report';
+            const ext = lower.split('.').pop();
+            if (['jpg','jpeg','png','gif','webp','heic','heif'].includes(ext)) return 'photo';
+            return 'other';
+        }
+
+        // Process uploaded documents: read PDFs/images, extract text, auto-categorize, find address
+        async function processUploadedDocs(docs) {
+            for (const doc of docs) {
+                try {
+                    const ext = doc.file_name.split('.').pop().toLowerCase();
+                    let extractedText = '';
+
+                    // Get signed URL
+                    const { data: signedData } = await sb.storage.from('hw-receipts').createSignedUrl(doc.file_path, 300);
+                    if (!signedData) continue;
+
+                    if (ext === 'pdf') {
+                        // Extract text from PDF using pdf-lib
+                        try {
+                            const resp = await fetch(signedData.signedUrl);
+                            const bytes = new Uint8Array(await resp.arrayBuffer());
+                            const { PDFDocument } = PDFLib;
+                            const pdfDoc = await PDFDocument.load(bytes);
+                            // pdf-lib doesn't extract text natively, but we can get page count
+                            const pageCount = pdfDoc.getPageCount();
+                            extractedText = '[PDF: ' + pageCount + ' page' + (pageCount !== 1 ? 's' : '') + ']';
+                        } catch (e) {
+                            extractedText = '[PDF - could not read]';
+                        }
+                    }
+
+                    // Auto-categorize based on content + filename
+                    let newType = doc.doc_type;
+                    let notes = '';
+
+                    // Smarter categorization from filename patterns
+                    const lower = doc.file_name.toLowerCase();
+                    if (newType === 'other' || newType === 'photo') {
+                        if (/plan|sheet|e[0-9]|a[0-9]|s[0-9]|m[0-9]|t24|title.?24/i.test(lower)) newType = 'plan_set';
+                        else if (/permit|card|approval|issued/i.test(lower)) newType = 'permit';
+                        else if (/inspect|correction|final|rough/i.test(lower)) newType = 'inspection';
+                        else if (/proposal|quote|estimate|bid/i.test(lower)) newType = 'proposal';
+                        else if (/contract|agree|scope|sow/i.test(lower)) newType = 'contract';
+                    }
+
+                    // Try to extract address from filename (common pattern: "123 Main St" in filename)
+                    const addrMatch = doc.file_name.match(/(\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+(?:St|Ave|Blvd|Dr|Rd|Ct|Ln|Way|Pl|Cir|Pkwy))/i);
+                    if (addrMatch) {
+                        notes = 'Address found: ' + addrMatch[1];
+                        // Update job address if not already set
+                        if (!job.address) {
+                            await sb.from('hw_jobs').update({ address: addrMatch[1] }).eq('id', jobId);
+                            job.address = addrMatch[1];
+                            renderJob();
+                            showToast('Address auto-detected: ' + addrMatch[1]);
+                        }
+                    }
+
+                    // Update the document record
+                    const updates = {};
+                    if (newType !== doc.doc_type) updates.doc_type = newType;
+                    if (extractedText) updates.extracted_text = extractedText;
+                    if (notes) updates.notes = notes;
+
+                    if (Object.keys(updates).length > 0) {
+                        await sb.from('hw_job_documents').update(updates).eq('id', doc.id);
+                    }
+                } catch (err) {
+                    console.warn('Process doc failed:', doc.file_name, err);
+                }
+            }
+
+            // Refresh the list to show updated types/notes
+            await loadDocuments();
         }
     </script>
 </body>
