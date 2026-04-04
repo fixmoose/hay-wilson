@@ -37,7 +37,11 @@
         .reimb-expense-vendor { flex:1; font-weight:500; }
         .reimb-expense-date { color:var(--text-light); font-size:0.8rem; width:80px; }
         .reimb-expense-amount { font-weight:600; width:90px; text-align:right; }
-        .reimb-expense-pm { font-size:0.75rem; color:var(--text-light); width:100px; }
+        .reimb-expense-pm { font-size:0.75rem; width:140px; }
+        .reimb-expense-pm select { font-size:0.75rem; padding:0.2rem 0.3rem; border:1px solid var(--border-color); border-radius:4px; background:white; cursor:pointer; max-width:140px; }
+        .reimb-expense-pm label { display:flex; align-items:center; gap:0.25rem; font-size:0.7rem; color:var(--text-light); margin-top:0.2rem; cursor:pointer; white-space:nowrap; }
+        .reimb-expense-pm label input { width:13px; height:13px; }
+        .reimb-expense-pm .default-saved { color:#16a34a; font-size:0.7rem; margin-top:0.2rem; }
         .reimb-history-row { display:flex; align-items:center; gap:1rem; padding:0.75rem 0; border-bottom:1px solid var(--border-color); }
         .reimb-history-row:last-child { border-bottom:none; }
         .reimb-select-bar { display:flex; gap:0.5rem; align-items:center; margin-bottom:0.75rem; font-size:0.85rem; }
@@ -269,6 +273,7 @@
         const personalMethodIds = new Set();
         const companyMethodIds = new Set();
         const methodMap = {};
+        let vendorDefaults = {}; // vendor -> payment_method_id
 
         (async () => {
             const { data: { session } } = await sb.auth.getSession();
@@ -293,15 +298,38 @@
         }
 
         async function loadData() {
-            const [{ data: methods, error }, { data: expenses }, { data: reimbs }] = await Promise.all([
+            const [{ data: methods, error }, { data: expenses }, { data: reimbs }, { data: vDefaults }] = await Promise.all([
                 sb.from('hw_payment_methods').select('*').order('owner').order('name'),
                 sb.from('hw_expenses').select('id, vendor, amount, expense_date, payment_method_id, internal_reimbursement_id, job_id, hw_jobs(name)').order('expense_date', { ascending: false }),
-                sb.from('hw_internal_reimbursements').select('*').order('paid_date', { ascending: false })
+                sb.from('hw_internal_reimbursements').select('*').order('paid_date', { ascending: false }),
+                sb.from('hw_vendor_payment_defaults').select('*')
             ]);
             if (error) { console.error(error); showToast('Failed to load: ' + error.message, 'error'); return; }
             allMethods = methods || [];
             allExpenses = expenses || [];
             allReimbursements = reimbs || [];
+
+            // Build vendor defaults map
+            vendorDefaults = {};
+            (vDefaults || []).forEach(d => { vendorDefaults[d.vendor.toLowerCase()] = d.payment_method_id; });
+
+            // Auto-assign payment methods from vendor defaults for unassigned expenses
+            const toUpdate = [];
+            allExpenses.forEach(e => {
+                if (!e.payment_method_id && e.vendor) {
+                    const defaultPm = vendorDefaults[e.vendor.toLowerCase()];
+                    if (defaultPm) {
+                        toUpdate.push({ id: e.id, payment_method_id: defaultPm });
+                        e.payment_method_id = defaultPm; // update local
+                    }
+                }
+            });
+            // Batch update in background
+            if (toUpdate.length > 0) {
+                for (const u of toUpdate) {
+                    sb.from('hw_expenses').update({ payment_method_id: u.payment_method_id }).eq('id', u.id).then();
+                }
+            }
 
             // Build lookup maps
             personalMethodIds.clear();
@@ -461,6 +489,63 @@
         }
 
         // ==================== Internal Reimbursements ====================
+        function buildPmOptions(selectedId) {
+            const personal = allMethods.filter(m => m.owner === 'personal');
+            const company = allMethods.filter(m => m.owner === 'company');
+            let html = '<option value=""' + (!selectedId ? ' selected' : '') + '>Unassigned (Personal)</option>';
+            if (personal.length) {
+                html += '<optgroup label="Personal">';
+                personal.forEach(m => { html += '<option value="' + m.id + '"' + (m.id === selectedId ? ' selected' : '') + '>' + escapeHtml(m.name) + ' (' + m.last4 + ')</option>'; });
+                html += '</optgroup>';
+            }
+            if (company.length) {
+                html += '<optgroup label="Company">';
+                company.forEach(m => { html += '<option value="' + m.id + '"' + (m.id === selectedId ? ' selected' : '') + '>' + escapeHtml(m.name) + ' (' + m.last4 + ')</option>'; });
+                html += '</optgroup>';
+            }
+            return html;
+        }
+
+        async function updateExpensePm(expenseId, paymentMethodId, remember) {
+            const exp = allExpenses.find(e => e.id === expenseId);
+            const { error } = await sb.from('hw_expenses').update({
+                payment_method_id: paymentMethodId || null
+            }).eq('id', expenseId);
+            if (error) { showToast('Error: ' + error.message, 'error'); return; }
+            if (exp) exp.payment_method_id = paymentMethodId || null;
+
+            // Save vendor default if "remember" checked
+            if (remember && exp && exp.vendor && paymentMethodId) {
+                const vendor = exp.vendor;
+                const { error: upsertErr } = await sb.from('hw_vendor_payment_defaults').upsert({
+                    vendor,
+                    payment_method_id: paymentMethodId
+                }, { onConflict: 'vendor' });
+                if (!upsertErr) {
+                    vendorDefaults[vendor.toLowerCase()] = paymentMethodId;
+                    // Also auto-assign all other unassigned expenses from this vendor
+                    const others = allExpenses.filter(e => e.id !== expenseId && !e.payment_method_id && e.vendor && e.vendor.toLowerCase() === vendor.toLowerCase());
+                    for (const o of others) {
+                        o.payment_method_id = paymentMethodId;
+                        sb.from('hw_expenses').update({ payment_method_id: paymentMethodId }).eq('id', o.id).then();
+                    }
+                    if (others.length > 0) showToast('Also updated ' + others.length + ' other ' + vendor + ' expense(s)');
+                }
+            }
+
+            // Re-render everything
+            expenseCounts = {};
+            expenseTotals = {};
+            allExpenses.forEach(e => {
+                if (e.payment_method_id) {
+                    expenseCounts[e.payment_method_id] = (expenseCounts[e.payment_method_id] || 0) + 1;
+                    expenseTotals[e.payment_method_id] = (expenseTotals[e.payment_method_id] || 0) + (parseFloat(e.amount) || 0);
+                }
+            });
+            renderTable();
+            renderReimbursements();
+        }
+
         function renderReimbursements() {
             // Unreimbursed personal expenses (personal card or unassigned, not yet internally reimbursed)
             const unreimbursed = allExpenses.filter(e => isPersonalExpense(e) && !e.internal_reimbursement_id);
@@ -490,18 +575,29 @@
             selectedExpenseIds.clear();
 
             listEl.innerHTML = unreimbursed.map(e => {
-                const pm = e.payment_method_id ? methodMap[e.payment_method_id] : null;
-                const pmLabel = pm ? pm.name + ' (' + pm.last4 + ')' : 'Unassigned';
                 const jobName = e.hw_jobs ? e.hw_jobs.name : '';
                 const dateStr = e.expense_date ? new Date(e.expense_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+                const hasDefault = e.vendor && vendorDefaults[e.vendor.toLowerCase()];
                 return '<div class="reimb-expense-row">' +
                     '<input type="checkbox" data-id="' + e.id + '" data-amount="' + e.amount + '">' +
                     '<span class="reimb-expense-vendor">' + escapeHtml(e.vendor || 'Unknown') + (jobName ? ' <span style="color:var(--text-light);font-size:0.8rem;">(' + escapeHtml(jobName) + ')</span>' : '') + '</span>' +
-                    '<span class="reimb-expense-pm">' + escapeHtml(pmLabel) + '</span>' +
+                    '<span class="reimb-expense-pm">' +
+                        '<select data-expense-id="' + e.id + '">' + buildPmOptions(e.payment_method_id) + '</select>' +
+                        (hasDefault ? '<div class="default-saved">Default saved</div>' : '<label><input type="checkbox" class="remember-cb" data-expense-id="' + e.id + '"> Default for ' + escapeHtml(e.vendor || '?') + '</label>') +
+                    '</span>' +
                     '<span class="reimb-expense-date">' + dateStr + '</span>' +
                     '<span class="reimb-expense-amount">' + formatCurrency(e.amount) + '</span>' +
                 '</div>';
             }).join('');
+
+            // Payment method change listeners
+            listEl.querySelectorAll('select[data-expense-id]').forEach(sel => {
+                sel.addEventListener('change', () => {
+                    const rememberCb = listEl.querySelector('.remember-cb[data-expense-id="' + sel.dataset.expenseId + '"]');
+                    const remember = rememberCb && rememberCb.checked;
+                    updateExpensePm(sel.dataset.expenseId, sel.value, remember);
+                });
+            });
 
             // Checkbox listeners
             listEl.querySelectorAll('input[type=checkbox]').forEach(cb => {
