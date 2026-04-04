@@ -2,7 +2,7 @@
 const HW_SUPABASE_URL = 'https://mxxabikquupnwvlspzyz.supabase.co';
 const HW_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14eGFiaWtxdXVwbnd2bHNwenl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDMwNTgsImV4cCI6MjA3NzIxOTA1OH0.WC_mupqYMneJnYmr9vmDZd0vXroBnaLwZlYX44J_HFQ';
 
-let supabase;
+var supabase;
 
 function initSupabase() {
     if (!window.supabase) {
