@@ -108,6 +108,9 @@
         .doc-type-badge.inspection { background:#dcfce7; color:#16a34a; }
         .doc-type-badge.proposal { background:#ede9fe; color:#7c3aed; }
         .doc-type-badge.contract { background:#fce7f3; color:#be185d; }
+        .doc-type-badge.invoice { background:#fff7ed; color:#c2410c; }
+        .doc-type-badge.correspondence { background:#f0fdf4; color:#15803d; }
+        .doc-type-badge.spec { background:#faf5ff; color:#7e22ce; }
         .doc-item-actions { display:flex; gap:0.25rem; }
         .doc-item-actions button { background:none; border:none; cursor:pointer; padding:0.25rem; color:var(--text-light); transition:color 0.15s; }
         .doc-item-actions button:hover { color:var(--primary-light); }
@@ -1189,8 +1192,33 @@
         }
 
         function docTypeLabel(t) {
-            const labels = { plan_set: 'Plan Set', permit: 'Permit', inspection: 'Inspection', proposal: 'Proposal', contract: 'Contract', photo: 'Photo', report: 'Report', other: 'Document' };
+            const labels = { plan_set: 'Plan Set', permit: 'Permit', inspection: 'Inspection', proposal: 'Proposal', contract: 'Contract', invoice: 'Invoice', correspondence: 'Correspondence', spec: 'Spec', report: 'Report', photo: 'Photo', other: 'Document' };
             return labels[t] || t;
+        }
+
+        function renderDocItem(doc) {
+            const iconCls = docIconClass(doc.file_name);
+            const iconLbl = docIconLabel(doc.file_name);
+            const allTypes = ['contract','proposal','permit','inspection','plan_set','invoice','correspondence','spec','report','photo','other'];
+            const typeOptions = allTypes.map(t =>
+                '<option value="' + t + '"' + (doc.doc_type === t ? ' selected' : '') + '>' + docTypeLabel(t) + '</option>'
+            ).join('');
+            return '<div class="doc-item" data-doc-id="' + doc.id + '">' +
+                '<div class="doc-item-icon ' + iconCls + '">' + iconLbl + '</div>' +
+                '<div class="doc-item-info">' +
+                    '<div class="doc-item-name" title="' + escapeHtml(doc.file_name) + '">' + escapeHtml(doc.file_name) + '</div>' +
+                    '<div class="doc-item-meta">' +
+                        '<select data-doc-type="' + doc.id + '" style="font-size:0.65rem;padding:0.1rem 0.2rem;border:1px solid var(--border-color);border-radius:3px;background:white;cursor:pointer;">' + typeOptions + '</select>' +
+                        '<span>' + formatFileSize(doc.file_size) + '</span>' +
+                        '<span>' + new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</span>' +
+                        (doc.notes ? '<span title="' + escapeHtml(doc.notes) + '">' + escapeHtml(doc.notes.substring(0, 40)) + '</span>' : '') +
+                    '</div>' +
+                '</div>' +
+                '<div class="doc-item-actions">' +
+                    '<button data-doc-view="' + doc.id + '" title="View/Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>' +
+                    '<button class="btn-doc-del" data-doc-delete="' + doc.id + '" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+                '</div>' +
+            '</div>';
         }
 
         function docIconClass(fileName) {
@@ -1229,30 +1257,29 @@
 
             countEl.textContent = allDocs.length + ' file' + (allDocs.length !== 1 ? 's' : '');
 
-            list.innerHTML = allDocs.map(doc => {
-                const iconCls = docIconClass(doc.file_name);
-                const iconLbl = docIconLabel(doc.file_name);
-                const typeBadge = doc.doc_type && doc.doc_type !== 'other'
-                    ? '<span class="doc-type-badge ' + doc.doc_type + '">' + docTypeLabel(doc.doc_type) + '</span>'
-                    : '';
+            // Group documents by type
+            const typeOrder = ['contract', 'proposal', 'permit', 'inspection', 'plan_set', 'invoice', 'correspondence', 'spec', 'report', 'photo', 'other'];
+            const grouped = {};
+            allDocs.forEach(doc => {
+                const t = doc.doc_type || 'other';
+                if (!grouped[t]) grouped[t] = [];
+                grouped[t].push(doc);
+            });
 
-                return '<div class="doc-item" data-doc-id="' + doc.id + '">' +
-                    '<div class="doc-item-icon ' + iconCls + '">' + iconLbl + '</div>' +
-                    '<div class="doc-item-info">' +
-                        '<div class="doc-item-name" title="' + escapeHtml(doc.file_name) + '">' + escapeHtml(doc.file_name) + '</div>' +
-                        '<div class="doc-item-meta">' +
-                            typeBadge +
-                            '<span>' + formatFileSize(doc.file_size) + '</span>' +
-                            '<span>' + new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</span>' +
-                            (doc.notes ? '<span title="' + escapeHtml(doc.notes) + '">' + escapeHtml(doc.notes.substring(0, 40)) + '</span>' : '') +
-                        '</div>' +
-                    '</div>' +
-                    '<div class="doc-item-actions">' +
-                        '<button data-doc-view="' + doc.id + '" title="View/Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>' +
-                        '<button class="btn-doc-del" data-doc-delete="' + doc.id + '" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
-                    '</div>' +
-                '</div>';
-            }).join('');
+            let html = '';
+            typeOrder.forEach(type => {
+                if (!grouped[type] || grouped[type].length === 0) return;
+                const docs = grouped[type];
+                html += '<div style="margin-top:0.75rem;">' +
+                    '<div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-light);font-weight:600;margin-bottom:0.35rem;display:flex;align-items:center;gap:0.4rem;">' +
+                        '<span class="doc-type-badge ' + type + '">' + docTypeLabel(type) + '</span>' +
+                        '<span>' + docs.length + ' file' + (docs.length !== 1 ? 's' : '') + '</span>' +
+                    '</div>';
+                html += docs.map(doc => renderDocItem(doc)).join('');
+                html += '</div>';
+            });
+
+            list.innerHTML = html;
 
             // Wire up actions
             list.querySelectorAll('[data-doc-view]').forEach(btn => {
@@ -1278,6 +1305,21 @@
                     if (error) { showToast('Failed to delete', 'error'); return; }
                     showToast('Document deleted');
                     await loadDocuments();
+                });
+            });
+
+            // Wire up type-change dropdowns
+            list.querySelectorAll('[data-doc-type]').forEach(sel => {
+                sel.addEventListener('change', async (e) => {
+                    const docId = sel.dataset.docType;
+                    const newType = sel.value;
+                    const { error } = await sb.from('hw_job_documents').update({ doc_type: newType }).eq('id', docId);
+                    if (error) { showToast('Failed to update type', 'error'); return; }
+                    // Update local data and re-render to move doc to correct group
+                    const doc = allDocs.find(d => d.id === docId);
+                    if (doc) doc.doc_type = newType;
+                    renderDocuments();
+                    showToast('Type updated');
                 });
             });
         }
@@ -1345,12 +1387,15 @@
 
         function guessDocType(fileName) {
             const lower = fileName.toLowerCase();
-            if (/plan|drawing|blueprint|floor|elevation|layout|schematic|dwg|dxf/i.test(lower)) return 'plan_set';
+            if (/plan|drawing|blueprint|floor|elevation|layout|schematic|dwg|dxf|permitplan/i.test(lower)) return 'plan_set';
             if (/permit|permit[-_]?card/i.test(lower)) return 'permit';
             if (/inspect/i.test(lower)) return 'inspection';
             if (/proposal|quote|estimate|bid/i.test(lower)) return 'proposal';
             if (/contract|agreement|scope/i.test(lower)) return 'contract';
-            if (/report|summary/i.test(lower)) return 'report';
+            if (/invoice/i.test(lower)) return 'invoice';
+            if (/response|letter|correspondence/i.test(lower)) return 'correspondence';
+            if (/spec|compliance/i.test(lower)) return 'spec';
+            if (/report|summary|calc/i.test(lower)) return 'report';
             const ext = lower.split('.').pop();
             if (['jpg','jpeg','png','gif','webp','heic','heif'].includes(ext)) return 'photo';
             return 'other';
