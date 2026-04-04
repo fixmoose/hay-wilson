@@ -233,15 +233,20 @@
     let allJobs = [];
 
     (async () => {
-        initSupabase();
-        const session = await requireAuth();
-        if (!session) return;
-        document.getElementById('adminUser').textContent = session.user.email;
-        document.getElementById('logoutBtn').onclick = logout;
-        renderSidebar('mileage');
+        try {
+            initSupabase();
+            const session = await requireAuth();
+            if (!session) return;
+            document.getElementById('adminUser').textContent = session.user.email;
+            document.getElementById('logoutBtn').onclick = logout;
+            renderSidebar('mileage');
 
-        await loadJobs();
-        await loadTrips();
+            await loadJobs();
+            await loadTrips();
+        } catch (e) {
+            console.error('Init error:', e);
+            document.getElementById('tripBody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:#dc2626;padding:2rem;">Error: ' + e.message + '</td></tr>';
+        }
     })();
 
     async function loadJobs() {
@@ -269,7 +274,11 @@
             .lte('trip_date', `${year}-12-31`)
             .order('trip_date', { ascending: true });
 
-        if (error) { console.error(error); return; }
+        if (error) {
+            console.error('loadTrips error:', error);
+            document.getElementById('tripBody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:#dc2626;padding:2rem;">DB Error: ' + error.message + ' (code: ' + error.code + ')</td></tr>';
+            return;
+        }
         allTrips = data || [];
         renderTrips();
         renderStats();
