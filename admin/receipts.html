@@ -179,7 +179,6 @@
                     <select id="filterStatusSelect">
                         <option value="all">All</option>
                         <option value="new">New</option>
-                        <option value="queued">Queued for AI</option>
                         <option value="processed">Processed</option>
                     </select>
                     <label style="font-size:0.85rem;color:var(--text-light);">Show:</label>
@@ -257,6 +256,10 @@
                     <select id="aiJob"></select>
                 </div>
                 <div class="ai-field">
+                    <label>Paid With</label>
+                    <select id="aiPaymentMethod"></select>
+                </div>
+                <div class="ai-field">
                     <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
                         <input type="checkbox" id="aiReimbursable"> Reimbursable by GC
                     </label>
@@ -324,6 +327,8 @@
         let allJobs = [];
         let allReceipts = [];
         let allExpenses = [];
+        let allPaymentMethods = [];
+        let vendorDefaults = {}; // vendor.toLowerCase() -> payment_method_id
         let currentFilter = 'all';
         let currentStatusFilter = 'all';
         let currentDateFilter = 'all';
@@ -349,7 +354,7 @@
                 setupEditModal();
 
                 await loadJobs();
-                await Promise.all([loadAllReceipts(), loadExpenses()]);
+                await Promise.all([loadAllReceipts(), loadExpenses(), loadPaymentMethods()]);
                 // Re-render receipts now that both receipts AND expenses are loaded
                 updateJobFilterDropdown();
                 renderReceipts();
@@ -459,8 +464,7 @@
             pdfBtn.disabled = processedCount === 0;
             pdfBtn.title = processedCount > 0 ? 'Download ' + processedCount + ' processed receipts as PDF' : 'No processed receipts to download';
 
-            if (currentStatusFilter === 'new') filtered = filtered.filter(r => !expensesByPath[r.path] && !isQueued(r.path));
-            else if (currentStatusFilter === 'queued') filtered = filtered.filter(r => !expensesByPath[r.path] && isQueued(r.path));
+            if (currentStatusFilter === 'new') filtered = filtered.filter(r => !expensesByPath[r.path]);
             else if (currentStatusFilter === 'processed') filtered = filtered.filter(r => !!expensesByPath[r.path]);
 
             const totalCount = filtered.length;
@@ -494,13 +498,10 @@
                 const jobName = isProcessed
                     ? [...new Set(expenses.map(e => { const j = allJobs.find(j => j.id === e.job_id); return j ? j.name : ''; }).filter(Boolean))].join(', ') || 'No job'
                     : getJobName(r.folder);
-                const queued = !isProcessed && isQueued(r.path);
-                const cardClass = isProcessed ? 'processed' : queued ? 'queued' : 'unprocessed';
+                const cardClass = isProcessed ? 'processed' : 'unprocessed';
                 const tagHtml = isProcessed
                     ? '<span class="receipt-status-tag tag-processed">Processed' + (expenses.length > 1 ? ' (' + expenses.length + ')' : '') + '</span>'
-                    : queued
-                        ? '<span class="receipt-status-tag tag-queued">Queued</span>'
-                        : '<span class="receipt-status-tag tag-unprocessed">New</span>';
+                    : '<span class="receipt-status-tag tag-unprocessed">New</span>';
 
                 const expenseLinesHtml = expenses.map(exp =>
                     '<div class="receipt-card-date" style="color:#16a34a;">' + escapeHtml(exp.vendor || '') + ' &mdash; ' + formatCurrency(exp.amount) + '</div>'
@@ -521,10 +522,7 @@
                     <div class="receipt-card-actions">
                         ${isProcessed
                             ? '<button class="btn-edit" data-edit-receipt="' + escapeHtml(expenses[0].id) + '" title="Edit ' + expenses.length + ' expense' + (expenses.length > 1 ? 's' : '') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit' + (expenses.length > 1 ? ' (' + expenses.length + ')' : '') + '</button>'
-                            : (queued
-                                ? '<button class="btn-ai" data-ai="' + escapeHtml(r.path) + '" title="Remove from queue" style="border-color:#1d4ed8;color:#1d4ed8;background:rgba(29,78,216,0.06);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg> Queued</button>'
-                                : '<button class="btn-ai" data-ai="' + escapeHtml(r.path) + '" title="Queue for AI processing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> AI Read</button>'
-                              ) +
+                            : '<button class="btn-ai" data-ai="' + escapeHtml(r.path) + '" title="AI reads receipt and pre-fills expense"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> AI Read</button>' +
                               '<button data-manual="' + escapeHtml(r.path) + '" data-folder="' + escapeHtml(r.folder) + '" title="Add Expense Manually"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add</button>'
                         }
                         <button data-download="${escapeHtml(r.path)}" data-dlname="${escapeHtml(cleanName(r.name))}" title="Download">
@@ -971,33 +969,11 @@
                 '<button onclick="navigator.clipboard.writeText(\'' + uploadUrl + '\');this.textContent=\'Copied!\';setTimeout(()=>this.textContent=\'Copy Link\',2000)" style="padding:0.4rem 1rem;border-radius:6px;border:1px solid #e2e8f0;background:white;cursor:pointer;font-size:0.8rem;">Copy Link</button>';
         }
 
-        // ==================== AI Receipt Reading (Queue for processing) ====================
-        function getAiQueue() {
-            try { return JSON.parse(localStorage.getItem('hw_ai_queue') || '[]'); } catch { return []; }
-        }
-        function saveAiQueue(queue) {
-            localStorage.setItem('hw_ai_queue', JSON.stringify(queue));
-        }
-        function isQueued(path) {
-            return getAiQueue().some(q => q.path === path);
-        }
-
+        // AI Read just opens the manual expense form — actual AI processing is done
+        // by asking Claude in conversation, not via API calls.
         function aiReadReceipt(btn) {
             const card = btn.closest('.receipt-card');
-            const path = btn.dataset.ai;
-            const folder = card.dataset.folder;
-
-            const queue = getAiQueue();
-            if (queue.some(q => q.path === path)) {
-                // Already queued — unqueue it
-                saveAiQueue(queue.filter(q => q.path !== path));
-                showToast('Removed from AI queue');
-            } else {
-                queue.push({ path, folder, queued_at: new Date().toISOString() });
-                saveAiQueue(queue);
-                showToast('Queued for AI processing');
-            }
-            renderReceipts();
+            openManualExpense(btn.dataset.ai, card.dataset.folder);
         }
 
         function openManualExpense(receiptPath, folder) {
@@ -1010,6 +986,7 @@
             document.getElementById('aiCategory').value = 'materials';
             document.getElementById('aiDescription').value = '';
             document.getElementById('aiItemsField').style.display = 'none';
+            document.getElementById('aiPaymentMethod').innerHTML = buildPmDropdown('');
             // Pre-select the job based on the receipt folder
             const jobSelect = document.getElementById('aiJob');
             if (folder && folder !== '_unassigned') {
@@ -1045,6 +1022,7 @@
 
                 const jobId = document.getElementById('aiJob').value || null;
                 const hasGC = jobHasGC(jobId);
+                const pmId = document.getElementById('aiPaymentMethod').value || null;
                 const payload = {
                     job_id: jobId,
                     vendor: document.getElementById('aiVendor').value.trim() || null,
@@ -1053,7 +1031,8 @@
                     category: document.getElementById('aiCategory').value || 'other',
                     description: document.getElementById('aiDescription').value.trim() || null,
                     receipt_path: currentAiPath,
-                    reimbursable: hasGC || document.getElementById('aiReimbursable').checked
+                    reimbursable: hasGC || document.getElementById('aiReimbursable').checked,
+                    payment_method_id: pmId
                 };
 
                 const { error } = await sb.from('hw_expenses').insert(payload);
@@ -1083,6 +1062,45 @@
         }
 
 
+        // ==================== Payment Methods ====================
+        async function loadPaymentMethods() {
+            const [{ data: methods }, { data: vDefaults }] = await Promise.all([
+                sb.from('hw_payment_methods').select('*').eq('is_active', true).order('owner').order('name'),
+                sb.from('hw_vendor_payment_defaults').select('*')
+            ]);
+            allPaymentMethods = methods || [];
+            vendorDefaults = {};
+            (vDefaults || []).forEach(d => { vendorDefaults[d.vendor.toLowerCase()] = d.payment_method_id; });
+        }
+
+        function buildPmDropdown(selectedId) {
+            const personal = allPaymentMethods.filter(m => m.owner === 'personal');
+            const company = allPaymentMethods.filter(m => m.owner === 'company');
+            let html = '<option value=""' + (!selectedId ? ' selected' : '') + '>Auto (default to personal)</option>';
+            if (personal.length) {
+                html += '<optgroup label="Personal (Dejan)">';
+                personal.forEach(m => { html += '<option value="' + m.id + '"' + (m.id === selectedId ? ' selected' : '') + '>' + escapeHtml(m.name) + ' (' + m.last4 + ')</option>'; });
+                html += '</optgroup>';
+            }
+            if (company.length) {
+                html += '<optgroup label="Company (H&W)">';
+                company.forEach(m => { html += '<option value="' + m.id + '"' + (m.id === selectedId ? ' selected' : '') + '>' + escapeHtml(m.name) + ' (' + m.last4 + ')</option>'; });
+                html += '</optgroup>';
+            }
+            return html;
+        }
+
+        function matchCardLast4(last4) {
+            if (!last4) return null;
+            const match = allPaymentMethods.find(m => m.last4 === last4);
+            return match ? match.id : null;
+        }
+
+        function matchVendorDefault(vendor) {
+            if (!vendor) return null;
+            return vendorDefaults[vendor.toLowerCase()] || null;
+        }
+
         // ==================== Edit Expense (Multi-expense support) ====================
         const categoryOptions = ['materials','tools','software','fuel','supplies','permits','subcontractor','equipment_rental','vehicle','meals','other'];
 
@@ -1111,7 +1129,10 @@
                     <div class="ai-field"><label>Category</label><select class="ep-category">${catOpts}</select></div>
                 </div>
                 <div class="ai-field"><label>Description</label><input type="text" class="ep-description" value="${escapeHtml(expense.description || '')}"></div>
-                <div class="ai-field"><label>Job</label><select class="ep-job">${jobOpts}</select></div>
+                <div class="edit-row">
+                    <div class="ai-field"><label>Job</label><select class="ep-job">${jobOpts}</select></div>
+                    <div class="ai-field"><label>Paid With</label><select class="ep-payment-method">${buildPmDropdown(expense.payment_method_id)}</select></div>
+                </div>
                 <div class="ai-field ep-reimb-row" style="${hasGC ? 'color:#16a34a;font-size:0.8rem;' : ''}"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;"><input type="checkbox" class="ep-reimbursable" ${isReimb ? 'checked' : ''} ${hasGC ? 'checked disabled' : ''}> ${hasGC ? 'Auto-reimbursable (GC job)' : 'Reimbursable by GC'}</label></div>
                 <div class="ep-reimb-section" style="display:${isReimb ? 'block' : 'none'};border-top:1px solid var(--border-color);padding-top:0.5rem;margin-top:0.25rem;">
                     <div class="ai-field"><label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;"><input type="checkbox" class="ep-reimbursed" ${isDone ? 'checked' : ''}> Reimbursed</label></div>
@@ -1241,6 +1262,7 @@
                         category: panel.querySelector('.ep-category').value || 'other',
                         description: panel.querySelector('.ep-description').value.trim() || null,
                         job_id: jobId,
+                        payment_method_id: panel.querySelector('.ep-payment-method').value || null,
                         reimbursable: isReimb,
                         reimbursed: isReimb && isDone,
                         reimbursed_by: isReimb && isDone ? (panel.querySelector('.ep-reimbursed-by').value.trim() || null) : null,
