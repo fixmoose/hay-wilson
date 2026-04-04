@@ -71,7 +71,9 @@
         .select-all-row label { display:flex; align-items:center; gap:0.4rem; cursor:pointer; }
         .selection-count { font-weight:500; color:var(--primary-light); }
         .receipt-thumb { width:100%; height:120px; object-fit:cover; display:block; background:var(--bg-light); image-orientation:from-image; }
-        .receipt-thumb-pdf { width:100%; height:120px; display:flex; align-items:center; justify-content:center; background:var(--bg-light); color:var(--text-light); font-size:0.8rem; flex-direction:column; gap:0.25rem; }
+        .receipt-thumb-pdf { width:100%; height:120px; display:flex; align-items:center; justify-content:center; background:var(--bg-light); color:var(--text-light); font-size:0.8rem; flex-direction:column; gap:0.25rem; position:relative; overflow:hidden; }
+        .receipt-thumb-pdf canvas { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; display:none; }
+        .receipt-thumb-pdf canvas.loaded { display:block; }
         .receipt-name { padding:0.4rem 0.5rem; font-size:0.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-dark); border-top:1px solid var(--border-color); }
         .share-modal { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; display:none; align-items:center; justify-content:center; padding:1rem; }
         .share-modal.active { display:flex; }
@@ -938,7 +940,7 @@
                 return '<div class="receipt-item selected" data-path="' + escapeHtml(path) + '">' +
                     '<div class="receipt-check"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></div>' +
                     (isPdf
-                        ? '<div class="receipt-thumb-pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</div>'
+                        ? '<div class="receipt-thumb-pdf" data-pdf-path="' + escapeHtml(path) + '"><canvas width="200" height="120"></canvas><div style="z-index:1;display:flex;flex-direction:column;align-items:center;gap:0.25rem;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</div></div>'
                         : '<img class="receipt-thumb" src="" alt="" data-path="' + escapeHtml(path) + '">') +
                     '<div class="receipt-name" title="' + escapeHtml(label) + '">' + label + '</div>' +
                 '</div>';
@@ -953,6 +955,27 @@
                 const { data: signedData } = await sb.storage.from('hw-receipts').createSignedUrl(img.dataset.path, 3600);
                 if (signedData) img.src = signedData.signedUrl;
             });
+
+            // Load PDF thumbnails via pdf.js
+            if (window.pdfjsLib) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                grid.querySelectorAll('[data-pdf-path]').forEach(async (div) => {
+                    try {
+                        const { data } = await sb.storage.from('hw-receipts').createSignedUrl(div.dataset.pdfPath, 3600);
+                        if (!data) return;
+                        const pdf = await pdfjsLib.getDocument(data.signedUrl).promise;
+                        const page = await pdf.getPage(1);
+                        const canvas = div.querySelector('canvas');
+                        const vp = page.getViewport({ scale: 1 });
+                        const scale = Math.max(canvas.width / vp.width, canvas.height / vp.height);
+                        const viewport = page.getViewport({ scale });
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+                        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                        canvas.classList.add('loaded');
+                    } catch (e) { /* keep fallback icon */ }
+                });
+            }
 
             // Click to toggle selection (single click) or view (double click)
             grid.querySelectorAll('.receipt-item').forEach(item => {
