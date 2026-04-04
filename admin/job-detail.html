@@ -92,6 +92,19 @@
         .doc-dropzone:hover, .doc-dropzone.dragover { border-color:var(--primary-light); background:rgba(37,99,235,0.04); color:var(--primary-light); }
         .doc-dropzone svg { margin-bottom:0.5rem; }
         .doc-dropzone input { display:none; }
+        .doc-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:0.75rem; }
+        .doc-thumb-item { position:relative; border-radius:8px; border:2px solid var(--border-color); overflow:hidden; cursor:pointer; transition:box-shadow 0.2s, border-color 0.15s; }
+        .doc-thumb-item:hover { box-shadow:0 2px 8px rgba(0,0,0,0.1); border-color:var(--primary-light); }
+        .doc-thumb-img { width:100%; height:120px; object-fit:cover; display:block; background:var(--bg-light); image-orientation:from-image; }
+        .doc-thumb-pdf { width:100%; height:120px; display:flex; align-items:center; justify-content:center; background:var(--bg-light); color:var(--text-light); font-size:0.8rem; flex-direction:column; gap:0.25rem; }
+        .doc-thumb-other { width:100%; height:120px; display:flex; align-items:center; justify-content:center; background:var(--bg-light); color:var(--text-light); font-size:0.75rem; font-weight:600; flex-direction:column; gap:0.25rem; }
+        .doc-thumb-name { padding:0.35rem 0.5rem; font-size:0.7rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-dark); border-top:1px solid var(--border-color); font-weight:500; }
+        .doc-thumb-meta { padding:0 0.5rem 0.35rem; font-size:0.6rem; color:var(--text-light); display:flex; gap:0.35rem; align-items:center; }
+        .doc-thumb-actions { position:absolute; top:4px; right:4px; display:flex; gap:2px; opacity:0; transition:opacity 0.15s; }
+        .doc-thumb-item:hover .doc-thumb-actions { opacity:1; }
+        .doc-thumb-actions button { background:rgba(255,255,255,0.9); border:none; cursor:pointer; padding:0.2rem; border-radius:4px; color:var(--text-light); transition:color 0.15s; }
+        .doc-thumb-actions button:hover { color:var(--primary-light); }
+        .doc-thumb-actions .btn-doc-del:hover { color:#dc2626; }
         .doc-list { display:flex; flex-direction:column; gap:0.5rem; }
         .doc-item { display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.6rem; background:var(--bg-light); border-radius:8px; font-size:0.85rem; transition:background 0.15s; }
         .doc-item:hover { background:#e8ecf1; }
@@ -1198,24 +1211,26 @@
         function renderDocItem(doc) {
             const iconCls = docIconClass(doc.file_name);
             const iconLbl = docIconLabel(doc.file_name);
-            const allTypes = ['contract','proposal','permit','inspection','plan_set','invoice','correspondence','spec','report','photo','other'];
-            const typeOptions = allTypes.map(t =>
-                '<option value="' + t + '"' + (doc.doc_type === t ? ' selected' : '') + '>' + docTypeLabel(t) + '</option>'
-            ).join('');
-            return '<div class="doc-item" data-doc-id="' + doc.id + '">' +
-                '<div class="doc-item-icon ' + iconCls + '">' + iconLbl + '</div>' +
-                '<div class="doc-item-info">' +
-                    '<div class="doc-item-name" title="' + escapeHtml(doc.file_name) + '">' + escapeHtml(doc.file_name) + '</div>' +
-                    '<div class="doc-item-meta">' +
-                        '<select data-doc-type="' + doc.id + '" style="font-size:0.65rem;padding:0.1rem 0.2rem;border:1px solid var(--border-color);border-radius:3px;background:white;cursor:pointer;">' + typeOptions + '</select>' +
-                        '<span>' + formatFileSize(doc.file_size) + '</span>' +
-                        '<span>' + new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</span>' +
-                        (doc.notes ? '<span title="' + escapeHtml(doc.notes) + '">' + escapeHtml(doc.notes.substring(0, 40)) + '</span>' : '') +
-                    '</div>' +
+            const isImg = iconCls === 'img';
+            const isPdf = iconCls === 'pdf';
+            let thumb;
+            if (isImg) {
+                thumb = '<img class="doc-thumb-img" src="" alt="" data-doc-path="' + escapeHtml(doc.file_path) + '">';
+            } else if (isPdf) {
+                thumb = '<div class="doc-thumb-pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</div>';
+            } else {
+                thumb = '<div class="doc-thumb-other"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' + iconLbl + '</div>';
+            }
+            return '<div class="doc-thumb-item" data-doc-id="' + doc.id + '">' +
+                '<div class="doc-thumb-actions">' +
+                    '<button data-doc-view="' + doc.id + '" title="View/Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>' +
+                    '<button class="btn-doc-del" data-doc-delete="' + doc.id + '" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
                 '</div>' +
-                '<div class="doc-item-actions">' +
-                    '<button data-doc-view="' + doc.id + '" title="View/Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>' +
-                    '<button class="btn-doc-del" data-doc-delete="' + doc.id + '" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+                thumb +
+                '<div class="doc-thumb-name" title="' + escapeHtml(doc.file_name) + '">' + escapeHtml(doc.file_name) + '</div>' +
+                '<div class="doc-thumb-meta">' +
+                    '<span>' + formatFileSize(doc.file_size) + '</span>' +
+                    '<span>' + new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</span>' +
                 '</div>' +
             '</div>';
         }
@@ -1283,7 +1298,7 @@
                         docs.length + ' file' + (docs.length !== 1 ? 's' : '') + '</h4>' +
                     '</div>' +
                     '<div class="section-card-body" style="padding:0.75rem 1rem;">' +
-                        '<div class="doc-list">' + docs.map(doc => renderDocItem(doc)).join('') + '</div>' +
+                        '<div class="doc-grid">' + docs.map(doc => renderDocItem(doc)).join('') + '</div>' +
                     '</div>';
 
                 // Insert after the previous card
@@ -1292,10 +1307,28 @@
 
                 // Wire up actions within this card
                 wireDocActions(card);
+
+                // Load signed URLs for image thumbnails
+                card.querySelectorAll('img.doc-thumb-img').forEach(async (img) => {
+                    const { data } = await sb.storage.from('hw-receipts').createSignedUrl(img.dataset.docPath, 3600);
+                    if (data) img.src = data.signedUrl;
+                });
             });
         }
 
         function wireDocActions(container) {
+            // Click thumbnail to view
+            container.querySelectorAll('.doc-thumb-item').forEach(item => {
+                item.addEventListener('click', async (e) => {
+                    if (e.target.closest('.doc-thumb-actions')) return;
+                    const doc = allDocs.find(d => d.id === item.dataset.docId);
+                    if (!doc) return;
+                    const { data } = await sb.storage.from('hw-receipts').createSignedUrl(doc.file_path, 3600);
+                    if (data) window.open(data.signedUrl, '_blank');
+                    else showToast('Failed to get download link', 'error');
+                });
+            });
+
             container.querySelectorAll('[data-doc-view]').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     e.stopPropagation();
