@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mileage Log - H&amp;W Admin</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/admin/admin-styles.css">
+    <style>
+        .mile-stats { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+        .mile-stat { background:var(--bg-light); border-radius:10px; padding:1rem 1.25rem; }
+        .mile-stat-label { font-size:0.8rem; color:var(--text-light); margin-bottom:0.25rem; }
+        .mile-stat-value { font-size:1.4rem; font-weight:700; color:var(--text-dark); }
+        .mile-stat-sub { font-size:0.75rem; color:var(--text-light); margin-top:0.15rem; }
+        .mile-stat.primary { background:var(--primary-dark); color:white; }
+        .mile-stat.primary .mile-stat-label { color:rgba(255,255,255,0.7); }
+        .mile-stat.primary .mile-stat-value { color:white; }
+        .mile-stat.primary .mile-stat-sub { color:rgba(255,255,255,0.6); }
+
+        .mile-filters { display:flex; gap:0.75rem; align-items:center; margin-bottom:1rem; flex-wrap:wrap; }
+        .mile-filters select, .mile-filters input { padding:0.45rem 0.75rem; border:1px solid var(--border-color); border-radius:6px; font-size:0.85rem; background:white; }
+        .mile-filters .btn-add { margin-left:auto; }
+
+        .mile-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+        .mile-table th { text-align:left; padding:0.6rem 0.75rem; border-bottom:2px solid var(--border-color); color:var(--text-light); font-weight:500; font-size:0.8rem; }
+        .mile-table td { padding:0.6rem 0.75rem; border-bottom:1px solid var(--bg-light); }
+        .mile-table tr:hover { background:var(--bg-light); }
+        .mile-table .job-link { color:var(--primary-light); text-decoration:none; font-weight:500; }
+        .mile-table .job-link:hover { text-decoration:underline; }
+        .mile-table .trip-type { display:inline-block; padding:0.1rem 0.5rem; border-radius:4px; font-size:0.75rem; font-weight:500; }
+        .trip-type.business_travel { background:#dbeafe; color:#1d4ed8; }
+        .trip-type.local_supplies { background:#fef3c7; color:#92400e; }
+        .trip-type.site_visit { background:#d1fae5; color:#065f46; }
+        .trip-type.other { background:#f3f4f6; color:#374151; }
+
+        .mile-table .row-actions { white-space:nowrap; }
+        .mile-table .row-actions button { background:none; border:none; cursor:pointer; padding:0.25rem; color:var(--text-light); }
+        .mile-table .row-actions button:hover { color:var(--primary-light); }
+        .mile-table .row-actions .btn-del:hover { color:#dc2626; }
+
+        .mile-deduction { text-align:right; font-size:0.8rem; color:var(--text-light); margin-top:0.25rem; }
+
+        /* Modal */
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000; align-items:center; justify-content:center; }
+        .modal-overlay.open { display:flex; }
+        .modal-box { background:white; border-radius:12px; padding:1.5rem; width:min(500px,92vw); max-height:85vh; overflow-y:auto; }
+        .modal-box h3 { margin:0 0 1rem; font-size:1.1rem; }
+        .modal-box .field { margin-bottom:0.85rem; }
+        .modal-box .field label { display:block; font-size:0.8rem; color:var(--text-light); margin-bottom:0.25rem; font-weight:500; }
+        .modal-box .field input, .modal-box .field select, .modal-box .field textarea { width:100%; padding:0.5rem 0.75rem; border:1px solid var(--border-color); border-radius:6px; font-size:0.9rem; box-sizing:border-box; }
+        .modal-box .field textarea { resize:vertical; min-height:60px; }
+        .modal-box .field-row { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; }
+        .modal-box .btn-row { display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem; }
+        .modal-box .btn-row button { padding:0.5rem 1.25rem; border-radius:6px; font-size:0.9rem; cursor:pointer; border:1px solid var(--border-color); background:white; }
+        .modal-box .btn-row .btn-save { background:var(--primary-dark); color:white; border-color:var(--primary-dark); }
+
+        .year-summary { margin-top:1.5rem; background:var(--bg-light); border-radius:10px; padding:1.25rem; }
+        .year-summary h4 { margin:0 0 0.75rem; font-size:0.95rem; }
+        .year-summary table { width:100%; font-size:0.85rem; border-collapse:collapse; }
+        .year-summary table th { text-align:left; padding:0.4rem 0.5rem; border-bottom:1px solid var(--border-color); color:var(--text-light); font-size:0.8rem; }
+        .year-summary table td { padding:0.4rem 0.5rem; }
+        .year-summary table tfoot td { border-top:2px solid var(--border-color); font-weight:700; }
+
+        @media(max-width:700px) {
+            .mile-table th:nth-child(3), .mile-table td:nth-child(3),
+            .mile-table th:nth-child(4), .mile-table td:nth-child(4) { display:none; }
+            .mile-filters { flex-direction:column; align-items:stretch; }
+            .mile-filters .btn-add { margin-left:0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-topbar">
+        <div class="admin-topbar-left">
+            <button class="mobile-sidebar-toggle" id="sidebarToggle">&#9776;</button>
+            <h1>H&W <span>Admin</span></h1>
+        </div>
+        <div class="admin-topbar-right">
+            <span class="admin-user" id="adminUser"></span>
+            <button class="btn-logout" id="logoutBtn">Logout</button>
+        </div>
+    </div>
+
+    <aside class="admin-sidebar" id="adminSidebar"></aside>
+
+    <main class="admin-main">
+        <div class="admin-page-header">
+            <h2>Mileage Log</h2>
+        </div>
+
+        <div class="mile-stats" id="mileStats">
+            <div class="mile-stat primary">
+                <div class="mile-stat-label">Total Miles (2026)</div>
+                <div class="mile-stat-value" id="statTotalMiles">-</div>
+                <div class="mile-stat-sub" id="statTotalTrips">Loading...</div>
+            </div>
+            <div class="mile-stat">
+                <div class="mile-stat-label">Tax Deduction</div>
+                <div class="mile-stat-value" id="statDeduction">-</div>
+                <div class="mile-stat-sub">@ $0.70/mile (2026 IRS rate)</div>
+            </div>
+            <div class="mile-stat">
+                <div class="mile-stat-label">Business Travel</div>
+                <div class="mile-stat-value" id="statBizMiles">-</div>
+                <div class="mile-stat-sub" id="statBizTrips">-</div>
+            </div>
+            <div class="mile-stat">
+                <div class="mile-stat-label">Local/Supplies</div>
+                <div class="mile-stat-value" id="statLocalMiles">-</div>
+                <div class="mile-stat-sub" id="statLocalTrips">-</div>
+            </div>
+        </div>
+
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h3>Trip Log</h3>
+            </div>
+            <div style="padding:1rem 1.25rem;">
+                <div class="mile-filters">
+                    <select id="filterYear">
+                        <option value="2026">2026</option>
+                        <option value="2025">2025</option>
+                    </select>
+                    <select id="filterJob">
+                        <option value="">All Jobs</option>
+                    </select>
+                    <select id="filterType">
+                        <option value="">All Types</option>
+                        <option value="business_travel">Business Travel</option>
+                        <option value="local_supplies">Local/Supplies</option>
+                        <option value="site_visit">Site Visit</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <button class="btn btn-primary btn-add" id="addTripBtn">+ Add Trip</button>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="mile-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Job</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th style="text-align:right;">Miles</th>
+                                <th>Type</th>
+                                <th>Notes</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tripBody">
+                            <tr><td colspan="8" style="text-align:center;color:var(--text-light);padding:2rem;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="year-summary" id="yearSummary" style="display:none;">
+            <h4>Quarterly Summary</h4>
+            <table>
+                <thead><tr><th>Quarter</th><th style="text-align:right;">Trips</th><th style="text-align:right;">Miles</th><th style="text-align:right;">Deduction</th></tr></thead>
+                <tbody id="qSummaryBody"></tbody>
+                <tfoot id="qSummaryFoot"></tfoot>
+            </table>
+        </div>
+    </main>
+
+    <!-- Add/Edit Trip Modal -->
+    <div class="modal-overlay" id="tripModal">
+        <div class="modal-box">
+            <h3 id="modalTitle">Add Trip</h3>
+            <input type="hidden" id="tripId">
+            <div class="field-row">
+                <div class="field">
+                    <label>Date</label>
+                    <input type="date" id="tripDate">
+                </div>
+                <div class="field">
+                    <label>Job</label>
+                    <select id="tripJob"><option value="">— No job —</option></select>
+                </div>
+            </div>
+            <div class="field">
+                <label>From</label>
+                <input type="text" id="tripFrom" placeholder="e.g. Reno, NV">
+            </div>
+            <div class="field">
+                <label>To</label>
+                <input type="text" id="tripTo" placeholder="e.g. 648 B St, Davis, CA">
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>Miles</label>
+                    <input type="number" id="tripMiles" step="0.1" min="0">
+                </div>
+                <div class="field">
+                    <label>Trip Type</label>
+                    <select id="tripType">
+                        <option value="business_travel">Business Travel</option>
+                        <option value="local_supplies">Local/Supplies</option>
+                        <option value="site_visit">Site Visit</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="field">
+                <label>Round Trip?</label>
+                <select id="tripRoundTrip">
+                    <option value="true">Yes — double the miles</option>
+                    <option value="false">No — one way only</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Notes</label>
+                <textarea id="tripNotes" rows="2"></textarea>
+            </div>
+            <div class="btn-row">
+                <button id="tripCancelBtn">Cancel</button>
+                <button class="btn-save" id="tripSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/admin/hw.js"></script>
+    <script>
+    const IRS_RATE = 0.70; // 2026 standard mileage rate
+    const HOME_BASE = 'Reno, NV';
+    let allTrips = [];
+    let allJobs = [];
+
+    (async () => {
+        initSupabase();
+        const session = await requireAuth();
+        if (!session) return;
+        document.getElementById('adminUser').textContent = session.user.email;
+        document.getElementById('logoutBtn').onclick = logout;
+        renderSidebar('mileage');
+
+        await loadJobs();
+        await loadTrips();
+    })();
+
+    async function loadJobs() {
+        const { data } = await supabase.from('hw_jobs').select('id,name,address').order('created_at');
+        allJobs = data || [];
+        const sel = document.getElementById('filterJob');
+        const modal = document.getElementById('tripJob');
+        allJobs.forEach(j => {
+            sel.innerHTML += `<option value="${j.id}">${j.name}</option>`;
+            modal.innerHTML += `<option value="${j.id}">${j.name}${j.address ? ' — ' + j.address : ''}</option>`;
+        });
+        // Auto-fill "To" when job selected in modal
+        modal.addEventListener('change', () => {
+            const job = allJobs.find(j => j.id === modal.value);
+            if (job && job.address) document.getElementById('tripTo').value = job.address;
+        });
+    }
+
+    async function loadTrips() {
+        const year = document.getElementById('filterYear').value;
+        const { data, error } = await supabase
+            .from('hw_mileage_log')
+            .select('*')
+            .gte('trip_date', `${year}-01-01`)
+            .lte('trip_date', `${year}-12-31`)
+            .order('trip_date', { ascending: true });
+
+        if (error) { console.error(error); return; }
+        allTrips = data || [];
+        renderTrips();
+        renderStats();
+        renderQuarterlySummary();
+    }
+
+    function renderTrips() {
+        const jobFilter = document.getElementById('filterJob').value;
+        const typeFilter = document.getElementById('filterType').value;
+        let trips = allTrips;
+        if (jobFilter) trips = trips.filter(t => t.job_id === jobFilter);
+        if (typeFilter) trips = trips.filter(t => t.trip_type === typeFilter);
+
+        const body = document.getElementById('tripBody');
+        if (!trips.length) {
+            body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-light);padding:2rem;">No trips found</td></tr>';
+            return;
+        }
+
+        body.innerHTML = trips.map(t => {
+            const job = allJobs.find(j => j.id === t.job_id);
+            const typeLabels = { business_travel: 'Travel', local_supplies: 'Supplies', site_visit: 'Site Visit', other: 'Other' };
+            return `<tr>
+                <td style="white-space:nowrap;">${formatDate(t.trip_date)}</td>
+                <td>${job ? `<a class="job-link" href="/admin/job-detail.html?id=${job.id}">${job.name}</a>` : '<span style="color:var(--text-light);">—</span>'}</td>
+                <td>${esc(t.from_address || '')}</td>
+                <td>${esc(t.to_address || '')}</td>
+                <td style="text-align:right;font-weight:600;">${t.miles.toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1})}</td>
+                <td><span class="trip-type ${t.trip_type}">${typeLabels[t.trip_type] || t.trip_type}</span></td>
+                <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.notes || '')}</td>
+                <td class="row-actions">
+                    <button title="Edit" onclick="editTrip('${t.id}')">&#9998;</button>
+                    <button class="btn-del" title="Delete" onclick="deleteTrip('${t.id}')">&#128465;</button>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    function renderStats() {
+        const total = allTrips.reduce((s, t) => s + (t.miles || 0), 0);
+        const biz = allTrips.filter(t => t.trip_type === 'business_travel');
+        const local = allTrips.filter(t => t.trip_type === 'local_supplies');
+        const bizMi = biz.reduce((s, t) => s + (t.miles || 0), 0);
+        const locMi = local.reduce((s, t) => s + (t.miles || 0), 0);
+
+        document.getElementById('statTotalMiles').textContent = total.toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1});
+        document.getElementById('statTotalTrips').textContent = `${allTrips.length} trips`;
+        document.getElementById('statDeduction').textContent = '$' + (total * IRS_RATE).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+        document.getElementById('statBizMiles').textContent = bizMi.toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1});
+        document.getElementById('statBizTrips').textContent = `${biz.length} trips`;
+        document.getElementById('statLocalMiles').textContent = locMi.toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1});
+        document.getElementById('statLocalTrips').textContent = `${local.length} trips`;
+    }
+
+    function renderQuarterlySummary() {
+        const quarters = [
+            { label: 'Q1 (Jan-Mar)', months: [1,2,3] },
+            { label: 'Q2 (Apr-Jun)', months: [4,5,6] },
+            { label: 'Q3 (Jul-Sep)', months: [7,8,9] },
+            { label: 'Q4 (Oct-Dec)', months: [10,11,12] },
+        ];
+        let totalTrips = 0, totalMiles = 0;
+        const rows = quarters.map(q => {
+            const qTrips = allTrips.filter(t => {
+                const m = new Date(t.trip_date + 'T00:00:00').getMonth() + 1;
+                return q.months.includes(m);
+            });
+            const qMiles = qTrips.reduce((s, t) => s + (t.miles || 0), 0);
+            totalTrips += qTrips.length;
+            totalMiles += qMiles;
+            return `<tr><td>${q.label}</td><td style="text-align:right;">${qTrips.length}</td><td style="text-align:right;">${qMiles.toLocaleString(undefined,{minimumFractionDigits:1})}</td><td style="text-align:right;">$${(qMiles * IRS_RATE).toLocaleString(undefined,{minimumFractionDigits:2})}</td></tr>`;
+        }).join('');
+        document.getElementById('qSummaryBody').innerHTML = rows;
+        document.getElementById('qSummaryFoot').innerHTML = `<tr><td>Total</td><td style="text-align:right;">${totalTrips}</td><td style="text-align:right;">${totalMiles.toLocaleString(undefined,{minimumFractionDigits:1})}</td><td style="text-align:right;">$${(totalMiles * IRS_RATE).toLocaleString(undefined,{minimumFractionDigits:2})}</td></tr>`;
+        document.getElementById('yearSummary').style.display = allTrips.length ? '' : 'none';
+    }
+
+    // Filters
+    document.getElementById('filterYear').addEventListener('change', loadTrips);
+    document.getElementById('filterJob').addEventListener('change', renderTrips);
+    document.getElementById('filterType').addEventListener('change', renderTrips);
+
+    // Modal
+    document.getElementById('addTripBtn').addEventListener('click', () => openModal());
+    document.getElementById('tripCancelBtn').addEventListener('click', closeModal);
+    document.getElementById('tripModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+    document.getElementById('tripSaveBtn').addEventListener('click', saveTrip);
+
+    function openModal(trip) {
+        document.getElementById('modalTitle').textContent = trip ? 'Edit Trip' : 'Add Trip';
+        document.getElementById('tripId').value = trip ? trip.id : '';
+        document.getElementById('tripDate').value = trip ? trip.trip_date : new Date().toISOString().slice(0,10);
+        document.getElementById('tripJob').value = trip ? (trip.job_id || '') : '';
+        document.getElementById('tripFrom').value = trip ? (trip.from_address || '') : HOME_BASE;
+        document.getElementById('tripTo').value = trip ? (trip.to_address || '') : '';
+        document.getElementById('tripMiles').value = trip ? trip.miles : '';
+        document.getElementById('tripType').value = trip ? trip.trip_type : 'business_travel';
+        document.getElementById('tripRoundTrip').value = trip ? String(trip.round_trip) : 'true';
+        document.getElementById('tripNotes').value = trip ? (trip.notes || '') : '';
+        document.getElementById('tripModal').classList.add('open');
+    }
+
+    function closeModal() { document.getElementById('tripModal').classList.remove('open'); }
+
+    function editTrip(id) {
+        const trip = allTrips.find(t => t.id === id);
+        if (trip) openModal(trip);
+    }
+
+    async function deleteTrip(id) {
+        if (!confirm('Delete this trip?')) return;
+        await supabase.from('hw_mileage_log').delete().eq('id', id);
+        await loadTrips();
+        showToast('Trip deleted');
+    }
+
+    async function saveTrip() {
+        const id = document.getElementById('tripId').value;
+        const miles = parseFloat(document.getElementById('tripMiles').value);
+        const roundTrip = document.getElementById('tripRoundTrip').value === 'true';
+        const rec = {
+            trip_date: document.getElementById('tripDate').value,
+            job_id: document.getElementById('tripJob').value || null,
+            from_address: document.getElementById('tripFrom').value.trim(),
+            to_address: document.getElementById('tripTo').value.trim(),
+            miles: roundTrip ? miles * 2 : miles,
+            trip_type: document.getElementById('tripType').value,
+            round_trip: roundTrip,
+            notes: document.getElementById('tripNotes').value.trim() || null,
+        };
+        if (!rec.trip_date || !rec.miles || rec.miles <= 0) { showToast('Date and miles are required', 'error'); return; }
+
+        let err;
+        if (id) {
+            const res = await supabase.from('hw_mileage_log').update(rec).eq('id', id);
+            err = res.error;
+        } else {
+            const res = await supabase.from('hw_mileage_log').insert([rec]);
+            err = res.error;
+        }
+        if (err) { showToast('Error: ' + err.message, 'error'); return; }
+        closeModal();
+        await loadTrips();
+        showToast(id ? 'Trip updated' : 'Trip added');
+    }
+
+    function formatDate(d) {
+        const dt = new Date(d + 'T00:00:00');
+        return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    </script>
+</body>
+</html>
