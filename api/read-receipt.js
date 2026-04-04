@@ -79,6 +79,8 @@ module.exports = async (req, res) => {
     "date": "2025-01-15",
     "category": "materials",
     "description": "Brief summary of purchase",
+    "card_last4": "1234",
+    "payment_type": "credit_card",
     "items": [
         { "name": "Item description", "qty": 1, "amount": 12.99 }
     ]
@@ -88,6 +90,8 @@ Rules:
 - "amount" must be the TOTAL/grand total as a number (no dollar sign)
 - "date" must be YYYY-MM-DD format, or null if unreadable
 - "category" must be exactly one of: materials, tools, software, fuel, supplies, permits, subcontractor, equipment_rental, vehicle, meals, other
+- "card_last4" should be the last 4 digits of the payment card if visible on the receipt (look for patterns like VISA *1234, ending in 5678, XXXX1234, etc). Use null if not found.
+- "payment_type" should be one of: credit_card, debit_card, bank_account, cash, or null if unclear
 - "items" should list individual line items if visible
 - If a field is unreadable, use null
 - Do NOT wrap in code blocks or markdown, return ONLY the JSON object`

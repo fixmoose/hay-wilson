@@ -147,6 +147,23 @@ CREATE TRIGGER hw_payment_methods_updated BEFORE UPDATE ON hw_payment_methods
 -- Add payment_method_id to expenses
 ALTER TABLE hw_expenses ADD COLUMN payment_method_id UUID REFERENCES hw_payment_methods(id) ON DELETE SET NULL;
 
+-- 9. Internal Reimbursements Table (H&W -> Dejan)
+CREATE TABLE hw_internal_reimbursements (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    amount NUMERIC(10,2) NOT NULL,
+    recipient TEXT NOT NULL DEFAULT 'Dejan Obradovic',
+    method TEXT CHECK (method IN ('zelle', 'check', 'transfer', 'cash', 'other')),
+    note TEXT,
+    paid_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE hw_internal_reimbursements ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Auth full access" ON hw_internal_reimbursements FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- Link expenses to reimbursement batches
+ALTER TABLE hw_expenses ADD COLUMN internal_reimbursement_id UUID REFERENCES hw_internal_reimbursements(id) ON DELETE SET NULL;
+
 -- ============================================================
 -- AUTH SETUP
 -- Go to Supabase Dashboard > Authentication > Users > Add User
