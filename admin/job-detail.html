@@ -74,6 +74,7 @@
         .receipt-thumb-pdf { width:100%; height:120px; display:flex; align-items:center; justify-content:center; background:var(--bg-light); color:var(--text-light); font-size:0.8rem; flex-direction:column; gap:0.25rem; position:relative; overflow:hidden; }
         .receipt-thumb-pdf canvas { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; display:none; }
         .receipt-thumb-pdf canvas.loaded { display:block; }
+        .receipt-thumb-pdf canvas.loaded ~ div { display:none !important; }
         .receipt-name { padding:0.4rem 0.5rem; font-size:0.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-dark); border-top:1px solid var(--border-color); }
         .share-modal { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; display:none; align-items:center; justify-content:center; padding:1rem; }
         .share-modal.active { display:flex; }
