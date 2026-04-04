@@ -42,6 +42,18 @@
         .reimb-expense-pm label { display:flex; align-items:center; gap:0.25rem; font-size:0.7rem; color:var(--text-light); margin-top:0.2rem; cursor:pointer; white-space:nowrap; }
         .reimb-expense-pm label input { width:13px; height:13px; }
         .reimb-expense-pm .default-saved { color:#16a34a; font-size:0.7rem; margin-top:0.2rem; }
+        .stmt-dropzone { border:2px dashed var(--border-color); border-radius:10px; padding:2rem; text-align:center; cursor:pointer; transition:border-color 0.2s, background 0.2s; color:var(--text-dark); }
+        .stmt-dropzone:hover, .stmt-dropzone.dragover { border-color:var(--primary-light); background:rgba(37,99,235,0.04); }
+        .stmt-row { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0; border-bottom:1px solid var(--border-color); font-size:0.9rem; }
+        .stmt-row:last-child { border-bottom:none; }
+        .stmt-row-icon { width:32px; height:32px; border-radius:6px; background:var(--bg-light); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .stmt-row-name { flex:1; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .stmt-row-date { color:var(--text-light); font-size:0.8rem; width:90px; }
+        .stmt-row-size { color:var(--text-light); font-size:0.8rem; width:60px; }
+        .stmt-row-actions { display:flex; gap:0.35rem; }
+        .stmt-row-actions button { padding:0.25rem 0.5rem; border:1px solid var(--border-color); border-radius:4px; background:white; cursor:pointer; font-size:0.75rem; }
+        .stmt-row-actions button:hover { background:var(--bg-light); }
+        .stmt-row-actions .btn-del { color:#dc2626; border-color:#fca5a5; }
         .reimb-history-row { display:flex; align-items:center; gap:1rem; padding:0.75rem 0; border-bottom:1px solid var(--border-color); }
         .reimb-history-row:last-child { border-bottom:none; }
         .reimb-select-bar { display:flex; gap:0.5rem; align-items:center; margin-bottom:0.75rem; font-size:0.85rem; }
@@ -118,6 +130,41 @@
                         <tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Statements Upload Section -->
+        <div class="reimb-section">
+            <div class="reimb-header">
+                <h2>Card & Bank Statements</h2>
+            </div>
+            <p style="color:var(--text-light);font-size:0.85rem;margin:0.25rem 0 1rem;">Upload credit card or bank statements (PDF/image). Ask Claude in conversation to read and match transactions to expenses.</p>
+
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h3>Upload Statement</h3>
+                </div>
+                <div style="padding:1rem 1.25rem;">
+                    <div class="stmt-dropzone" id="stmtDropzone">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40" style="margin-bottom:0.5rem;color:var(--text-light);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <div>Drop statement PDF or image here</div>
+                        <div style="font-size:0.8rem;color:var(--text-light);margin-top:0.25rem;">or click to browse</div>
+                        <input type="file" id="stmtFileInput" accept=".pdf,.jpg,.jpeg,.png,.heic" style="display:none;">
+                    </div>
+                    <div id="stmtUploading" style="display:none;text-align:center;padding:1rem;color:var(--text-light);">
+                        <div class="spinner" style="margin:0 auto 0.5rem;"></div>
+                        Uploading...
+                    </div>
+                </div>
+            </div>
+
+            <div class="admin-card" style="margin-top:1rem;">
+                <div class="admin-card-header">
+                    <h3>Uploaded Statements</h3>
+                </div>
+                <div style="padding:0.75rem 1.25rem;" id="stmtList">
+                    <p style="color:var(--text-light);text-align:center;padding:1rem;">Loading...</p>
+                </div>
             </div>
         </div>
 
@@ -288,6 +335,7 @@
 
             await loadData();
             setupModal();
+            setupStatements();
             setupReimbursement();
         })();
 
@@ -709,6 +757,114 @@
                     btn.disabled = false;
                     btn.textContent = 'Record Reimbursement';
                 }
+            });
+        }
+
+        // ==================== Statements Upload ====================
+        function setupStatements() {
+            const dropzone = document.getElementById('stmtDropzone');
+            const fileInput = document.getElementById('stmtFileInput');
+
+            dropzone.addEventListener('click', () => fileInput.click());
+            dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+            dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+            dropzone.addEventListener('drop', e => {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length) uploadStatement(files[0]);
+            });
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length) uploadStatement(fileInput.files[0]);
+                fileInput.value = '';
+            });
+
+            loadStatements();
+        }
+
+        async function uploadStatement(file) {
+            const maxSize = 20 * 1024 * 1024; // 20MB
+            if (file.size > maxSize) { showToast('File too large (max 20MB)', 'error'); return; }
+
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (!['pdf', 'jpg', 'jpeg', 'png', 'heic'].includes(ext)) {
+                showToast('Unsupported file type. Use PDF or image.', 'error');
+                return;
+            }
+
+            document.getElementById('stmtDropzone').style.display = 'none';
+            document.getElementById('stmtUploading').style.display = 'block';
+
+            const fileName = '_statements/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const { error } = await sb.storage.from('hw-receipts').upload(fileName, file);
+
+            document.getElementById('stmtDropzone').style.display = '';
+            document.getElementById('stmtUploading').style.display = 'none';
+
+            if (error) {
+                showToast('Upload failed: ' + error.message, 'error');
+            } else {
+                showToast('Statement uploaded');
+                loadStatements();
+            }
+        }
+
+        async function loadStatements() {
+            const { data, error } = await sb.storage.from('hw-receipts').list('_statements', {
+                sortBy: { column: 'created_at', order: 'desc' }
+            });
+
+            const listEl = document.getElementById('stmtList');
+            if (error) { listEl.innerHTML = '<p style="color:#dc2626;padding:1rem;">Error: ' + error.message + '</p>'; return; }
+
+            const files = (data || []).filter(f => f.id !== null);
+            if (!files.length) {
+                listEl.innerHTML = '<p style="color:var(--text-light);text-align:center;padding:1rem;">No statements uploaded yet</p>';
+                return;
+            }
+
+            function formatSize(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1048576) return (bytes / 1024).toFixed(0) + ' KB';
+                return (bytes / 1048576).toFixed(1) + ' MB';
+            }
+
+            listEl.innerHTML = files.map(f => {
+                const isPdf = f.name.toLowerCase().endsWith('.pdf');
+                const dateStr = f.created_at ? new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+                const cleanName = f.name.replace(/^\d+_/, '').replace(/_/g, ' ');
+                const icon = isPdf
+                    ? '<svg viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="1.5" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
+                    : '<svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.5" width="18" height="18"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+                return '<div class="stmt-row">' +
+                    '<div class="stmt-row-icon">' + icon + '</div>' +
+                    '<span class="stmt-row-name" title="' + escapeHtml(f.name) + '">' + escapeHtml(cleanName) + '</span>' +
+                    '<span class="stmt-row-date">' + dateStr + '</span>' +
+                    '<span class="stmt-row-size">' + formatSize(f.metadata?.size || 0) + '</span>' +
+                    '<div class="stmt-row-actions">' +
+                        '<button data-view-stmt="_statements/' + escapeHtml(f.name) + '">View</button>' +
+                        '<button class="btn-del" data-del-stmt="_statements/' + escapeHtml(f.name) + '">Delete</button>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+
+            // View button
+            listEl.querySelectorAll('[data-view-stmt]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const { data } = await sb.storage.from('hw-receipts').createSignedUrl(btn.dataset.viewStmt, 3600);
+                    if (data) window.open(data.signedUrl, '_blank');
+                    else showToast('Could not open file', 'error');
+                });
+            });
+
+            // Delete button
+            listEl.querySelectorAll('[data-del-stmt]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    if (!confirm('Delete this statement?')) return;
+                    const { error } = await sb.storage.from('hw-receipts').remove([btn.dataset.delStmt]);
+                    if (error) showToast('Delete failed: ' + error.message, 'error');
+                    else { showToast('Statement deleted'); loadStatements(); }
+                });
             });
         }
     </script>
