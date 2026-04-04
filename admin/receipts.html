@@ -350,7 +350,7 @@
                 await loadJobs();
                 await Promise.all([loadAllReceipts(), loadExpenses()]);
                 // Re-render receipts now that both receipts AND expenses are loaded
-                // (fixes race where renderReceipts ran before expenses were ready)
+                updateJobFilterDropdown();
                 renderReceipts();
                 setupUpload();
                 setupFilter();
@@ -371,6 +371,17 @@
             document.getElementById('uploadJobSelect').innerHTML = '<option value="_unassigned">No job (company expense)</option>' + jobOptions;
             document.getElementById('filterJobSelect').innerHTML = '<option value="all">All receipts</option><option value="_unassigned">No job / Unprocessed</option>' + jobOptions;
             document.getElementById('aiJob').innerHTML = '<option value="">No job (company expense)</option>' + jobOptions;
+        }
+
+        function updateJobFilterDropdown() {
+            // Only show jobs that have at least one expense with a receipt
+            const jobsWithReceipts = new Set(allExpenses.filter(e => e.job_id && e.receipt_path).map(e => e.job_id));
+            const filterJobs = allJobs.filter(j => jobsWithReceipts.has(j.id));
+            const jobOptions = filterJobs.map(j => '<option value="' + j.id + '">' + escapeHtml(j.name) + '</option>').join('');
+            const sel = document.getElementById('filterJobSelect');
+            const prev = sel.value;
+            sel.innerHTML = '<option value="all">All receipts</option><option value="_unassigned">No job / Unprocessed</option>' + jobOptions;
+            if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
             document.getElementById('filterDateSelect').innerHTML = buildDateFilterOptions();
         }
 
@@ -384,7 +395,7 @@
             const { data: folders, error } = await sb.storage.from('hw-receipts').list('', { limit: 1000 });
             if (error) { console.error(error); document.getElementById('loadingState').style.display = 'none'; return; }
 
-            const folderNames = (folders || []).filter(f => f.id === null).map(f => f.name);
+            const folderNames = (folders || []).filter(f => f.id === null && !f.name.startsWith('_shared')).map(f => f.name);
             const rootFiles = (folders || []).filter(f => f.id !== null);
 
             rootFiles.forEach(f => {
@@ -417,7 +428,6 @@
 
             // Job filter: use expense job_id (not storage folder)
             let filtered = allReceipts;
-            console.log('[FILTER DEBUG] allExpenses:', allExpenses.length, 'expensesByPath keys:', Object.keys(expensesByPath).length, 'allReceipts:', allReceipts.length, 'currentFilter:', currentFilter);
             if (currentFilter === '_unassigned') {
                 filtered = filtered.filter(r => {
                     const exps = expensesByPath[r.path];
@@ -427,8 +437,6 @@
                 // Build a set of receipt paths for this job from expenses
                 const jobPaths = new Set();
                 allExpenses.forEach(e => { if (e.job_id === currentFilter && e.receipt_path) jobPaths.add(e.receipt_path); });
-                console.log('[FILTER DEBUG] jobPaths for', currentFilter, ':', [...jobPaths]);
-                console.log('[FILTER DEBUG] sample allReceipts paths:', allReceipts.slice(0, 5).map(r => r.path));
                 filtered = filtered.filter(r => jobPaths.has(r.path));
             }
 
@@ -1071,7 +1079,6 @@
 
             if (error) { console.error('loadExpenses error:', error); showToast('Failed to load expenses: ' + error.message, 'error'); return; }
             allExpenses = data || [];
-            console.log('[LOAD DEBUG] loadExpenses loaded', allExpenses.length, 'expenses,', allExpenses.filter(e => e.receipt_path).length, 'with receipt_path');
         }
 
 
