@@ -60,8 +60,16 @@
         .type-additional { background:#e0e7ff; color:#4338ca; }
         .type-credit { background:#dcfce7; color:#16a34a; }
         .receipt-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:0.75rem; }
-        .receipt-item { position:relative; border-radius:8px; border:1px solid var(--border-color); overflow:hidden; cursor:pointer; transition:box-shadow 0.2s; }
+        .receipt-item { position:relative; border-radius:8px; border:2px solid var(--border-color); overflow:hidden; cursor:pointer; transition:box-shadow 0.2s, border-color 0.15s; }
         .receipt-item:hover { box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+        .receipt-item.selected { border-color:var(--primary-light); background:rgba(37,99,235,0.03); }
+        .receipt-check { position:absolute; top:6px; left:6px; width:20px; height:20px; border-radius:4px; border:2px solid rgba(255,255,255,0.8); background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; z-index:2; pointer-events:none; transition:all 0.15s; }
+        .receipt-item.selected .receipt-check { background:var(--primary-light); border-color:var(--primary-light); }
+        .receipt-check svg { display:none; }
+        .receipt-item.selected .receipt-check svg { display:block; }
+        .select-all-row { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem; font-size:0.8rem; color:var(--text-light); }
+        .select-all-row label { display:flex; align-items:center; gap:0.4rem; cursor:pointer; }
+        .selection-count { font-weight:500; color:var(--primary-light); }
         .receipt-thumb { width:100%; height:120px; object-fit:cover; display:block; background:var(--bg-light); image-orientation:from-image; }
         .receipt-thumb-pdf { width:100%; height:120px; display:flex; align-items:center; justify-content:center; background:var(--bg-light); color:var(--text-light); font-size:0.8rem; flex-direction:column; gap:0.25rem; }
         .receipt-name { padding:0.4rem 0.5rem; font-size:0.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-dark); border-top:1px solid var(--border-color); }
@@ -178,11 +186,15 @@
                     <div class="section-card-header">
                         <h4>Receipts</h4>
                         <div style="display:flex;gap:0.5rem;">
-                            <button class="btn btn-outline btn-sm" id="downloadAllReceiptsBtn" style="display:none;" title="Download all receipts as ZIP">Download All</button>
+                            <button class="btn btn-outline btn-sm" id="downloadAllReceiptsBtn" style="display:none;">Download</button>
                             <button class="btn btn-outline btn-sm" id="shareReceiptsBtn" style="display:none;" title="Share receipts as PDF">Share</button>
                         </div>
                     </div>
                     <div class="section-card-body" id="receiptsBody">
+                        <div class="select-all-row" id="selectAllRow" style="display:none;">
+                            <label><input type="checkbox" id="selectAllCheck"> Select All</label>
+                            <span class="selection-count" id="selectionCount"></span>
+                        </div>
                         <div class="receipt-grid" id="receiptGrid"></div>
                         <div id="receiptEmptyMsg" style="text-align:center;padding:1rem;color:var(--text-light);font-size:0.85rem;display:none;">
                             No receipts yet. Upload via <a href="/admin/receipts.html" style="color:var(--primary-light);">Receipts</a> page or phone.
@@ -844,6 +856,7 @@
             emptyMsg.style.display = 'none';
             dlBtn.style.display = '';
             shareBtn.style.display = '';
+            document.getElementById('selectAllRow').style.display = 'flex';
 
             grid.style.display = 'grid';
             grid.innerHTML = uniquePaths.map(path => {
@@ -854,7 +867,8 @@
                     ? escapeHtml(exps[0].vendor || fileName)
                     : exps.map(e => escapeHtml(e.vendor)).join(', ');
 
-                return '<div class="receipt-item" data-path="' + escapeHtml(path) + '">' +
+                return '<div class="receipt-item selected" data-path="' + escapeHtml(path) + '">' +
+                    '<div class="receipt-check"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></div>' +
                     (isPdf
                         ? '<div class="receipt-thumb-pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</div>'
                         : '<img class="receipt-thumb" src="" alt="" data-path="' + escapeHtml(path) + '">') +
@@ -862,27 +876,62 @@
                 '</div>';
             }).join('');
 
+            // Start with all selected
+            document.getElementById('selectAllCheck').checked = true;
+            updateSelectionCount();
+
             // Load signed URLs for image thumbnails
             grid.querySelectorAll('img.receipt-thumb').forEach(async (img) => {
                 const { data: signedData } = await sb.storage.from('hw-receipts').createSignedUrl(img.dataset.path, 3600);
                 if (signedData) img.src = signedData.signedUrl;
             });
 
-            // Click to view
+            // Click to toggle selection (single click) or view (double click)
             grid.querySelectorAll('.receipt-item').forEach(item => {
-                item.addEventListener('click', async () => {
+                item.addEventListener('click', () => {
+                    item.classList.toggle('selected');
+                    updateSelectAllCheck();
+                    updateSelectionCount();
+                });
+                item.addEventListener('dblclick', async (e) => {
+                    e.preventDefault();
                     const { data: signedData } = await sb.storage.from('hw-receipts').createSignedUrl(item.dataset.path, 3600);
                     if (signedData) window.open(signedData.signedUrl, '_blank');
                 });
             });
         }
 
-        // Build combined PDF from all receipt files (images + PDFs)
-        async function buildCombinedPdf() {
+        function getSelectedPaths() {
+            return Array.from(document.querySelectorAll('.receipt-item.selected')).map(el => el.dataset.path);
+        }
+
+        function updateSelectionCount() {
+            const selected = getSelectedPaths().length;
+            const total = allReceiptPaths.length;
+            const countEl = document.getElementById('selectionCount');
+            if (selected === total) {
+                countEl.textContent = '';
+            } else {
+                countEl.textContent = selected + ' of ' + total + ' selected';
+            }
+            // Disable buttons if nothing selected
+            document.getElementById('downloadAllReceiptsBtn').disabled = selected === 0;
+            document.getElementById('shareReceiptsBtn').disabled = selected === 0;
+        }
+
+        function updateSelectAllCheck() {
+            const total = document.querySelectorAll('.receipt-item').length;
+            const selected = document.querySelectorAll('.receipt-item.selected').length;
+            document.getElementById('selectAllCheck').checked = selected === total;
+            document.getElementById('selectAllCheck').indeterminate = selected > 0 && selected < total;
+        }
+
+        // Build combined PDF from selected receipt files (images + PDFs)
+        async function buildCombinedPdf(paths) {
             const { PDFDocument } = PDFLib;
             const combined = await PDFDocument.create();
 
-            for (const path of allReceiptPaths) {
+            for (const path of paths) {
                 const { data: signedData } = await sb.storage.from('hw-receipts').createSignedUrl(path, 300);
                 if (!signedData) continue;
 
@@ -927,15 +976,26 @@
 
         // Download/Share receipts
         function setupReceiptActions() {
-            // Download All — generates combined PDF and downloads it
+            // Select All checkbox
+            document.getElementById('selectAllCheck').addEventListener('change', (e) => {
+                const items = document.querySelectorAll('.receipt-item');
+                items.forEach(item => {
+                    if (e.target.checked) item.classList.add('selected');
+                    else item.classList.remove('selected');
+                });
+                updateSelectionCount();
+            });
+
+            // Download — generates combined PDF from selected and downloads it
             document.getElementById('downloadAllReceiptsBtn').addEventListener('click', async () => {
-                if (allReceiptPaths.length === 0) return;
+                const selected = getSelectedPaths();
+                if (selected.length === 0) return;
                 const btn = document.getElementById('downloadAllReceiptsBtn');
                 btn.disabled = true;
                 btn.textContent = 'Building PDF...';
 
                 try {
-                    const pdfBytes = await buildCombinedPdf();
+                    const pdfBytes = await buildCombinedPdf(selected);
                     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
                     const url = URL.createObjectURL(blob);
                     const jobName = (document.getElementById('jobName')?.textContent || 'receipts').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -946,17 +1006,18 @@
                     a.click();
                     a.remove();
                     URL.revokeObjectURL(url);
-                    showToast('PDF downloaded (' + allReceiptPaths.length + ' receipts)');
+                    showToast('PDF downloaded (' + selected.length + ' receipt' + (selected.length !== 1 ? 's' : '') + ')');
                 } catch (e) {
                     showToast('Failed to build PDF: ' + e.message, 'error');
                 }
                 btn.disabled = false;
-                btn.textContent = 'Download All';
+                btn.textContent = 'Download';
             });
 
-            // Share — build PDF, upload to storage, show shareable link
+            // Share — build PDF from selected, upload to storage, show shareable link
             document.getElementById('shareReceiptsBtn').addEventListener('click', async () => {
-                if (allReceiptPaths.length === 0) return;
+                const selected = getSelectedPaths();
+                if (selected.length === 0) return;
                 const btn = document.getElementById('shareReceiptsBtn');
                 const modal = document.getElementById('shareModal');
                 const linkInput = document.getElementById('shareLinkInput');
@@ -966,7 +1027,7 @@
                 status.style.display = 'none';
 
                 try {
-                    const pdfBytes = await buildCombinedPdf();
+                    const pdfBytes = await buildCombinedPdf(selected);
                     const jobName = (document.getElementById('jobName')?.textContent || 'receipts').replace(/[^a-zA-Z0-9_-]/g, '_');
                     const fileName = '_shared/Receipts_' + jobName + '_' + Date.now() + '.pdf';
 
