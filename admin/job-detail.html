@@ -205,13 +205,13 @@
                     </div>
                 </div>
 
-                <!-- Plan Set / Documents -->
+                <!-- Upload Documents -->
                 <div class="section-card">
                     <div class="section-card-header">
-                        <h4>Plan Set & Documents</h4>
+                        <h4>Upload Documents</h4>
                         <span style="font-size:0.75rem;color:var(--text-light);" id="docCount"></span>
                     </div>
-                    <div class="section-card-body" id="docsBody">
+                    <div class="section-card-body">
                         <div class="doc-dropzone" id="docDropzone">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                             <p style="margin:0;">Drop files here or <strong>click to upload</strong></p>
@@ -222,7 +222,6 @@
                             <div class="doc-upload-bar"><div class="doc-upload-bar-fill" id="docUploadBarFill" style="width:0%"></div></div>
                             <div class="doc-upload-status" id="docUploadStatus">Uploading...</div>
                         </div>
-                        <div class="doc-list" id="docList" style="margin-top:0.75rem;"></div>
                     </div>
                 </div>
 
@@ -1246,11 +1245,13 @@
         }
 
         function renderDocuments() {
-            const list = document.getElementById('docList');
             const countEl = document.getElementById('docCount');
+            const grid = document.querySelector('.section-grid');
+
+            // Remove any previously injected doc-type cards
+            grid.querySelectorAll('.doc-type-card').forEach(el => el.remove());
 
             if (allDocs.length === 0) {
-                list.innerHTML = '';
                 countEl.textContent = '';
                 return;
             }
@@ -1266,23 +1267,36 @@
                 grouped[t].push(doc);
             });
 
-            let html = '';
+            // Find the upload card to insert after it
+            const uploadCard = document.getElementById('docDropzone').closest('.section-card');
+            let insertAfter = uploadCard;
+
             typeOrder.forEach(type => {
                 if (!grouped[type] || grouped[type].length === 0) return;
                 const docs = grouped[type];
-                html += '<div style="margin-top:0.75rem;">' +
-                    '<div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-light);font-weight:600;margin-bottom:0.35rem;display:flex;align-items:center;gap:0.4rem;">' +
-                        '<span class="doc-type-badge ' + type + '">' + docTypeLabel(type) + '</span>' +
-                        '<span>' + docs.length + ' file' + (docs.length !== 1 ? 's' : '') + '</span>' +
+
+                const card = document.createElement('div');
+                card.className = 'section-card doc-type-card';
+                card.innerHTML =
+                    '<div class="section-card-header">' +
+                        '<h4><span class="doc-type-badge ' + type + '" style="font-size:0.7rem;padding:0.15rem 0.4rem;margin-right:0.35rem;">' + docTypeLabel(type) + '</span> ' +
+                        docs.length + ' file' + (docs.length !== 1 ? 's' : '') + '</h4>' +
+                    '</div>' +
+                    '<div class="section-card-body" style="padding:0.75rem 1rem;">' +
+                        '<div class="doc-list">' + docs.map(doc => renderDocItem(doc)).join('') + '</div>' +
                     '</div>';
-                html += docs.map(doc => renderDocItem(doc)).join('');
-                html += '</div>';
+
+                // Insert after the previous card
+                insertAfter.insertAdjacentElement('afterend', card);
+                insertAfter = card;
+
+                // Wire up actions within this card
+                wireDocActions(card);
             });
+        }
 
-            list.innerHTML = html;
-
-            // Wire up actions
-            list.querySelectorAll('[data-doc-view]').forEach(btn => {
+        function wireDocActions(container) {
+            container.querySelectorAll('[data-doc-view]').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     const doc = allDocs.find(d => d.id === btn.dataset.docView);
@@ -1293,13 +1307,11 @@
                 });
             });
 
-            list.querySelectorAll('[data-doc-delete]').forEach(btn => {
+            container.querySelectorAll('[data-doc-delete]').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     const doc = allDocs.find(d => d.id === btn.dataset.docDelete);
                     if (!doc || !confirm('Delete document "' + doc.file_name + '"?')) return;
-
-                    // Delete from storage and DB
                     await sb.storage.from('hw-receipts').remove([doc.file_path]);
                     const { error } = await sb.from('hw_job_documents').delete().eq('id', doc.id);
                     if (error) { showToast('Failed to delete', 'error'); return; }
@@ -1308,14 +1320,12 @@
                 });
             });
 
-            // Wire up type-change dropdowns
-            list.querySelectorAll('[data-doc-type]').forEach(sel => {
+            container.querySelectorAll('[data-doc-type]').forEach(sel => {
                 sel.addEventListener('change', async (e) => {
                     const docId = sel.dataset.docType;
                     const newType = sel.value;
                     const { error } = await sb.from('hw_job_documents').update({ doc_type: newType }).eq('id', docId);
                     if (error) { showToast('Failed to update type', 'error'); return; }
-                    // Update local data and re-render to move doc to correct group
                     const doc = allDocs.find(d => d.id === docId);
                     if (doc) doc.doc_type = newType;
                     renderDocuments();
