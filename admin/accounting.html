@@ -98,6 +98,8 @@
                 <option value="all">All expenses</option>
                 <option value="_none">Company expenses (no job)</option>
             </select>
+            <span class="filter-label">Period:</span>
+            <select id="filterDate"></select>
             <span class="filter-label">Category:</span>
             <select id="filterCategory">
                 <option value="all">All categories</option>
@@ -113,6 +115,7 @@
                 <option value="meals">Meals</option>
                 <option value="other">Other</option>
             </select>
+            <button class="btn btn-outline" id="exportCsvBtn" style="margin-left:auto;font-size:0.8rem;padding:0.35rem 0.75rem;">&#11015; Export CSV</button>
         </div>
 
         <div class="admin-card">
@@ -176,6 +179,48 @@
         let allExpenses = [];
         let filterJob = 'all';
         let filterCategory = 'all';
+        let filterDate = 'all';
+
+        function isDateInPeriod(dateStr, period) {
+            const d = new Date(dateStr);
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            if (period === 'this_month') return d.getFullYear() === year && d.getMonth() === month;
+            if (period === 'last_month') {
+                const lm = month === 0 ? 11 : month - 1;
+                const ly = month === 0 ? year - 1 : year;
+                return d.getFullYear() === ly && d.getMonth() === lm;
+            }
+            if (period === 'this_year') return d.getFullYear() === year;
+            if (period === 'last_year') return d.getFullYear() === year - 1;
+            if (period.startsWith('q')) {
+                const q = parseInt(period[1]);
+                const qYear = parseInt(period.substring(3));
+                const qStart = (q - 1) * 3;
+                return d.getFullYear() === qYear && d.getMonth() >= qStart && d.getMonth() < qStart + 3;
+            }
+            if (period.startsWith('m')) {
+                const parts = period.substring(1).split('_');
+                return d.getFullYear() === parseInt(parts[1]) && d.getMonth() === parseInt(parts[0]);
+            }
+            return true;
+        }
+
+        function buildDateFilterOptions() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            let html = '<option value="all">All time</option>';
+            html += '<option value="this_month">This month (' + monthNames[now.getMonth()] + ' ' + year + ')</option>';
+            html += '<option value="last_month">Last month</option>';
+            html += '<option value="this_year">This year (' + year + ')</option>';
+            html += '<option value="last_year">Last year (' + (year - 1) + ')</option>';
+            for (let q = 1; q <= 4; q++) html += '<option value="q' + q + '_' + year + '">Q' + q + ' ' + year + '</option>';
+            for (let m = now.getMonth(); m >= 0; m--) html += '<option value="m' + m + '_' + year + '">' + monthNames[m] + ' ' + year + '</option>';
+            for (let q = 1; q <= 4; q++) html += '<option value="q' + q + '_' + (year - 1) + '">Q' + q + ' ' + (year - 1) + '</option>';
+            return html;
+        }
 
         (async () => {
             try {
@@ -205,6 +250,7 @@
 
             const jobOpts = allJobs.map(j => '<option value="' + j.id + '">' + escapeHtml(j.name) + '</option>').join('');
             document.getElementById('filterJob').innerHTML = '<option value="all">All expenses</option><option value="_none">Company expenses (no job)</option>' + jobOpts;
+            document.getElementById('filterDate').innerHTML = buildDateFilterOptions();
         }
 
         function jobHasGC(jobId) {
@@ -229,6 +275,7 @@
             if (filterJob === '_none') filtered = filtered.filter(e => !e.job_id);
             else if (filterJob !== 'all') filtered = filtered.filter(e => e.job_id === filterJob);
             if (filterCategory !== 'all') filtered = filtered.filter(e => (e.category || 'other') === filterCategory);
+            if (filterDate !== 'all') filtered = filtered.filter(e => e.expense_date && isDateInPeriod(e.expense_date, filterDate));
             return filtered;
         }
 
@@ -302,15 +349,45 @@
             });
         }
 
+        function exportCsv() {
+            const filtered = getFilteredExpenses();
+            if (filtered.length === 0) { showToast('No expenses to export', 'error'); return; }
+            const headers = ['Date','Vendor','Description','Category','Amount','Job','Reimbursable','Reimbursed','Reimbursed By','Reimbursed Date'];
+            const rows = filtered.map(e => [
+                e.expense_date || '',
+                (e.vendor || '').replace(/"/g, '""'),
+                (e.description || '').replace(/"/g, '""'),
+                e.category || 'other',
+                (parseFloat(e.amount) || 0).toFixed(2),
+                e.hw_jobs?.name || '',
+                e.reimbursable ? 'Yes' : 'No',
+                e.reimbursed ? 'Yes' : 'No',
+                (e.reimbursed_by || '').replace(/"/g, '""'),
+                e.reimbursed_date || ''
+            ]);
+            const csv = [headers, ...rows].map(r => r.map(c => '"' + c + '"').join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const label = filterDate !== 'all' ? filterDate.replace(/_/g, '-') : 'all-time';
+            a.href = url; a.download = 'hw-expenses-' + label + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+        }
+
         function setupFilters() {
             document.getElementById('filterJob').addEventListener('change', (e) => {
                 filterJob = e.target.value;
+                renderAccounting();
+            });
+            document.getElementById('filterDate').addEventListener('change', (e) => {
+                filterDate = e.target.value;
                 renderAccounting();
             });
             document.getElementById('filterCategory').addEventListener('change', (e) => {
                 filterCategory = e.target.value;
                 renderAccounting();
             });
+            document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
         }
 
         // ==================== Edit Expense ====================

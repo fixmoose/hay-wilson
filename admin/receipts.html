@@ -12,6 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/admin/admin-styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
         .receipt-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:1rem; margin-top:1rem; }
         .receipt-card { background:white; border-radius:10px; border:1px solid var(--border-color); overflow:hidden; transition:box-shadow 0.2s; position:relative; }
@@ -171,6 +172,8 @@
                         <option value="all">All receipts</option>
                         <option value="_unassigned">Unassigned</option>
                     </select>
+                    <label style="font-size:0.85rem;color:var(--text-light);">Period:</label>
+                    <select id="filterDateSelect"></select>
                     <label style="font-size:0.85rem;color:var(--text-light);">Status:</label>
                     <select id="filterStatusSelect">
                         <option value="all">All</option>
@@ -185,6 +188,7 @@
                         <option value="100">100</option>
                         <option value="0">All</option>
                     </select>
+                    <button class="btn btn-outline" id="downloadPdfBtn" style="margin-left:auto;font-size:0.8rem;padding:0.35rem 0.75rem;" disabled>&#11015; Download PDF</button>
                 </div>
                 <div id="loadingState" class="loading"><div class="spinner"></div></div>
                 <div class="receipt-grid" id="receiptGrid" style="display:none;"></div>
@@ -321,6 +325,7 @@
         let allExpenses = [];
         let currentFilter = 'all';
         let currentStatusFilter = 'all';
+        let currentDateFilter = 'all';
         let currentAiPath = null;
         let authToken = null;
         let currentPage = 1;
@@ -364,8 +369,9 @@
 
             const jobOptions = allJobs.map(j => '<option value="' + j.id + '">' + escapeHtml(j.name) + '</option>').join('');
             document.getElementById('uploadJobSelect').innerHTML = '<option value="_unassigned">No job (company expense)</option>' + jobOptions;
-            document.getElementById('filterJobSelect').innerHTML = '<option value="all">All receipts</option><option value="_unassigned">Unassigned</option>' + jobOptions;
+            document.getElementById('filterJobSelect').innerHTML = '<option value="all">All receipts</option><option value="_unassigned">No job / Unprocessed</option>' + jobOptions;
             document.getElementById('aiJob').innerHTML = '<option value="">No job (company expense)</option>' + jobOptions;
+            document.getElementById('filterDateSelect').innerHTML = buildDateFilterOptions();
         }
 
         // ==================== Receipts ====================
@@ -409,7 +415,38 @@
             const expensesByPath = {};
             allExpenses.forEach(e => { if (e.receipt_path) { if (!expensesByPath[e.receipt_path]) expensesByPath[e.receipt_path] = []; expensesByPath[e.receipt_path].push(e); } });
 
-            let filtered = currentFilter === 'all' ? allReceipts : allReceipts.filter(r => r.folder === currentFilter);
+            // Job filter: use expense job_id (not storage folder)
+            let filtered = allReceipts;
+            if (currentFilter === '_unassigned') {
+                filtered = filtered.filter(r => {
+                    const exps = expensesByPath[r.path];
+                    return !exps || exps.every(e => !e.job_id);
+                });
+            } else if (currentFilter !== 'all') {
+                filtered = filtered.filter(r => {
+                    const exps = expensesByPath[r.path];
+                    return exps && exps.some(e => e.job_id === currentFilter);
+                });
+            }
+
+            // Date period filter
+            if (currentDateFilter !== 'all') {
+                filtered = filtered.filter(r => {
+                    const exps = expensesByPath[r.path];
+                    if (!exps || exps.length === 0) {
+                        // Unprocessed: use file created_at
+                        return r.created_at && isDateInPeriod(r.created_at, currentDateFilter);
+                    }
+                    return exps.some(e => e.expense_date && isDateInPeriod(e.expense_date, currentDateFilter));
+                });
+            }
+
+            // Enable PDF button if there are processed receipts in current filter
+            const processedCount = filtered.filter(r => !!expensesByPath[r.path]).length;
+            const pdfBtn = document.getElementById('downloadPdfBtn');
+            pdfBtn.disabled = processedCount === 0;
+            pdfBtn.title = processedCount > 0 ? 'Download ' + processedCount + ' processed receipts as PDF' : 'No processed receipts to download';
+
             if (currentStatusFilter === 'new') filtered = filtered.filter(r => !expensesByPath[r.path] && !isQueued(r.path));
             else if (currentStatusFilter === 'queued') filtered = filtered.filter(r => !expensesByPath[r.path] && isQueued(r.path));
             else if (currentStatusFilter === 'processed') filtered = filtered.filter(r => !!expensesByPath[r.path]);
@@ -631,6 +668,133 @@
             return name.replace(/^grp_\d+_p\d+_/, '').replace(/^\d+_/, '');
         }
 
+        function isDateInPeriod(dateStr, period) {
+            const d = new Date(dateStr);
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            if (period === 'this_month') return d.getFullYear() === year && d.getMonth() === month;
+            if (period === 'last_month') {
+                const lm = month === 0 ? 11 : month - 1;
+                const ly = month === 0 ? year - 1 : year;
+                return d.getFullYear() === ly && d.getMonth() === lm;
+            }
+            if (period === 'this_year') return d.getFullYear() === year;
+            if (period === 'last_year') return d.getFullYear() === year - 1;
+            if (period.startsWith('q')) {
+                const q = parseInt(period[1]);
+                const qYear = parseInt(period.substring(3));
+                const qStart = (q - 1) * 3;
+                return d.getFullYear() === qYear && d.getMonth() >= qStart && d.getMonth() < qStart + 3;
+            }
+            if (period.startsWith('m')) {
+                const parts = period.substring(1).split('_');
+                return d.getFullYear() === parseInt(parts[1]) && d.getMonth() === parseInt(parts[0]);
+            }
+            return true;
+        }
+
+        function buildDateFilterOptions() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            let html = '<option value="all">All time</option>';
+            html += '<option value="this_month">This month (' + monthNames[now.getMonth()] + ' ' + year + ')</option>';
+            html += '<option value="last_month">Last month</option>';
+            html += '<option value="this_year">This year (' + year + ')</option>';
+            html += '<option value="last_year">Last year (' + (year - 1) + ')</option>';
+            // Quarters for current year
+            for (let q = 1; q <= 4; q++) {
+                html += '<option value="q' + q + '_' + year + '">Q' + q + ' ' + year + '</option>';
+            }
+            // Individual months this year (up to current)
+            for (let m = now.getMonth(); m >= 0; m--) {
+                html += '<option value="m' + m + '_' + year + '">' + monthNames[m] + ' ' + year + '</option>';
+            }
+            // Quarters for last year
+            for (let q = 1; q <= 4; q++) {
+                html += '<option value="q' + q + '_' + (year - 1) + '">Q' + q + ' ' + (year - 1) + '</option>';
+            }
+            return html;
+        }
+
+        // ==================== PDF Download ====================
+        async function downloadFilteredPdf() {
+            const btn = document.getElementById('downloadPdfBtn');
+            btn.disabled = true;
+            btn.textContent = 'Building PDF...';
+
+            try {
+                const expensesByPath = {};
+                allExpenses.forEach(e => { if (e.receipt_path) { if (!expensesByPath[e.receipt_path]) expensesByPath[e.receipt_path] = []; expensesByPath[e.receipt_path].push(e); } });
+
+                // Get currently filtered processed receipts only
+                let filtered = allReceipts;
+                if (currentFilter === '_unassigned') {
+                    filtered = filtered.filter(r => { const exps = expensesByPath[r.path]; return !exps || exps.every(e => !e.job_id); });
+                } else if (currentFilter !== 'all') {
+                    filtered = filtered.filter(r => { const exps = expensesByPath[r.path]; return exps && exps.some(e => e.job_id === currentFilter); });
+                }
+                if (currentDateFilter !== 'all') {
+                    filtered = filtered.filter(r => {
+                        const exps = expensesByPath[r.path];
+                        if (!exps || exps.length === 0) return r.created_at && isDateInPeriod(r.created_at, currentDateFilter);
+                        return exps.some(e => e.expense_date && isDateInPeriod(e.expense_date, currentDateFilter));
+                    });
+                }
+                // Only include receipts that have been processed (have expense records)
+                filtered = filtered.filter(r => !!expensesByPath[r.path]);
+
+                if (filtered.length === 0) { showToast('No processed receipts to download', 'error'); return; }
+
+                const { PDFDocument } = PDFLib;
+                const combined = await PDFDocument.create();
+
+                for (let i = 0; i < filtered.length; i++) {
+                    btn.textContent = 'Processing ' + (i + 1) + '/' + filtered.length + '...';
+                    const r = filtered[i];
+                    const { data } = await sb.storage.from('hw-receipts').createSignedUrl(r.path, 300);
+                    if (!data) continue;
+                    const resp = await fetch(data.signedUrl);
+                    if (!resp.ok) continue;
+                    const bytes = new Uint8Array(await resp.arrayBuffer());
+                    const isPdf = r.name.toLowerCase().endsWith('.pdf');
+
+                    if (isPdf) {
+                        try {
+                            const src = await PDFDocument.load(bytes);
+                            const pages = await combined.copyPages(src, src.getPageIndices());
+                            pages.forEach(p => combined.addPage(p));
+                        } catch (e) { console.warn('Skip PDF', r.path, e); }
+                    } else {
+                        const page = combined.addPage([612, 792]); // letter
+                        try {
+                            let img;
+                            if (r.name.toLowerCase().endsWith('.png')) img = await combined.embedPng(bytes);
+                            else img = await combined.embedJpg(bytes);
+                            const { width, height } = img.scaleToFit(572, 752);
+                            page.drawImage(img, { x: (612 - width) / 2, y: (792 - height) / 2, width, height });
+                        } catch (e) { console.warn('Skip image', r.path, e); }
+                    }
+                }
+
+                const pdfBytes = await combined.save();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const label = currentDateFilter !== 'all' ? currentDateFilter.replace(/_/g, '-') : 'all';
+                a.href = url; a.download = 'hw-receipts-' + label + '.pdf'; document.body.appendChild(a); a.click(); a.remove();
+                URL.revokeObjectURL(url);
+                showToast('PDF downloaded with ' + filtered.length + ' receipts');
+            } catch (err) {
+                console.error('PDF build error:', err);
+                showToast('PDF build failed: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '&#11015; Download PDF';
+            }
+        }
+
         // ==================== Upload ====================
         function setupFilter() {
             document.getElementById('filterJobSelect').addEventListener('change', (e) => {
@@ -643,11 +807,17 @@
                 currentPage = 1;
                 renderReceipts();
             });
+            document.getElementById('filterDateSelect').addEventListener('change', (e) => {
+                currentDateFilter = e.target.value;
+                currentPage = 1;
+                renderReceipts();
+            });
             document.getElementById('perPageSelect').addEventListener('change', (e) => {
                 perPage = parseInt(e.target.value);
                 currentPage = 1;
                 renderReceipts();
             });
+            document.getElementById('downloadPdfBtn').addEventListener('click', downloadFilteredPdf);
         }
 
         function setupUpload() {
