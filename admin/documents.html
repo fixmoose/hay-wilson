@@ -11,6 +11,41 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/admin/admin-styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        .doc-dropzone { border:2px dashed var(--border-color); border-radius:12px; padding:2.5rem 2rem; text-align:center; cursor:pointer; transition:border-color 0.2s, background 0.2s; color:var(--text-dark); }
+        .doc-dropzone:hover, .doc-dropzone.dragover { border-color:var(--primary-light); background:rgba(37,99,235,0.04); color:var(--primary-light); }
+        .doc-dropzone svg { margin-bottom:0.5rem; }
+        .doc-dropzone input { display:none; }
+        .doc-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:1rem; margin-top:1rem; }
+        .doc-card { background:white; border-radius:10px; border:2px solid var(--border-color); overflow:hidden; transition:box-shadow 0.2s, border-color 0.15s; position:relative; }
+        .doc-card:hover { box-shadow:0 4px 12px rgba(0,0,0,0.1); border-color:var(--primary-light); }
+        .doc-card-thumb { width:100%; height:140px; object-fit:cover; display:block; background:var(--bg-light); cursor:pointer; image-orientation:from-image; }
+        .doc-card-pdf { width:100%; height:140px; display:flex; align-items:center; justify-content:center; background:var(--bg-light); color:var(--text-light); flex-direction:column; gap:0.25rem; cursor:pointer; position:relative; overflow:hidden; }
+        .doc-card-pdf canvas { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
+        .doc-card-other { width:100%; height:140px; display:flex; align-items:center; justify-content:center; background:var(--bg-light); color:var(--text-light); font-size:0.85rem; font-weight:600; flex-direction:column; gap:0.25rem; cursor:pointer; }
+        .doc-card-info { padding:0.6rem 0.75rem; }
+        .doc-card-name { font-size:0.8rem; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .doc-card-meta { font-size:0.7rem; color:var(--text-light); margin-top:0.2rem; display:flex; gap:0.5rem; align-items:center; }
+        .doc-card-actions { display:flex; gap:0.5rem; padding:0 0.75rem 0.6rem; }
+        .doc-card-actions button { padding:0.25rem 0.5rem; border:1px solid var(--border-color); border-radius:4px; background:white; cursor:pointer; font-size:0.7rem; transition:background 0.15s; }
+        .doc-card-actions button:hover { background:var(--bg-light); }
+        .doc-card-actions .btn-del { color:#dc2626; border-color:#fca5a5; }
+        .doc-card-actions .btn-del:hover { background:#fef2f2; }
+        .status-badge { display:inline-block; padding:0.1rem 0.4rem; border-radius:999px; font-size:0.65rem; font-weight:600; }
+        .status-unprocessed { background:#fef3c7; color:#92400e; }
+        .status-processed { background:#d1fae5; color:#065f46; }
+        .doc-type-badge { display:inline-block; padding:0.1rem 0.4rem; border-radius:999px; font-size:0.65rem; font-weight:600; background:var(--bg-light); color:var(--text-dark); }
+        .filter-bar { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem; }
+        .filter-btn { padding:0.35rem 0.75rem; border:1px solid var(--border-color); border-radius:6px; background:white; cursor:pointer; font-size:0.8rem; transition:all 0.15s; }
+        .filter-btn:hover { background:var(--bg-light); }
+        .filter-btn.active { background:var(--primary); color:white; border-color:var(--primary); }
+        .summary-row { display:flex; gap:1rem; margin-bottom:1rem; flex-wrap:wrap; }
+        .summary-box { background:white; border:1px solid var(--border-color); border-radius:10px; padding:0.75rem 1rem; flex:1; min-width:130px; }
+        .summary-box-label { font-size:0.75rem; color:var(--text-light); margin-bottom:0.15rem; }
+        .summary-box-value { font-size:1.1rem; font-weight:700; }
+        .uploading-overlay { position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.85); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:0.5rem; z-index:2; border-radius:10px; }
+    </style>
 </head>
 <body>
     <div class="admin-topbar">
@@ -42,37 +77,335 @@
     </aside>
 
     <main class="admin-main">
-        <a href="/admin/" class="back-link">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
-            Back to Dashboard
-        </a>
         <div class="admin-page-header">
-            <h2>Documents</h2>
+            <h2>Company Documents</h2>
         </div>
+        <p style="color:var(--text-light);font-size:0.85rem;margin:-0.5rem 0 1rem;">Insurance, licenses, bonds, permits, and other company documents. Upload and let Claude process them.</p>
+
+        <div class="summary-row" id="summaryRow" style="display:none;">
+            <div class="summary-box">
+                <div class="summary-box-label">Total Documents</div>
+                <div class="summary-box-value" id="summTotal">0</div>
+            </div>
+            <div class="summary-box">
+                <div class="summary-box-label">Unprocessed</div>
+                <div class="summary-box-value" style="color:#92400e;" id="summUnprocessed">0</div>
+            </div>
+            <div class="summary-box">
+                <div class="summary-box-label">Processed</div>
+                <div class="summary-box-value" style="color:#065f46;" id="summProcessed">0</div>
+            </div>
+        </div>
+
         <div class="admin-card">
-            <div style="padding:2rem;text-align:center;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-light)" stroke-width="1.5" width="48" height="48" style="margin-bottom:1rem;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                <p style="color:var(--text-light);font-size:1.1rem;">Documents page coming soon.</p>
+            <div class="admin-card-header">
+                <h3>Upload Documents</h3>
+            </div>
+            <div style="padding:1rem 1.25rem;">
+                <div class="doc-dropzone" id="docDropzone">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="44" height="44" style="color:var(--text-light);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <div style="font-size:1rem;font-weight:500;">Drop files here or click to browse</div>
+                    <div style="font-size:0.8rem;color:var(--text-light);margin-top:0.25rem;">PDF, images, Word docs, spreadsheets (max 20MB each)</div>
+                    <input type="file" id="docFileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.heic,.doc,.docx,.xls,.xlsx,.csv,.txt,.tiff,.bmp,.webp">
+                </div>
+                <div id="uploadProgress" style="display:none;padding:1rem;text-align:center;">
+                    <div class="spinner" style="margin:0 auto 0.5rem;"></div>
+                    <span id="uploadStatus">Uploading...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="admin-card" style="margin-top:1rem;">
+            <div class="admin-card-header">
+                <h3>All Documents <span style="font-weight:400;font-size:0.85rem;color:var(--text-light);" id="docCount"></span></h3>
+            </div>
+            <div style="padding:0.75rem 1.25rem;">
+                <div class="filter-bar" id="filterBar">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="unprocessed">Unprocessed</button>
+                    <button class="filter-btn" data-filter="processed">Processed</button>
+                </div>
+                <div id="docListArea">
+                    <div class="loading"><div class="spinner"></div></div>
+                </div>
             </div>
         </div>
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+        if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
         const sb = window.supabase.createClient(
             'https://mxxabikquupnwvlspzyz.supabase.co',
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14eGFiaWtxdXVwbnd2bHNwenl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDMwNTgsImV4cCI6MjA3NzIxOTA1OH0.WC_mupqYMneJnYmr9vmDZd0vXroBnaLwZlYX44J_HFQ'
         );
+
+        function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function formatFileSize(bytes) {
+            if (!bytes) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+        function showToast(msg, type = 'success') {
+            let c = document.querySelector('.toast-container');
+            if (!c) { c = document.createElement('div'); c.className = 'toast-container'; document.body.appendChild(c); }
+            const t = document.createElement('div'); t.className = 'toast toast-' + type; t.textContent = msg; c.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
+        }
+
+        let allDocs = [];
+        let currentFilter = 'all';
+
         (async () => {
             const { data: { session } } = await sb.auth.getSession();
             if (!session) { window.location.href = '/admin/login.html'; return; }
             document.getElementById('adminUser').textContent = session.user.email;
             document.getElementById('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); window.location.href = '/admin/login.html'; });
+
             const sidebar = document.getElementById('adminSidebar');
             const toggle = document.getElementById('sidebarToggle');
             toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
             document.addEventListener('click', (e) => { if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggle.contains(e.target)) sidebar.classList.remove('open'); });
+
+            setupUpload();
+            setupFilters();
+            await loadDocuments();
         })();
+
+        function setupUpload() {
+            const dropzone = document.getElementById('docDropzone');
+            const fileInput = document.getElementById('docFileInput');
+
+            dropzone.addEventListener('click', () => fileInput.click());
+            dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+            dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+            dropzone.addEventListener('drop', e => {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
+            });
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length) uploadFiles(fileInput.files);
+                fileInput.value = '';
+            });
+        }
+
+        async function uploadFiles(files) {
+            const maxSize = 20 * 1024 * 1024;
+            const dropzone = document.getElementById('docDropzone');
+            const progress = document.getElementById('uploadProgress');
+            const statusEl = document.getElementById('uploadStatus');
+
+            dropzone.style.display = 'none';
+            progress.style.display = 'block';
+
+            let uploaded = 0;
+            const total = files.length;
+
+            for (const file of files) {
+                if (file.size > maxSize) {
+                    showToast(file.name + ' too large (max 20MB)', 'error');
+                    continue;
+                }
+
+                statusEl.textContent = 'Uploading ' + (uploaded + 1) + ' of ' + total + '...';
+
+                const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const filePath = '_company_docs/' + Date.now() + '_' + safeName;
+
+                const { error: uploadErr } = await sb.storage.from('hw-receipts').upload(filePath, file);
+                if (uploadErr) {
+                    showToast('Failed to upload ' + file.name + ': ' + uploadErr.message, 'error');
+                    continue;
+                }
+
+                // Create database record marked as unprocessed
+                const { error: dbErr } = await sb.from('hw_company_documents').insert({
+                    file_name: file.name,
+                    file_path: filePath,
+                    file_size: file.size,
+                    status: 'unprocessed'
+                });
+
+                if (dbErr) {
+                    showToast('Uploaded but failed to save record: ' + dbErr.message, 'error');
+                } else {
+                    uploaded++;
+                }
+            }
+
+            dropzone.style.display = '';
+            progress.style.display = 'none';
+
+            if (uploaded > 0) {
+                showToast(uploaded + ' document' + (uploaded !== 1 ? 's' : '') + ' uploaded');
+                await loadDocuments();
+            }
+        }
+
+        function setupFilters() {
+            document.getElementById('filterBar').addEventListener('click', e => {
+                const btn = e.target.closest('.filter-btn');
+                if (!btn) return;
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                renderDocuments();
+            });
+        }
+
+        async function loadDocuments() {
+            const { data, error } = await sb
+                .from('hw_company_documents')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) { console.error(error); showToast('Failed to load documents', 'error'); return; }
+            allDocs = data || [];
+            renderDocuments();
+        }
+
+        function renderDocuments() {
+            const area = document.getElementById('docListArea');
+            const countEl = document.getElementById('docCount');
+
+            // Summary
+            const total = allDocs.length;
+            const unprocessed = allDocs.filter(d => d.status === 'unprocessed').length;
+            const processed = total - unprocessed;
+
+            if (total > 0) {
+                document.getElementById('summaryRow').style.display = 'flex';
+                document.getElementById('summTotal').textContent = total;
+                document.getElementById('summUnprocessed').textContent = unprocessed;
+                document.getElementById('summProcessed').textContent = processed;
+            }
+
+            // Filter
+            let filtered = allDocs;
+            if (currentFilter === 'unprocessed') filtered = allDocs.filter(d => d.status === 'unprocessed');
+            else if (currentFilter === 'processed') filtered = allDocs.filter(d => d.status !== 'unprocessed');
+
+            countEl.textContent = filtered.length ? '(' + filtered.length + ')' : '';
+
+            if (filtered.length === 0) {
+                area.innerHTML = '<p style="color:var(--text-light);text-align:center;padding:2rem;">No documents' + (currentFilter !== 'all' ? ' matching filter' : ' uploaded yet') + '</p>';
+                return;
+            }
+
+            area.innerHTML = '<div class="doc-grid">' + filtered.map(doc => {
+                const ext = (doc.file_name || '').split('.').pop().toLowerCase();
+                const isImg = ['jpg','jpeg','png','gif','webp','heic','heif','bmp','tiff'].includes(ext);
+                const isPdf = ext === 'pdf';
+                const dateStr = doc.created_at ? new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+                const statusCls = doc.status === 'unprocessed' ? 'status-unprocessed' : 'status-processed';
+                const statusLabel = doc.status === 'unprocessed' ? 'Unprocessed' : 'Processed';
+                const typeLabel = doc.doc_type ? docTypeLabel(doc.doc_type) : '';
+
+                let thumb;
+                if (isImg) {
+                    thumb = '<img class="doc-card-thumb" src="" alt="" data-path="' + escapeHtml(doc.file_path) + '">';
+                } else if (isPdf) {
+                    thumb = '<div class="doc-card-pdf" data-path="' + escapeHtml(doc.file_path) + '"><canvas></canvas><div style="z-index:1;display:flex;flex-direction:column;align-items:center;gap:0.25rem;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</div></div>';
+                } else {
+                    const label = ext.toUpperCase().slice(0, 4);
+                    thumb = '<div class="doc-card-other"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' + label + '</div>';
+                }
+
+                return '<div class="doc-card" data-doc-id="' + doc.id + '">' +
+                    thumb +
+                    '<div class="doc-card-info">' +
+                        '<div class="doc-card-name" title="' + escapeHtml(doc.file_name) + '">' + escapeHtml(doc.file_name) + '</div>' +
+                        '<div class="doc-card-meta">' +
+                            '<span class="status-badge ' + statusCls + '">' + statusLabel + '</span>' +
+                            (typeLabel ? ' <span class="doc-type-badge">' + typeLabel + '</span>' : '') +
+                        '</div>' +
+                        '<div class="doc-card-meta">' +
+                            '<span>' + formatFileSize(doc.file_size) + '</span>' +
+                            '<span>' + dateStr + '</span>' +
+                        '</div>' +
+                        (doc.notes ? '<div style="font-size:0.7rem;color:var(--text-light);margin-top:0.15rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(doc.notes) + '">' + escapeHtml(doc.notes) + '</div>' : '') +
+                    '</div>' +
+                    '<div class="doc-card-actions">' +
+                        '<button data-view="' + doc.id + '">View</button>' +
+                        '<button class="btn-del" data-delete="' + doc.id + '">Delete</button>' +
+                    '</div>' +
+                '</div>';
+            }).join('') + '</div>';
+
+            // Load image thumbnails
+            area.querySelectorAll('img.doc-card-thumb').forEach(async (img) => {
+                const { data } = await sb.storage.from('hw-receipts').createSignedUrl(img.dataset.path, 3600);
+                if (data) img.src = data.signedUrl;
+            });
+
+            // Load PDF thumbnails
+            area.querySelectorAll('.doc-card-pdf').forEach(async (el) => {
+                try {
+                    const { data } = await sb.storage.from('hw-receipts').createSignedUrl(el.dataset.path, 3600);
+                    if (!data) return;
+                    const pdf = await pdfjsLib.getDocument(data.signedUrl).promise;
+                    const page = await pdf.getPage(1);
+                    const canvas = el.querySelector('canvas');
+                    const vp = page.getViewport({ scale: 1 });
+                    const scale = Math.min(el.clientWidth / vp.width, 140 / vp.height);
+                    const viewport = page.getViewport({ scale });
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    canvas.style.objectFit = 'contain';
+                    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                    // Hide the fallback icon
+                    const fallback = el.querySelector('div');
+                    if (fallback) fallback.style.display = 'none';
+                } catch (e) { /* keep fallback icon */ }
+            });
+
+            // Click thumbnail to view
+            area.querySelectorAll('.doc-card-thumb, .doc-card-pdf, .doc-card-other').forEach(el => {
+                el.addEventListener('click', () => {
+                    const card = el.closest('.doc-card');
+                    const viewBtn = card.querySelector('[data-view]');
+                    if (viewBtn) viewBtn.click();
+                });
+            });
+
+            // View buttons
+            area.querySelectorAll('[data-view]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const doc = allDocs.find(d => d.id === btn.dataset.view);
+                    if (!doc) return;
+                    const { data } = await sb.storage.from('hw-receipts').createSignedUrl(doc.file_path, 3600);
+                    if (data) window.open(data.signedUrl, '_blank');
+                    else showToast('Failed to open document', 'error');
+                });
+            });
+
+            // Delete buttons
+            area.querySelectorAll('[data-delete]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const doc = allDocs.find(d => d.id === btn.dataset.delete);
+                    if (!doc || !confirm('Delete "' + doc.file_name + '"?')) return;
+                    await sb.storage.from('hw-receipts').remove([doc.file_path]);
+                    const { error } = await sb.from('hw_company_documents').delete().eq('id', doc.id);
+                    if (error) { showToast('Failed to delete', 'error'); return; }
+                    showToast('Document deleted');
+                    await loadDocuments();
+                });
+            });
+        }
+
+        function docTypeLabel(t) {
+            const labels = {
+                insurance: 'Insurance', license: 'License', bond: 'Bond', permit: 'Permit',
+                tax: 'Tax', registration: 'Registration', certificate: 'Certificate',
+                policy: 'Policy', contract: 'Contract', w9: 'W-9', coi: 'COI',
+                workers_comp: "Workers' Comp", general_liability: 'General Liability',
+                vehicle: 'Vehicle', other: 'Other'
+            };
+            return labels[t] || t;
+        }
     </script>
 </body>
 </html>
