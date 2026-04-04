@@ -147,9 +147,9 @@
                 <div style="padding:1rem 1.25rem;">
                     <div class="stmt-dropzone" id="stmtDropzone">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40" style="margin-bottom:0.5rem;color:var(--text-light);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        <div>Drop statement PDF or image here</div>
+                        <div>Drop statement here (PDF, CSV, image)</div>
                         <div style="font-size:0.8rem;color:var(--text-light);margin-top:0.25rem;">or click to browse</div>
-                        <input type="file" id="stmtFileInput" accept=".pdf,.jpg,.jpeg,.png,.heic" style="display:none;">
+                        <input type="file" id="stmtFileInput" accept=".pdf,.jpg,.jpeg,.png,.heic,.csv,.xls,.xlsx,.ofx,.qfx,.qbo" style="display:none;">
                     </div>
                     <div id="stmtUploading" style="display:none;text-align:center;padding:1rem;color:var(--text-light);">
                         <div class="spinner" style="margin:0 auto 0.5rem;"></div>
@@ -787,8 +787,8 @@
             if (file.size > maxSize) { showToast('File too large (max 20MB)', 'error'); return; }
 
             const ext = file.name.split('.').pop().toLowerCase();
-            if (!['pdf', 'jpg', 'jpeg', 'png', 'heic'].includes(ext)) {
-                showToast('Unsupported file type. Use PDF or image.', 'error');
+            if (!['pdf', 'jpg', 'jpeg', 'png', 'heic', 'csv', 'xls', 'xlsx', 'ofx', 'qfx', 'qbo'].includes(ext)) {
+                showToast('Unsupported file type. Use PDF, CSV, or image.', 'error');
                 return;
             }
 
