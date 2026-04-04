@@ -26,22 +26,6 @@
         .summary-box-value.company { color:#1e40af; }
         .reimb-section { margin-top:2rem; }
         .reimb-header { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
-        .owed-banner { background:linear-gradient(135deg,#fef3c7,#fde68a); border:2px solid #f59e0b; border-radius:12px; padding:1.25rem 1.5rem; margin-bottom:1rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; }
-        .owed-banner-left { }
-        .owed-banner-label { font-size:0.85rem; color:#92400e; font-weight:500; }
-        .owed-banner-amount { font-size:2rem; font-weight:800; color:#78350f; }
-        .owed-banner-detail { font-size:0.8rem; color:#a16207; margin-top:0.15rem; }
-        .reimb-expense-row { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0; border-bottom:1px solid var(--border-color); font-size:0.9rem; }
-        .reimb-expense-row:last-child { border-bottom:none; }
-        .reimb-expense-row input[type=checkbox] { width:18px; height:18px; flex-shrink:0; }
-        .reimb-expense-vendor { flex:1; font-weight:500; }
-        .reimb-expense-date { color:var(--text-light); font-size:0.8rem; width:80px; }
-        .reimb-expense-amount { font-weight:600; width:90px; text-align:right; }
-        .reimb-expense-pm { font-size:0.75rem; width:140px; }
-        .reimb-expense-pm select { font-size:0.75rem; padding:0.2rem 0.3rem; border:1px solid var(--border-color); border-radius:4px; background:white; cursor:pointer; max-width:140px; }
-        .reimb-expense-pm label { display:flex; align-items:center; gap:0.25rem; font-size:0.7rem; color:var(--text-light); margin-top:0.2rem; cursor:pointer; white-space:nowrap; }
-        .reimb-expense-pm label input { width:13px; height:13px; }
-        .reimb-expense-pm .default-saved { color:#16a34a; font-size:0.7rem; margin-top:0.2rem; }
         .stmt-dropzone { border:2px dashed var(--border-color); border-radius:10px; padding:2rem; text-align:center; cursor:pointer; transition:border-color 0.2s, background 0.2s; color:var(--text-dark); }
         .stmt-dropzone:hover, .stmt-dropzone.dragover { border-color:var(--primary-light); background:rgba(37,99,235,0.04); }
         .stmt-row { display:flex; align-items:center; gap:0.75rem; padding:0.6rem 0; border-bottom:1px solid var(--border-color); font-size:0.9rem; }
@@ -54,10 +38,6 @@
         .stmt-row-actions button { padding:0.25rem 0.5rem; border:1px solid var(--border-color); border-radius:4px; background:white; cursor:pointer; font-size:0.75rem; }
         .stmt-row-actions button:hover { background:var(--bg-light); }
         .stmt-row-actions .btn-del { color:#dc2626; border-color:#fca5a5; }
-        .reimb-history-row { display:flex; align-items:center; gap:1rem; padding:0.75rem 0; border-bottom:1px solid var(--border-color); }
-        .reimb-history-row:last-child { border-bottom:none; }
-        .reimb-select-bar { display:flex; gap:0.5rem; align-items:center; margin-bottom:0.75rem; font-size:0.85rem; }
-        .reimb-select-bar a { cursor:pointer; color:var(--primary); text-decoration:underline; }
     </style>
 </head>
 <body>
@@ -81,6 +61,7 @@
             <li><a href="/admin/receipts.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>Receipts</a></li>
             <li><a href="/admin/accounting.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Accounting</a></li>
             <li><a href="/admin/payment-methods.html" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Payment Methods</a></li>
+            <li><a href="/admin/reimbursements.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h16v13H2z"/><path d="M22 7l-4 4v5l4 4V7z"/><line x1="6" y1="12" x2="14" y2="12"/><line x1="10" y1="9" x2="10" y2="15"/></svg>Reimbursements</a></li>
             <li><a href="/admin/mileage.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Mileage</a></li>
             <li><div class="nav-divider"></div></li>
             <li><a href="/" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>View Site</a></li>
@@ -104,10 +85,6 @@
             <div class="summary-box">
                 <div class="summary-box-label">Company</div>
                 <div class="summary-box-value company" id="summCompany">0</div>
-            </div>
-            <div class="summary-box">
-                <div class="summary-box-label">Pending Reimbursement</div>
-                <div class="summary-box-value personal" id="summPending">$0.00</div>
             </div>
         </div>
 
@@ -169,90 +146,7 @@
             </div>
         </div>
 
-        <!-- Internal Reimbursements Section -->
-        <div class="reimb-section">
-            <div class="reimb-header">
-                <h2>Internal Reimbursements</h2>
-            </div>
-            <p style="color:var(--text-light);font-size:0.85rem;margin:0.25rem 0 1rem;">H&W owes Dejan Obradovic for expenses paid with personal cards. Unassigned expenses default to personal.</p>
-
-            <div class="owed-banner" id="owedBanner" style="display:none;">
-                <div class="owed-banner-left">
-                    <div class="owed-banner-label">H&W owes Dejan Obradovic</div>
-                    <div class="owed-banner-amount" id="owedAmount">$0.00</div>
-                    <div class="owed-banner-detail" id="owedDetail"></div>
-                </div>
-                <button class="btn btn-primary" id="recordReimbBtn">Record Reimbursement</button>
-            </div>
-
-            <div class="admin-card">
-                <div class="admin-card-header">
-                    <h3>Unreimbursed Personal Expenses</h3>
-                </div>
-                <div class="reimb-select-bar" id="reimbSelectBar" style="display:none;padding:0.75rem 1.25rem 0;">
-                    <a id="selectAllReimb">Select all</a> | <a id="selectNoneReimb">Select none</a>
-                    <span style="margin-left:auto;font-weight:600;" id="selectedTotal">$0.00 selected</span>
-                </div>
-                <div style="padding:0.75rem 1.25rem;" id="reimbExpenseList">
-                    <div class="loading"><div class="spinner"></div></div>
-                </div>
-            </div>
-
-            <div class="admin-card" style="margin-top:1rem;">
-                <div class="admin-card-header">
-                    <h3>Reimbursement History</h3>
-                </div>
-                <div style="padding:0.75rem 1.25rem;" id="reimbHistory">
-                    <p style="color:var(--text-light);text-align:center;padding:1rem;">Loading...</p>
-                </div>
-            </div>
-        </div>
     </main>
-
-    <!-- Record Reimbursement Modal -->
-    <div class="modal-overlay" id="reimbModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>Record Reimbursement to Dejan</h3>
-                <button class="modal-close" id="reimbModalClose">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p style="margin-bottom:1rem;color:var(--text-light);font-size:0.9rem;" id="reimbSummary"></p>
-                <div class="form-group">
-                    <label for="reimbMethod">Payment Method</label>
-                    <select id="reimbMethod" class="form-control">
-                        <option value="zelle">Zelle</option>
-                        <option value="check">Check</option>
-                        <option value="transfer">Bank Transfer</option>
-                        <option value="cash">Cash</option>
-                        <option value="other">Other</option>
-                    </select>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="reimbAmount">Amount</label>
-                        <input type="number" id="reimbAmount" class="form-control" step="0.01" min="0">
-                    </div>
-                    <div class="form-group">
-                        <label for="reimbDate">Date</label>
-                        <input type="date" id="reimbDate" class="form-control">
-                    </div>
-                </div>
-                <div class="form-group" id="checkNumGroup" style="display:none;">
-                    <label for="reimbCheckNum">Check Number</label>
-                    <input type="text" id="reimbCheckNum" class="form-control" placeholder="e.g. 1001">
-                </div>
-                <div class="form-group">
-                    <label for="reimbNote">Note (optional)</label>
-                    <input type="text" id="reimbNote" class="form-control" placeholder="e.g. Zelle payment ref #123">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-outline" id="reimbCancelBtn">Cancel</button>
-                <button class="btn btn-primary" id="reimbSaveBtn">Record Reimbursement</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Add/Edit Modal -->
     <div class="modal-overlay" id="modal">
@@ -317,17 +211,13 @@
 
         let allMethods = [];
         let allExpenses = [];
-        let allReimbursements = [];
-        let allMileageTrips = [];
         let expenseCounts = {};
         let expenseTotals = {};
-        let selectedExpenseIds = new Set();
-        const IRS_RATE = 0.70;
 
         const personalMethodIds = new Set();
         const companyMethodIds = new Set();
         const methodMap = {};
-        let vendorDefaults = {}; // vendor -> payment_method_id
+        let vendorDefaults = {};
 
         (async () => {
             const { data: { session } } = await sb.auth.getSession();
@@ -343,28 +233,17 @@
             await loadData();
             setupModal();
             setupStatements();
-            setupReimbursement();
         })();
 
-        function isPersonalExpense(e) {
-            // Expense is personal if: paid with personal card, OR no payment method assigned (default to Dejan)
-            if (e.payment_method_id) return personalMethodIds.has(e.payment_method_id);
-            return true; // unassigned = assume Dejan paid
-        }
-
         async function loadData() {
-            const [{ data: methods, error }, { data: expenses }, { data: reimbs }, { data: vDefaults }, { data: mileage }] = await Promise.all([
+            const [{ data: methods, error }, { data: expenses }, { data: vDefaults }] = await Promise.all([
                 sb.from('hw_payment_methods').select('*').order('owner').order('name'),
-                sb.from('hw_expenses').select('id, vendor, amount, expense_date, payment_method_id, internal_reimbursement_id, job_id, hw_jobs(name)').order('expense_date', { ascending: false }),
-                sb.from('hw_internal_reimbursements').select('*').order('paid_date', { ascending: false }),
-                sb.from('hw_vendor_payment_defaults').select('*'),
-                sb.from('hw_mileage_log').select('id, trip_date, from_address, to_address, miles, trip_type, job_id, internal_reimbursement_id, hw_jobs(name)').order('trip_date', { ascending: false })
+                sb.from('hw_expenses').select('id, vendor, amount, expense_date, payment_method_id, job_id, hw_jobs(name)').order('expense_date', { ascending: false }),
+                sb.from('hw_vendor_payment_defaults').select('*')
             ]);
             if (error) { console.error(error); showToast('Failed to load: ' + error.message, 'error'); return; }
             allMethods = methods || [];
             allExpenses = expenses || [];
-            allReimbursements = reimbs || [];
-            allMileageTrips = mileage || [];
 
             // Build vendor defaults map
             vendorDefaults = {};
@@ -417,7 +296,6 @@
             }
 
             renderTable();
-            renderReimbursements();
         }
 
         function renderTable() {
@@ -543,310 +421,6 @@
             }
 
             modal.classList.add('active');
-        }
-
-        // ==================== Internal Reimbursements ====================
-        function buildPmOptions(selectedId) {
-            const personal = allMethods.filter(m => m.owner === 'personal');
-            const company = allMethods.filter(m => m.owner === 'company');
-            let html = '<option value=""' + (!selectedId ? ' selected' : '') + '>Unassigned (Personal)</option>';
-            if (personal.length) {
-                html += '<optgroup label="Personal">';
-                personal.forEach(m => { html += '<option value="' + m.id + '"' + (m.id === selectedId ? ' selected' : '') + '>' + escapeHtml(m.name) + ' (' + m.last4 + ')</option>'; });
-                html += '</optgroup>';
-            }
-            if (company.length) {
-                html += '<optgroup label="Company">';
-                company.forEach(m => { html += '<option value="' + m.id + '"' + (m.id === selectedId ? ' selected' : '') + '>' + escapeHtml(m.name) + ' (' + m.last4 + ')</option>'; });
-                html += '</optgroup>';
-            }
-            return html;
-        }
-
-        async function updateExpensePm(expenseId, paymentMethodId, remember) {
-            const exp = allExpenses.find(e => e.id === expenseId);
-            const { error } = await sb.from('hw_expenses').update({
-                payment_method_id: paymentMethodId || null
-            }).eq('id', expenseId);
-            if (error) { showToast('Error: ' + error.message, 'error'); return; }
-            if (exp) exp.payment_method_id = paymentMethodId || null;
-
-            // Save vendor default if "remember" checked
-            if (remember && exp && exp.vendor && paymentMethodId) {
-                const vendor = exp.vendor;
-                const { error: upsertErr } = await sb.from('hw_vendor_payment_defaults').upsert({
-                    vendor,
-                    payment_method_id: paymentMethodId
-                }, { onConflict: 'vendor' });
-                if (!upsertErr) {
-                    vendorDefaults[vendor.toLowerCase()] = paymentMethodId;
-                    // Also auto-assign all other unassigned expenses from this vendor
-                    const others = allExpenses.filter(e => e.id !== expenseId && !e.payment_method_id && e.vendor && e.vendor.toLowerCase() === vendor.toLowerCase());
-                    for (const o of others) {
-                        o.payment_method_id = paymentMethodId;
-                        sb.from('hw_expenses').update({ payment_method_id: paymentMethodId }).eq('id', o.id).then();
-                    }
-                    if (others.length > 0) showToast('Also updated ' + others.length + ' other ' + vendor + ' expense(s)');
-                }
-            }
-
-            // Re-render everything
-            expenseCounts = {};
-            expenseTotals = {};
-            allExpenses.forEach(e => {
-                if (e.payment_method_id) {
-                    expenseCounts[e.payment_method_id] = (expenseCounts[e.payment_method_id] || 0) + 1;
-                    expenseTotals[e.payment_method_id] = (expenseTotals[e.payment_method_id] || 0) + (parseFloat(e.amount) || 0);
-                }
-            });
-            renderTable();
-            renderReimbursements();
-        }
-
-        function renderReimbursements() {
-            // Unreimbursed personal expenses (personal card or unassigned, not yet internally reimbursed)
-            const unreimbursed = allExpenses.filter(e => isPersonalExpense(e) && !e.internal_reimbursement_id);
-            const totalExpOwed = unreimbursed.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
-
-            // Unreimbursed mileage
-            const unreimbMileage = allMileageTrips.filter(t => !t.internal_reimbursement_id);
-            const totalMileageMiles = unreimbMileage.reduce((s, t) => s + (parseFloat(t.miles) || 0), 0);
-            const totalMileageOwed = totalMileageMiles * IRS_RATE;
-
-            const totalOwed = totalExpOwed + totalMileageOwed;
-
-            // Update owed banner
-            const banner = document.getElementById('owedBanner');
-            banner.style.display = (unreimbursed.length > 0 || unreimbMileage.length > 0) ? 'flex' : 'none';
-            document.getElementById('owedAmount').textContent = formatCurrency(totalOwed);
-            const parts = [];
-            if (unreimbursed.length > 0) parts.push(unreimbursed.length + ' expense' + (unreimbursed.length !== 1 ? 's' : '') + ' (' + formatCurrency(totalExpOwed) + ')');
-            if (unreimbMileage.length > 0) parts.push(totalMileageMiles.toFixed(0) + ' mi mileage (' + formatCurrency(totalMileageOwed) + ')');
-            document.getElementById('owedDetail').textContent = parts.join(' + ');
-
-            // Update summary pending
-            document.getElementById('summPending').textContent = formatCurrency(totalOwed);
-
-            // Render expense list
-            const listEl = document.getElementById('reimbExpenseList');
-            const selectBar = document.getElementById('reimbSelectBar');
-            if (unreimbursed.length === 0 && unreimbMileage.length === 0) {
-                listEl.innerHTML = '<p style="color:var(--text-light);text-align:center;padding:1rem;">All caught up - no unreimbursed expenses</p>';
-                selectBar.style.display = 'none';
-                document.getElementById('recordReimbBtn').style.display = 'none';
-                return;
-            }
-
-            selectBar.style.display = 'flex';
-            document.getElementById('recordReimbBtn').style.display = '';
-            selectedExpenseIds.clear();
-
-            let html = '';
-
-            // Mileage section
-            if (unreimbMileage.length > 0) {
-                html += '<div style="font-size:0.8rem;font-weight:600;color:var(--text-light);padding:0.5rem 0 0.25rem;border-bottom:2px solid var(--border-color);margin-bottom:0.25rem;">MILEAGE (' + totalMileageMiles.toFixed(0) + ' mi @ $' + IRS_RATE.toFixed(2) + '/mi = ' + formatCurrency(totalMileageOwed) + ')</div>';
-                unreimbMileage.forEach(t => {
-                    const jobName = t.hw_jobs ? t.hw_jobs.name : '';
-                    const dateStr = t.trip_date ? new Date(t.trip_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-                    const deduction = (parseFloat(t.miles) || 0) * IRS_RATE;
-                    html += '<div class="reimb-expense-row">' +
-                        '<input type="checkbox" data-id="' + t.id + '" data-amount="' + deduction.toFixed(2) + '" data-type="mileage">' +
-                        '<span class="reimb-expense-vendor">' + escapeHtml(t.to_address || 'Trip') + (jobName ? ' <span style="color:var(--text-light);font-size:0.8rem;">(' + escapeHtml(jobName) + ')</span>' : '') + '</span>' +
-                        '<span class="reimb-expense-pm" style="font-size:0.8rem;color:var(--text-light);">' + (parseFloat(t.miles) || 0).toFixed(0) + ' mi</span>' +
-                        '<span class="reimb-expense-date">' + dateStr + '</span>' +
-                        '<span class="reimb-expense-amount">' + formatCurrency(deduction) + '</span>' +
-                    '</div>';
-                });
-            }
-
-            // Expenses section
-            if (unreimbursed.length > 0) {
-                if (unreimbMileage.length > 0) {
-                    html += '<div style="font-size:0.8rem;font-weight:600;color:var(--text-light);padding:0.75rem 0 0.25rem;border-bottom:2px solid var(--border-color);margin-bottom:0.25rem;">EXPENSES (' + formatCurrency(totalExpOwed) + ')</div>';
-                }
-                unreimbursed.forEach(e => {
-                    const jobName = e.hw_jobs ? e.hw_jobs.name : '';
-                    const dateStr = e.expense_date ? new Date(e.expense_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-                    const hasDefault = e.vendor && vendorDefaults[e.vendor.toLowerCase()];
-                    html += '<div class="reimb-expense-row">' +
-                        '<input type="checkbox" data-id="' + e.id + '" data-amount="' + e.amount + '" data-type="expense">' +
-                        '<span class="reimb-expense-vendor">' + escapeHtml(e.vendor || 'Unknown') + (jobName ? ' <span style="color:var(--text-light);font-size:0.8rem;">(' + escapeHtml(jobName) + ')</span>' : '') + '</span>' +
-                        '<span class="reimb-expense-pm">' +
-                            '<select data-expense-id="' + e.id + '">' + buildPmOptions(e.payment_method_id) + '</select>' +
-                            (hasDefault ? '<div class="default-saved">Default saved</div>' : '<label><input type="checkbox" class="remember-cb" data-expense-id="' + e.id + '"> Default for ' + escapeHtml(e.vendor || '?') + '</label>') +
-                        '</span>' +
-                        '<span class="reimb-expense-date">' + dateStr + '</span>' +
-                        '<span class="reimb-expense-amount">' + formatCurrency(e.amount) + '</span>' +
-                    '</div>';
-                });
-            }
-
-            listEl.innerHTML = html;
-
-            // Payment method change listeners
-            listEl.querySelectorAll('select[data-expense-id]').forEach(sel => {
-                sel.addEventListener('change', () => {
-                    const rememberCb = listEl.querySelector('.remember-cb[data-expense-id="' + sel.dataset.expenseId + '"]');
-                    const remember = rememberCb && rememberCb.checked;
-                    updateExpensePm(sel.dataset.expenseId, sel.value, remember);
-                });
-            });
-
-            // Checkbox listeners
-            listEl.querySelectorAll('input[type=checkbox]').forEach(cb => {
-                cb.addEventListener('change', () => {
-                    if (cb.checked) selectedExpenseIds.add(cb.dataset.id);
-                    else selectedExpenseIds.delete(cb.dataset.id);
-                    updateSelectedTotal();
-                });
-            });
-
-            // Render reimbursement history
-            const histEl = document.getElementById('reimbHistory');
-            if (allReimbursements.length === 0) {
-                histEl.innerHTML = '<p style="color:var(--text-light);text-align:center;padding:1rem;">No reimbursements recorded yet</p>';
-            } else {
-                const methodLabels = { zelle: 'Zelle', check: 'Check', transfer: 'Transfer', cash: 'Cash', other: 'Other' };
-                histEl.innerHTML = allReimbursements.map(r => {
-                    const dateStr = r.paid_date ? new Date(r.paid_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-                    const expCount = allExpenses.filter(e => e.internal_reimbursement_id === r.id).length;
-                    const mileCount = allMileageTrips.filter(t => t.internal_reimbursement_id === r.id).length;
-                    const detailParts = [];
-                    if (expCount) detailParts.push(expCount + ' expenses');
-                    if (mileCount) detailParts.push(mileCount + ' trips');
-                    return '<div class="reimb-history-row">' +
-                        '<span style="font-weight:600;width:100px;">' + formatCurrency(r.amount) + '</span>' +
-                        '<span style="width:80px;">' + (methodLabels[r.method] || r.method) + '</span>' +
-                        '<span style="color:var(--text-light);width:100px;">' + dateStr + '</span>' +
-                        '<span style="flex:1;color:var(--text-light);font-size:0.85rem;">' + escapeHtml(r.note || '') + (detailParts.length ? ' (' + detailParts.join(', ') + ')' : '') + '</span>' +
-                        '<span class="owner-badge owner-personal">Paid to Dejan</span>' +
-                    '</div>';
-                }).join('');
-            }
-        }
-
-        function updateSelectedTotal() {
-            const checkboxes = document.querySelectorAll('#reimbExpenseList input[type=checkbox]:checked');
-            let total = 0;
-            checkboxes.forEach(cb => total += parseFloat(cb.dataset.amount) || 0);
-            document.getElementById('selectedTotal').textContent = formatCurrency(total) + ' selected (' + checkboxes.length + ')';
-        }
-
-        function setupReimbursement() {
-            // Select all / none
-            document.getElementById('selectAllReimb').addEventListener('click', () => {
-                document.querySelectorAll('#reimbExpenseList input[type=checkbox]').forEach(cb => { cb.checked = true; selectedExpenseIds.add(cb.dataset.id); });
-                updateSelectedTotal();
-            });
-            document.getElementById('selectNoneReimb').addEventListener('click', () => {
-                document.querySelectorAll('#reimbExpenseList input[type=checkbox]').forEach(cb => { cb.checked = false; });
-                selectedExpenseIds.clear();
-                updateSelectedTotal();
-            });
-
-            // Record reimbursement modal
-            const reimbModal = document.getElementById('reimbModal');
-            const closeReimb = () => reimbModal.classList.remove('active');
-
-            // Show/hide check number field based on method
-            document.getElementById('reimbMethod').addEventListener('change', () => {
-                document.getElementById('checkNumGroup').style.display = document.getElementById('reimbMethod').value === 'check' ? '' : 'none';
-            });
-
-            document.getElementById('recordReimbBtn').addEventListener('click', () => {
-                if (selectedExpenseIds.size === 0) {
-                    // Select all by default
-                    document.querySelectorAll('#reimbExpenseList input[type=checkbox]').forEach(cb => { cb.checked = true; selectedExpenseIds.add(cb.dataset.id); });
-                    updateSelectedTotal();
-                }
-                const checkboxes = document.querySelectorAll('#reimbExpenseList input[type=checkbox]:checked');
-                let total = 0;
-                let expCount = 0, mileCount = 0;
-                checkboxes.forEach(cb => {
-                    total += parseFloat(cb.dataset.amount) || 0;
-                    if (cb.dataset.type === 'mileage') mileCount++;
-                    else expCount++;
-                });
-                document.getElementById('reimbAmount').value = total.toFixed(2);
-                document.getElementById('reimbDate').value = new Date().toISOString().split('T')[0];
-                document.getElementById('reimbNote').value = '';
-                document.getElementById('reimbCheckNum').value = '';
-                document.getElementById('checkNumGroup').style.display = document.getElementById('reimbMethod').value === 'check' ? '' : 'none';
-                const parts = [];
-                if (expCount > 0) parts.push(expCount + ' expense(s)');
-                if (mileCount > 0) parts.push(mileCount + ' mileage trip(s)');
-                document.getElementById('reimbSummary').textContent = 'Reimbursing ' + parts.join(' + ') + ' totaling ' + formatCurrency(total) + ' to Dejan Obradovic.';
-                reimbModal.classList.add('active');
-            });
-
-            document.getElementById('reimbModalClose').addEventListener('click', closeReimb);
-            document.getElementById('reimbCancelBtn').addEventListener('click', closeReimb);
-            reimbModal.addEventListener('click', e => { if (e.target === reimbModal) closeReimb(); });
-
-            document.getElementById('reimbSaveBtn').addEventListener('click', async () => {
-                const amount = parseFloat(document.getElementById('reimbAmount').value);
-                if (!amount || amount <= 0) { showToast('Amount must be positive', 'error'); return; }
-
-                const btn = document.getElementById('reimbSaveBtn');
-                btn.disabled = true;
-                btn.textContent = 'Saving...';
-
-                try {
-                    // Build note with check number if applicable
-                    const method = document.getElementById('reimbMethod').value;
-                    let note = document.getElementById('reimbNote').value.trim();
-                    const checkNum = document.getElementById('reimbCheckNum').value.trim();
-                    if (method === 'check' && checkNum) {
-                        note = 'Check #' + checkNum + (note ? ' — ' + note : '');
-                    }
-
-                    // Separate expense and mileage IDs
-                    const expenseIds = [];
-                    const mileageIds = [];
-                    document.querySelectorAll('#reimbExpenseList input[type=checkbox]:checked').forEach(cb => {
-                        if (cb.dataset.type === 'mileage') mileageIds.push(cb.dataset.id);
-                        else expenseIds.push(cb.dataset.id);
-                    });
-
-                    // Create reimbursement record
-                    const { data: reimb, error: reimbErr } = await sb.from('hw_internal_reimbursements').insert({
-                        amount,
-                        recipient: 'Dejan Obradovic',
-                        method,
-                        note: note || null,
-                        paid_date: document.getElementById('reimbDate').value
-                    }).select().single();
-
-                    if (reimbErr) throw reimbErr;
-
-                    // Link selected expenses to this reimbursement
-                    if (expenseIds.length > 0) {
-                        const { error: linkErr } = await sb.from('hw_expenses')
-                            .update({ internal_reimbursement_id: reimb.id })
-                            .in('id', expenseIds);
-                        if (linkErr) throw linkErr;
-                    }
-
-                    // Link selected mileage trips to this reimbursement
-                    if (mileageIds.length > 0) {
-                        const { error: mileErr } = await sb.from('hw_mileage_log')
-                            .update({ internal_reimbursement_id: reimb.id })
-                            .in('id', mileageIds);
-                        if (mileErr) throw mileErr;
-                    }
-
-                    showToast('Reimbursement of ' + formatCurrency(amount) + ' recorded');
-                    closeReimb();
-                    selectedExpenseIds.clear();
-                    await loadData();
-                } catch (err) {
-                    showToast('Error: ' + err.message, 'error');
-                } finally {
-                    btn.disabled = false;
-                    btn.textContent = 'Record Reimbursement';
-                }
-            });
         }
 
         // ==================== Statements Upload ====================
