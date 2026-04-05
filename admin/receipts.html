@@ -505,9 +505,18 @@
                     ? '<span class="receipt-status-tag tag-processed">Processed' + (expenses.length > 1 ? ' (' + expenses.length + ')' : '') + '</span>'
                     : '<span class="receipt-status-tag tag-unprocessed">New</span>';
 
-                const expenseLinesHtml = expenses.map(exp =>
+                const MAX_VISIBLE = 5;
+                const expenseLines = expenses.map(exp =>
                     '<div class="receipt-card-date" style="color:#16a34a;">' + escapeHtml(exp.vendor || '') + ' &mdash; ' + formatCurrency(exp.amount) + '</div>'
-                ).join('');
+                );
+                let expenseLinesHtml;
+                if (expenseLines.length <= MAX_VISIBLE) {
+                    expenseLinesHtml = expenseLines.join('');
+                } else {
+                    expenseLinesHtml = expenseLines.slice(0, MAX_VISIBLE).join('') +
+                        '<div class="expense-collapsed" style="display:none;">' + expenseLines.slice(MAX_VISIBLE).join('') + '</div>' +
+                        '<button class="expense-toggle" onclick="event.stopPropagation();var c=this.previousElementSibling;var show=c.style.display===\'none\';c.style.display=show?\'block\':\'none\';this.textContent=show?\'Show less \u25B2\':\''+(expenseLines.length - MAX_VISIBLE)+' more \u25BC\';" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:0.75rem;padding:0.15rem 0;font-weight:500;">' + (expenseLines.length - MAX_VISIBLE) + ' more \u25BC</button>';
+                }
 
                 return `<div class="receipt-card ${cardClass}" data-path="${escapeHtml(r.path)}" data-name="${escapeHtml(r.name)}" data-folder="${escapeHtml(r.folder)}">
                     ${tagHtml}

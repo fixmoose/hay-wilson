@@ -182,7 +182,7 @@
         let allExpenses = [];
         let filterJob = 'all';
         let filterCategory = 'all';
-        let filterDate = 'all';
+        let filterDate = 'this_year';
 
         function isDateInPeriod(dateStr, period) {
             const d = new Date(dateStr);
@@ -254,6 +254,7 @@
             const jobOpts = allJobs.map(j => '<option value="' + j.id + '">' + escapeHtml(j.name) + '</option>').join('');
             document.getElementById('filterJob').innerHTML = '<option value="all">All expenses</option><option value="_none">Company expenses (no job)</option>' + jobOpts;
             document.getElementById('filterDate').innerHTML = buildDateFilterOptions();
+            document.getElementById('filterDate').value = filterDate;
         }
 
         function jobHasGC(jobId) {

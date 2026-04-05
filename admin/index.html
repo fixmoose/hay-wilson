@@ -165,10 +165,12 @@
             document.getElementById('statClients').textContent = clients.length;
             document.getElementById('statClientsSub').textContent = gcCount > 0 ? gcCount + ' GC' + (gcCount > 1 ? 's' : '') : 'No GCs';
 
-            // Stats: Expenses
-            const totalExpenses = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+            // Stats: Expenses (current year only)
+            const currentYear = new Date().getFullYear();
+            const thisYearExpenses = expenses.filter(e => e.expense_date && new Date(e.expense_date).getFullYear() === currentYear);
+            const totalExpenses = thisYearExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
             document.getElementById('statExpenses').textContent = formatCurrency(totalExpenses);
-            document.getElementById('statExpensesSub').textContent = expenses.length + ' expense' + (expenses.length !== 1 ? 's' : '');
+            document.getElementById('statExpensesSub').textContent = thisYearExpenses.length + ' expense' + (thisYearExpenses.length !== 1 ? 's' : '') + ' in ' + currentYear;
 
             // Stats: Reimbursable (pending only)
             const reimbPending = expenses.filter(e => e.reimbursable && !e.reimbursed);
