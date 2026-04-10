@@ -336,71 +336,70 @@
                 listEl.innerHTML = '<p style="color:var(--text-light);text-align:center;padding:1rem;">All caught up - no unreimbursed expenses</p>';
                 selectBar.style.display = 'none';
                 document.getElementById('recordReimbBtn').style.display = 'none';
-                return;
-            }
+            } else {
+                selectBar.style.display = 'flex';
+                document.getElementById('recordReimbBtn').style.display = '';
+                selectedExpenseIds.clear();
 
-            selectBar.style.display = 'flex';
-            document.getElementById('recordReimbBtn').style.display = '';
-            selectedExpenseIds.clear();
+                let html = '';
 
-            let html = '';
-
-            if (unreimbMileage.length > 0) {
-                html += '<div style="font-size:0.8rem;font-weight:600;color:var(--text-light);padding:0.5rem 0 0.25rem;border-bottom:2px solid var(--border-color);margin-bottom:0.25rem;">MILEAGE (' + totalMileageMiles.toFixed(0) + ' mi @ $' + IRS_RATE.toFixed(2) + '/mi = ' + formatCurrency(totalMileageOwed) + ')</div>';
-                unreimbMileage.forEach(t => {
-                    const jobName = t.hw_jobs ? t.hw_jobs.name : '';
-                    const dateStr = t.trip_date ? new Date(t.trip_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-                    const deduction = (parseFloat(t.miles) || 0) * IRS_RATE;
-                    html += '<div class="reimb-expense-row">' +
-                        '<input type="checkbox" data-id="' + t.id + '" data-amount="' + deduction.toFixed(2) + '" data-type="mileage">' +
-                        '<span class="reimb-expense-vendor">' + escapeHtml(t.to_address || 'Trip') + (jobName ? ' <span style="color:var(--text-light);font-size:0.8rem;">(' + escapeHtml(jobName) + ')</span>' : '') + '</span>' +
-                        '<span class="reimb-expense-pm" style="font-size:0.8rem;color:var(--text-light);">' + (parseFloat(t.miles) || 0).toFixed(0) + ' mi</span>' +
-                        '<span class="reimb-expense-date">' + dateStr + '</span>' +
-                        '<span class="reimb-expense-amount">' + formatCurrency(deduction) + '</span>' +
-                    '</div>';
-                });
-            }
-
-            if (unreimbursed.length > 0) {
                 if (unreimbMileage.length > 0) {
-                    html += '<div style="font-size:0.8rem;font-weight:600;color:var(--text-light);padding:0.75rem 0 0.25rem;border-bottom:2px solid var(--border-color);margin-bottom:0.25rem;">EXPENSES (' + formatCurrency(totalExpOwed) + ')</div>';
+                    html += '<div style="font-size:0.8rem;font-weight:600;color:var(--text-light);padding:0.5rem 0 0.25rem;border-bottom:2px solid var(--border-color);margin-bottom:0.25rem;">MILEAGE (' + totalMileageMiles.toFixed(0) + ' mi @ $' + IRS_RATE.toFixed(2) + '/mi = ' + formatCurrency(totalMileageOwed) + ')</div>';
+                    unreimbMileage.forEach(t => {
+                        const jobName = t.hw_jobs ? t.hw_jobs.name : '';
+                        const dateStr = t.trip_date ? new Date(t.trip_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+                        const deduction = (parseFloat(t.miles) || 0) * IRS_RATE;
+                        html += '<div class="reimb-expense-row">' +
+                            '<input type="checkbox" data-id="' + t.id + '" data-amount="' + deduction.toFixed(2) + '" data-type="mileage">' +
+                            '<span class="reimb-expense-vendor">' + escapeHtml(t.to_address || 'Trip') + (jobName ? ' <span style="color:var(--text-light);font-size:0.8rem;">(' + escapeHtml(jobName) + ')</span>' : '') + '</span>' +
+                            '<span class="reimb-expense-pm" style="font-size:0.8rem;color:var(--text-light);">' + (parseFloat(t.miles) || 0).toFixed(0) + ' mi</span>' +
+                            '<span class="reimb-expense-date">' + dateStr + '</span>' +
+                            '<span class="reimb-expense-amount">' + formatCurrency(deduction) + '</span>' +
+                        '</div>';
+                    });
                 }
-                unreimbursed.forEach(e => {
-                    const jobName = e.hw_jobs ? e.hw_jobs.name : '';
-                    const dateStr = e.expense_date ? new Date(e.expense_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-                    const hasDefault = e.vendor && vendorDefaults[e.vendor.toLowerCase()];
-                    html += '<div class="reimb-expense-row">' +
-                        '<input type="checkbox" data-id="' + e.id + '" data-amount="' + e.amount + '" data-type="expense">' +
-                        '<span class="reimb-expense-vendor">' + escapeHtml(e.vendor || 'Unknown') + (jobName ? ' <span style="color:var(--text-light);font-size:0.8rem;">(' + escapeHtml(jobName) + ')</span>' : '') +
-                            (e.description ? '<div style="font-size:0.75rem;color:var(--text-light);margin-top:0.1rem;">' + escapeHtml(e.description.length > 50 ? e.description.substring(0, 50) + '...' : e.description) + '</div>' : '') +
-                        '</span>' +
-                        '<span class="reimb-expense-pm">' +
-                            '<select data-expense-id="' + e.id + '">' + buildPmOptions(e.payment_method_id) + '</select>' +
-                            (hasDefault ? '<div class="default-saved">Default saved</div>' : '<label><input type="checkbox" class="remember-cb" data-expense-id="' + e.id + '"> Default for ' + escapeHtml(e.vendor || '?') + '</label>') +
-                        '</span>' +
-                        '<span class="reimb-expense-date">' + dateStr + '</span>' +
-                        '<span class="reimb-expense-amount">' + formatCurrency(e.amount) + '</span>' +
-                    '</div>';
+
+                if (unreimbursed.length > 0) {
+                    if (unreimbMileage.length > 0) {
+                        html += '<div style="font-size:0.8rem;font-weight:600;color:var(--text-light);padding:0.75rem 0 0.25rem;border-bottom:2px solid var(--border-color);margin-bottom:0.25rem;">EXPENSES (' + formatCurrency(totalExpOwed) + ')</div>';
+                    }
+                    unreimbursed.forEach(e => {
+                        const jobName = e.hw_jobs ? e.hw_jobs.name : '';
+                        const dateStr = e.expense_date ? new Date(e.expense_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+                        const hasDefault = e.vendor && vendorDefaults[e.vendor.toLowerCase()];
+                        html += '<div class="reimb-expense-row">' +
+                            '<input type="checkbox" data-id="' + e.id + '" data-amount="' + e.amount + '" data-type="expense">' +
+                            '<span class="reimb-expense-vendor">' + escapeHtml(e.vendor || 'Unknown') + (jobName ? ' <span style="color:var(--text-light);font-size:0.8rem;">(' + escapeHtml(jobName) + ')</span>' : '') +
+                                (e.description ? '<div style="font-size:0.75rem;color:var(--text-light);margin-top:0.1rem;">' + escapeHtml(e.description.length > 50 ? e.description.substring(0, 50) + '...' : e.description) + '</div>' : '') +
+                            '</span>' +
+                            '<span class="reimb-expense-pm">' +
+                                '<select data-expense-id="' + e.id + '">' + buildPmOptions(e.payment_method_id) + '</select>' +
+                                (hasDefault ? '<div class="default-saved">Default saved</div>' : '<label><input type="checkbox" class="remember-cb" data-expense-id="' + e.id + '"> Default for ' + escapeHtml(e.vendor || '?') + '</label>') +
+                            '</span>' +
+                            '<span class="reimb-expense-date">' + dateStr + '</span>' +
+                            '<span class="reimb-expense-amount">' + formatCurrency(e.amount) + '</span>' +
+                        '</div>';
+                    });
+                }
+
+                listEl.innerHTML = html;
+
+                listEl.querySelectorAll('select[data-expense-id]').forEach(sel => {
+                    sel.addEventListener('change', () => {
+                        const rememberCb = listEl.querySelector('.remember-cb[data-expense-id="' + sel.dataset.expenseId + '"]');
+                        const remember = rememberCb && rememberCb.checked;
+                        updateExpensePm(sel.dataset.expenseId, sel.value, remember);
+                    });
+                });
+
+                listEl.querySelectorAll('input[type=checkbox]').forEach(cb => {
+                    cb.addEventListener('change', () => {
+                        if (cb.checked) selectedExpenseIds.add(cb.dataset.id);
+                        else selectedExpenseIds.delete(cb.dataset.id);
+                        updateSelectedTotal();
+                    });
                 });
             }
-
-            listEl.innerHTML = html;
-
-            listEl.querySelectorAll('select[data-expense-id]').forEach(sel => {
-                sel.addEventListener('change', () => {
-                    const rememberCb = listEl.querySelector('.remember-cb[data-expense-id="' + sel.dataset.expenseId + '"]');
-                    const remember = rememberCb && rememberCb.checked;
-                    updateExpensePm(sel.dataset.expenseId, sel.value, remember);
-                });
-            });
-
-            listEl.querySelectorAll('input[type=checkbox]').forEach(cb => {
-                cb.addEventListener('change', () => {
-                    if (cb.checked) selectedExpenseIds.add(cb.dataset.id);
-                    else selectedExpenseIds.delete(cb.dataset.id);
-                    updateSelectedTotal();
-                });
-            });
 
             // Reimbursement history
             const histEl = document.getElementById('reimbHistory');
