@@ -215,14 +215,15 @@
         async function loadData() {
             const [{ data: methods, error }, { data: expenses }, { data: reimbs }, { data: vDefaults }, { data: mileage }] = await Promise.all([
                 sb.from('hw_payment_methods').select('*').order('owner').order('name'),
-                sb.from('hw_expenses').select('id, vendor, description, amount, expense_date, payment_method_id, internal_reimbursement_id, job_id, hw_jobs(name)').gte('expense_date', new Date().getFullYear() + '-01-01').order('expense_date', { ascending: false }),
+                sb.from('hw_expenses').select('id, vendor, description, amount, expense_date, payment_method_id, internal_reimbursement_id, job_id, hw_jobs(name)').order('expense_date', { ascending: false }),
                 sb.from('hw_internal_reimbursements').select('*').order('paid_date', { ascending: false }),
                 sb.from('hw_vendor_payment_defaults').select('*'),
                 sb.from('hw_mileage_log').select('id, trip_date, from_address, to_address, miles, trip_type, job_id, internal_reimbursement_id, hw_jobs(name)').order('trip_date', { ascending: false })
             ]);
             if (error) { console.error(error); showToast('Failed to load: ' + error.message, 'error'); return; }
             allMethods = methods || [];
-            allExpenses = expenses || [];
+            const minDate = new Date().getFullYear() + '-01-01';
+            allExpenses = (expenses || []).filter(e => e.expense_date >= minDate);
             allReimbursements = reimbs || [];
             allMileageTrips = mileage || [];
 
