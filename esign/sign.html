@@ -628,7 +628,7 @@
             };
             drawLine('Certificate of Completion', 18, true, rgb(0.05, 0.1, 0.4));
             y -= 6;
-            drawLine('Hay & Wilson Electric Company LLC', 11, true);
+            if (audit.signerCompany) drawLine(audit.signerCompany, 11, true);
             drawLine('Electronic signature audit trail', 9, false, rgb(0.4, 0.4, 0.4));
             y -= 10;
             drawLine('DOCUMENT', 10, true);
