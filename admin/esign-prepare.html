@@ -82,6 +82,19 @@
         .upload-dz input { display:none; }
         .upload-dz svg { margin-bottom:0.5rem; opacity:0.6; }
 
+        .start-card { background:white; border:1px solid var(--border-color); border-radius:10px; padding:1.25rem; margin-bottom:1rem; }
+        .start-card-header { font-size:0.95rem; font-weight:600; margin-bottom:0.25rem; }
+        .start-card-hint { font-size:0.8rem; color:var(--text-light); margin-bottom:0.85rem; }
+        .start-row { display:flex; gap:0.75rem; }
+        .start-row label { display:block; font-size:0.7rem; color:var(--text-light); font-weight:500; margin-bottom:0.2rem; }
+        .start-row select { width:100%; padding:0.5rem 0.65rem; border:1px solid var(--border-color); border-radius:6px; font-size:0.85rem; font-family:inherit; background:white; }
+        .start-row select:disabled { background:var(--bg-light); color:var(--text-light); }
+        @media (max-width: 600px) { .start-row { flex-direction:column; } }
+
+        .or-divider { text-align:center; position:relative; margin:1rem 0; font-size:0.8rem; color:var(--text-light); }
+        .or-divider::before { content:''; position:absolute; left:0; right:0; top:50%; height:1px; background:var(--border-color); }
+        .or-divider span { background:var(--bg-light); padding:0 0.75rem; position:relative; }
+
         .customer-picker { display:flex; gap:0.4rem; }
         .customer-picker select { flex:1; }
 
@@ -126,6 +139,26 @@
         </div>
 
         <div id="uploadView" style="display:none;">
+            <div class="start-card">
+                <div class="start-card-header">Pick an existing job document</div>
+                <div class="start-card-hint">Choose a PDF you've already uploaded to a job — proposal, contract, change order, etc.</div>
+                <div class="start-row">
+                    <div style="flex:1;">
+                        <label>Job</label>
+                        <select id="startJobSel"><option value="">— Choose a job —</option></select>
+                    </div>
+                    <div style="flex:1;">
+                        <label>Document</label>
+                        <select id="startDocSel" disabled><option value="">— Choose a document —</option></select>
+                    </div>
+                </div>
+                <div style="text-align:right;margin-top:0.75rem;">
+                    <button class="btn-primary" id="useExistingBtn" disabled>Use this document</button>
+                </div>
+            </div>
+
+            <div class="or-divider"><span>or upload a new PDF</span></div>
+
             <div class="upload-dz" id="uploadDz">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="44" height="44"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 <div style="font-weight:600;">Drop a PDF here or click to choose</div>
@@ -291,6 +324,7 @@
             setupSendModal();
 
             await loadAux();
+            setupStartPicker();
 
             if (docId) {
                 await loadExisting();
@@ -298,6 +332,139 @@
                 document.getElementById('uploadView').style.display = '';
             }
         })();
+
+        // ==================== Start picker: pick existing job document ====================
+        function setupStartPicker() {
+            const jobSel = document.getElementById('startJobSel');
+            const docSel = document.getElementById('startDocSel');
+            const useBtn = document.getElementById('useExistingBtn');
+
+            // Populate jobs (sorted by most recent). hw_jobs already loaded into `jobs`.
+            jobs.forEach(j => {
+                const o = document.createElement('option');
+                o.value = j.id;
+                o.textContent = j.name;
+                jobSel.appendChild(o);
+            });
+
+            jobSel.addEventListener('change', async () => {
+                docSel.innerHTML = '<option value="">— Choose a document —</option>';
+                docSel.disabled = true;
+                useBtn.disabled = true;
+                const jid = jobSel.value;
+                if (!jid) return;
+                docSel.innerHTML = '<option value="">Loading...</option>';
+                const { data, error } = await sb.from('hw_job_documents')
+                    .select('id, file_name, file_path, doc_type')
+                    .eq('job_id', jid)
+                    .order('created_at', { ascending: false });
+                if (error) { showToast('Failed to load docs: ' + error.message, 'error'); return; }
+                // Only PDFs
+                const pdfs = (data || []).filter(d => /\.pdf$/i.test(d.file_name));
+                docSel.innerHTML = '<option value="">— Choose a document —</option>';
+                if (pdfs.length === 0) {
+                    const o = document.createElement('option');
+                    o.value = '';
+                    o.textContent = '(no PDFs attached to this job)';
+                    o.disabled = true;
+                    docSel.appendChild(o);
+                } else {
+                    pdfs.forEach(d => {
+                        const o = document.createElement('option');
+                        o.value = d.id;
+                        o.textContent = (d.doc_type ? '[' + d.doc_type + '] ' : '') + d.file_name;
+                        o.dataset.path = d.file_path;
+                        o.dataset.name = d.file_name;
+                        docSel.appendChild(o);
+                    });
+                }
+                docSel.disabled = false;
+            });
+
+            docSel.addEventListener('change', () => {
+                useBtn.disabled = !docSel.value;
+            });
+
+            useBtn.addEventListener('click', async () => {
+                const jid = jobSel.value;
+                const opt = docSel.options[docSel.selectedIndex];
+                if (!jid || !opt || !opt.dataset.path) return;
+                useBtn.disabled = true;
+                useBtn.textContent = 'Copying...';
+                try {
+                    await useExistingJobDocument(jid, opt.dataset.path, opt.dataset.name);
+                } catch (e) {
+                    showToast('Failed: ' + e.message, 'error');
+                    useBtn.disabled = false;
+                    useBtn.textContent = 'Use this document';
+                }
+            });
+        }
+
+        async function useExistingJobDocument(jid, srcPath, fileName) {
+            // Download from hw-receipts
+            const { data: srcUrl } = await sb.storage.from('hw-receipts').createSignedUrl(srcPath, 600);
+            if (!srcUrl) throw new Error('Could not generate download URL');
+            const resp = await fetch(srcUrl.signedUrl);
+            if (!resp.ok) throw new Error('Download failed (' + resp.status + ')');
+            const buf = await resp.arrayBuffer();
+            const hash = await sha256Hex(buf);
+
+            // Upload to hw-esign
+            const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const destPath = 'originals/' + Date.now() + '_' + safeName;
+            const { error: upErr } = await sb.storage.from('hw-esign').upload(destPath, new Blob([buf], { type: 'application/pdf' }));
+            if (upErr) throw upErr;
+
+            // Page count
+            const tmpPdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+            const pageCount = tmpPdf.numPages;
+
+            // Resolve customer from job
+            const jobRow = jobs.find(j => j.id === jid);
+            const customerId = jobRow ? jobRow.customer_id : null;
+
+            // Create doc record linked to the job
+            const title = fileName.replace(/\.pdf$/i, '');
+            const { data: created, error: dErr } = await sb.from('hw_esign_documents').insert({
+                title, original_pdf_path: destPath, original_sha256: hash,
+                page_count: pageCount, status: 'draft', created_by: session.user.email,
+                job_id: jid, customer_id: customerId
+            }).select().single();
+            if (dErr) throw dErr;
+            doc = created;
+            docId = doc.id;
+            history.replaceState(null, '', '?id=' + docId);
+
+            // Create initial signer (default to first library identity if any)
+            const firstIdentity = library.find(l => l.signer_name);
+            const initName = firstIdentity ? firstIdentity.signer_name : session.user.email;
+            const initEmail = firstIdentity ? (firstIdentity.signer_email || session.user.email) : session.user.email;
+            const { data: s } = await sb.from('hw_esign_signers').insert({
+                document_id: docId, kind: 'self', name: initName, email: initEmail, sign_order: 1, status: 'pending'
+            }).select().single();
+            signer = s;
+
+            await sb.from('hw_esign_audit_log').insert({
+                document_id: docId, event: 'created',
+                meta: { title, source: 'job_document', source_job_id: jid }
+            });
+
+            // Transition to prep view
+            document.getElementById('uploadView').style.display = 'none';
+            document.getElementById('prepView').style.display = 'grid';
+            document.getElementById('docTitle').value = title;
+            document.getElementById('customerSel').value = customerId || '';
+            document.getElementById('customerSel').dispatchEvent(new Event('change'));
+            document.getElementById('jobSel').value = jid;
+            if (firstIdentity) document.getElementById('selfIdentitySel').value = firstIdentity.id;
+
+            pdfDoc = tmpPdf;
+            await renderPages();
+            renderSignerList();
+            updateActionButtons();
+            updateLibraryCard();
+        }
 
         // ==================== Load customers, jobs, library ====================
         async function loadAux() {
