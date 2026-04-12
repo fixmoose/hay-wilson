@@ -1463,13 +1463,16 @@
                 }
 
                 if (['signature', 'initial', 'stamp'].includes(f.type)) {
-                    // Embed image (data URL PNG)
+                    // Embed image (data URL PNG) — always fit inside the box with 2pt padding
                     const b64 = fv.value.split(',')[1];
                     const imgBytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
                     const img = await pdfDocLib.embedPng(imgBytes);
                     const iw = img.width, ih = img.height;
-                    const scale = Math.min(boxW / iw, boxH / ih);
-                    const dw = iw * scale, dh = ih * scale;
+                    const pad = 2;
+                    const fitW = boxW - pad * 2, fitH = boxH - pad * 2;
+                    const scale = Math.min(fitW / iw, fitH / ih, 1);
+                    const dw = Math.min(iw * scale, fitW);
+                    const dh = Math.min(ih * scale, fitH);
                     page.drawImage(img, { x: boxX + (boxW - dw) / 2, y: boxY + (boxH - dh) / 2, width: dw, height: dh });
                 } else {
                     // Text

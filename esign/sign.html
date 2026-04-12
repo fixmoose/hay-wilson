@@ -586,7 +586,7 @@
                 const activeTab = document.querySelector('#fieldModal .tab-btn.active').dataset.tab;
                 if (activeTab === 'esign') {
                     renderEsignBlock();
-                    value = document.getElementById('esignCanvas').toDataURL('image/png');
+                    value = trimTransparent(document.getElementById('esignCanvas'));
                 } else if (activeTab === 'draw') {
                     if (!signaturePad || signaturePad.isEmpty()) { showToast('Please draw first', 'error'); return; }
                     value = trimTransparent(signaturePad.canvas);
@@ -816,8 +816,11 @@
                     const imgBytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
                     const img = await pdfDocLib.embedPng(imgBytes);
                     const iw = img.width, ih = img.height;
-                    const scale = Math.min(boxW / iw, boxH / ih);
-                    const dw = iw * scale, dh = ih * scale;
+                    const pad = 2;
+                    const fitW = boxW - pad * 2, fitH = boxH - pad * 2;
+                    const scale = Math.min(fitW / iw, fitH / ih, 1);
+                    const dw = Math.min(iw * scale, fitW);
+                    const dh = Math.min(ih * scale, fitH);
                     page.drawImage(img, { x: boxX + (boxW - dw) / 2, y: boxY + (boxH - dh) / 2, width: dw, height: dh });
                 } else {
                     const fontSize = Math.min(boxH * 0.7, 14);
