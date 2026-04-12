@@ -115,6 +115,15 @@
         .error-screen svg { width:64px; height:64px; color:#dc2626; margin-bottom:1rem; }
         .error-screen h2 { font-size:1.25rem; margin-bottom:0.5rem; }
 
+        .esign-block-preview { background:
+            linear-gradient(45deg, #f9fafb 25%, transparent 25%),
+            linear-gradient(-45deg, #f9fafb 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, #f9fafb 75%),
+            linear-gradient(-45deg, transparent 75%, #f9fafb 75%);
+            background-size:16px 16px; background-position:0 0, 0 8px, 8px -8px, -8px 0;
+            border-radius:8px; padding:0.5rem; display:flex; align-items:center; justify-content:center; }
+        .esign-block-preview canvas { max-width:100%; height:auto; display:block; border-radius:6px; }
+
         .saved-sig-option { margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid #e5e7eb; }
         .saved-sig-label { font-size:0.75rem; color:#6b7280; margin-bottom:0.35rem; font-weight:500; }
         .saved-sig-preview { background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; padding:0.5rem; margin-bottom:0.5rem; text-align:center; max-height:80px; display:flex; align-items:center; justify-content:center; }
@@ -377,12 +386,17 @@
                 // If there's a previously saved sig for this type, show it as an option
                 const hasSaved = savedSigs[field.type];
                 body.innerHTML =
-                    (hasSaved ? '<div class="saved-sig-option"><div class="saved-sig-label">Your current ' + field.type + ':</div><div class="saved-sig-preview"><img src="' + savedSigs[field.type] + '"></div><button class="btn-secondary btn-sm" id="reuseSavedBtn" type="button">Keep this one</button><div class="saved-sig-or">or draw a new one below:</div></div>' : '') +
+                    (hasSaved ? '<div class="saved-sig-option"><div class="saved-sig-label">Your current ' + field.type + ':</div><div class="saved-sig-preview"><img src="' + savedSigs[field.type] + '"></div><button class="btn-secondary btn-sm" id="reuseSavedBtn" type="button">Keep this one</button><div class="saved-sig-or">or choose a new style below:</div></div>' : '') +
                     '<div class="tab-bar">' +
-                        '<button class="tab-btn active" data-tab="draw">Draw</button>' +
+                        '<button class="tab-btn active" data-tab="esign">eSigned Block</button>' +
+                        '<button class="tab-btn" data-tab="draw">Draw</button>' +
                         '<button class="tab-btn" data-tab="type">Type</button>' +
                     '</div>' +
-                    '<div class="tab-pane active" data-pane="draw">' +
+                    '<div class="tab-pane active" data-pane="esign">' +
+                        '<div class="esign-block-preview"><canvas id="esignCanvas" width="480" height="130"></canvas></div>' +
+                        '<p style="font-size:0.75rem;color:#6b7280;text-align:center;margin-top:0.35rem;">Your name, email, and timestamp in a professional block</p>' +
+                    '</div>' +
+                    '<div class="tab-pane" data-pane="draw">' +
                         '<div class="sig-canvas-wrap"><canvas id="sigCanvas"></canvas></div>' +
                         '<p style="font-size:0.75rem;color:#6b7280;text-align:center;margin-top:0.35rem;">Draw with mouse or finger</p>' +
                     '</div>' +
@@ -419,6 +433,82 @@
             }
         }
 
+        function renderEsignBlock() {
+            const canvas = document.getElementById('esignCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width, h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            // Soft-edged frame (rounded rect)
+            const r = 12;
+            ctx.beginPath();
+            ctx.moveTo(r, 0); ctx.lineTo(w - r, 0);
+            ctx.quadraticCurveTo(w, 0, w, r); ctx.lineTo(w, h - r);
+            ctx.quadraticCurveTo(w, h, w - r, h); ctx.lineTo(r, h);
+            ctx.quadraticCurveTo(0, h, 0, h - r); ctx.lineTo(0, r);
+            ctx.quadraticCurveTo(0, 0, r, 0);
+            ctx.closePath();
+            ctx.fillStyle = '#f0f5ff';
+            ctx.fill();
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Checkmark badge (rounded)
+            const pad = 12;
+            const badge = 40;
+            const badgeY = (h - badge) / 2;
+            const br = 8;
+            ctx.beginPath();
+            ctx.moveTo(pad + br, badgeY); ctx.lineTo(pad + badge - br, badgeY);
+            ctx.quadraticCurveTo(pad + badge, badgeY, pad + badge, badgeY + br); ctx.lineTo(pad + badge, badgeY + badge - br);
+            ctx.quadraticCurveTo(pad + badge, badgeY + badge, pad + badge - br, badgeY + badge); ctx.lineTo(pad + br, badgeY + badge);
+            ctx.quadraticCurveTo(pad, badgeY + badge, pad, badgeY + badge - br); ctx.lineTo(pad, badgeY + br);
+            ctx.quadraticCurveTo(pad, badgeY, pad + br, badgeY);
+            ctx.closePath();
+            ctx.fillStyle = '#10b981';
+            ctx.fill();
+            // Checkmark
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 4.5;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(pad + badge * 0.25, badgeY + badge * 0.52);
+            ctx.lineTo(pad + badge * 0.45, badgeY + badge * 0.72);
+            ctx.lineTo(pad + badge * 0.78, badgeY + badge * 0.30);
+            ctx.stroke();
+
+            // Text
+            const textX = pad + badge + 14;
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'left';
+            const name = signer.name || 'Signer';
+            const email = signer.email || '';
+            const d = new Date();
+            const dateStr = d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+            let ty = 16;
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '11px Inter, -apple-system, sans-serif';
+            ctx.fillText('Digitally signed by', textX, ty);
+            ty += 16;
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 20px Inter, -apple-system, sans-serif';
+            ctx.fillText(name, textX, ty);
+            ty += 26;
+            if (email) {
+                ctx.fillStyle = '#4b5563';
+                ctx.font = '12px Inter, -apple-system, sans-serif';
+                ctx.fillText(email, textX, ty);
+                ty += 17;
+            }
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '11px Inter, -apple-system, sans-serif';
+            ctx.fillText('Date: ' + dateStr, textX, ty);
+        }
+
         function initSignatureUI() {
             // Tab switching
             document.querySelectorAll('#fieldModal .tab-btn').forEach(btn => {
@@ -428,11 +518,12 @@
                     btn.classList.add('active');
                     document.querySelector('#fieldModal [data-pane="' + btn.dataset.tab + '"]').classList.add('active');
                     if (btn.dataset.tab === 'draw') setTimeout(initPad, 50);
+                    if (btn.dataset.tab === 'esign') renderEsignBlock();
                 });
             });
 
-            // Draw pad
-            initPad();
+            // Render eSigned Block (default tab)
+            renderEsignBlock();
 
             // Type font
             const typePreview = document.getElementById('typePreview');
@@ -493,7 +584,10 @@
 
             if (['signature', 'initial', 'stamp'].includes(type)) {
                 const activeTab = document.querySelector('#fieldModal .tab-btn.active').dataset.tab;
-                if (activeTab === 'draw') {
+                if (activeTab === 'esign') {
+                    renderEsignBlock();
+                    value = document.getElementById('esignCanvas').toDataURL('image/png');
+                } else if (activeTab === 'draw') {
                     if (!signaturePad || signaturePad.isEmpty()) { showToast('Please draw first', 'error'); return; }
                     value = trimTransparent(signaturePad.canvas);
                 } else {
