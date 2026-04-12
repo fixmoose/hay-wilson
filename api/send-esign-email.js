@@ -23,26 +23,42 @@ module.exports = async (req, res) => {
 
         const fromEmail = process.env.ESIGN_FROM_EMAIL || 'esign@haywilson.com';
         const fromName = process.env.ESIGN_FROM_NAME || 'Hay & Wilson Electric - eSign';
-        const unioneUrl = process.env.UNIONE_API_URL || 'https://us1.unione.io/transactional/api/v1/email/send.json';
+        const unioneUrl = process.env.UNIONE_API_URL || 'https://us1.unione.io/en/transactional/api/v1/email/send.json';
+
+        const payload = {
+            api_key: UNIONE_KEY,
+            message: {
+                recipients: [{ address: to, name: to_name || '' }],
+                subject,
+                from_email: fromEmail,
+                from_name: fromName,
+                body: { html: html_body }
+            }
+        };
+
+        console.log('UniOne request to:', unioneUrl, 'from:', fromEmail, 'to:', to);
 
         const response = await fetch(unioneUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-API-KEY': UNIONE_KEY },
-            body: JSON.stringify({
-                message: {
-                    recipients: [{ address: to, name: to_name || '' }],
-                    subject,
-                    from_email: fromEmail,
-                    from_name: fromName,
-                    body: { html: html_body }
-                }
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
         });
 
-        const result = await response.json();
+        const responseText = await response.text();
+        console.log('UniOne response:', response.status, responseText);
+
+        let result;
+        try { result = JSON.parse(responseText); } catch (e) {
+            return res.status(502).json({ error: 'UniOne returned non-JSON: ' + responseText.substring(0, 200) });
+        }
+
         if (result.status !== 'success') {
-            console.error('UniOne error:', result);
-            return res.status(502).json({ error: (result.message || result.status || 'Email send failed') });
+            console.error('UniOne error:', JSON.stringify(result));
+            return res.status(502).json({
+                error: result.message || result.status || 'Email send failed',
+                code: result.code,
+                details: result
+            });
         }
 
         if (document_id) {
