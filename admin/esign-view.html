@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/admin/admin-styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <style>
         .view-layout { display:grid; grid-template-columns:320px 1fr; gap:1rem; margin-top:0.5rem; }
         @media (max-width: 960px) { .view-layout { grid-template-columns:1fr; } }
@@ -127,6 +128,7 @@
                     <div class="btn-row" style="flex-direction:column;">
                         <button class="btn-secondary" id="downloadOrigBtn">Download original</button>
                         <button class="btn-secondary" id="downloadSignedBtn" style="display:none;background:#ecfdf5;border-color:#a7f3d0;color:#065f46;">Download signed copy</button>
+                        <button class="btn-secondary" id="downloadCertBtn" style="display:none;">Download certificate only</button>
                         <button class="btn-secondary btn-danger" id="voidBtn">Void document</button>
                     </div>
                 </div>
@@ -257,7 +259,10 @@
             }
 
             // Download signed button visibility
-            if (doc.signed_pdf_path) document.getElementById('downloadSignedBtn').style.display = '';
+            if (doc.signed_pdf_path) {
+                document.getElementById('downloadSignedBtn').style.display = '';
+                document.getElementById('downloadCertBtn').style.display = '';
+            }
 
             // Void button only if not already signed/voided
             if (['signed', 'voided', 'declined'].includes(doc.status)) document.getElementById('voidBtn').style.display = 'none';
@@ -372,6 +377,36 @@
             document.getElementById('downloadSignedBtn').addEventListener('click', async () => {
                 const { data: su } = await sb.storage.from('hw-esign').createSignedUrl(doc.signed_pdf_path, 600);
                 if (su) window.open(su.signedUrl, '_blank');
+            });
+
+            document.getElementById('downloadCertBtn').addEventListener('click', async () => {
+                if (!doc.signed_pdf_path) return;
+                const btn = document.getElementById('downloadCertBtn');
+                btn.textContent = 'Extracting...';
+                btn.disabled = true;
+                try {
+                    const { data: su } = await sb.storage.from('hw-esign').createSignedUrl(doc.signed_pdf_path, 600);
+                    if (!su) throw new Error('URL failed');
+                    const bytes = await fetch(su.signedUrl).then(r => r.arrayBuffer());
+                    const { PDFDocument } = PDFLib;
+                    const srcDoc = await PDFDocument.load(bytes);
+                    const lastIdx = srcDoc.getPageCount() - 1;
+                    const certDoc = await PDFDocument.create();
+                    const [copied] = await certDoc.copyPages(srcDoc, [lastIdx]);
+                    certDoc.addPage(copied);
+                    const certBytes = await certDoc.save();
+                    const blob = new Blob([certBytes], { type: 'application/pdf' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = (doc.title || 'certificate') + ' - Certificate.pdf';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                } catch (e) {
+                    showToast('Failed: ' + e.message, 'error');
+                }
+                btn.textContent = 'Download certificate only';
+                btn.disabled = false;
             });
 
             document.getElementById('voidBtn').addEventListener('click', async () => {
