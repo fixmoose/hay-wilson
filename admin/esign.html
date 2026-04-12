@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eSign - H&amp;W Admin</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/admin/admin-styles.css">
+    <style>
+        .filter-bar { display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; }
+        .filter-btn { padding:0.35rem 0.75rem; border:1px solid var(--border-color); border-radius:6px; background:white; cursor:pointer; font-size:0.8rem; transition:all 0.15s; }
+        .filter-btn:hover { background:var(--bg-light); }
+        .filter-btn.active { background:var(--primary-light); color:white; border-color:var(--primary-light); }
+
+        .doc-list { display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem; }
+        .doc-row { display:grid; grid-template-columns:1fr auto auto auto; gap:1rem; align-items:center; padding:0.75rem 1rem; background:white; border:1px solid var(--border-color); border-radius:8px; transition:border-color 0.15s, box-shadow 0.15s; cursor:pointer; }
+        .doc-row:hover { border-color:var(--primary-light); box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+        .doc-row-title { font-weight:600; font-size:0.9rem; }
+        .doc-row-sub { font-size:0.75rem; color:var(--text-light); margin-top:0.15rem; }
+        .doc-row-status { font-size:0.7rem; font-weight:600; padding:0.2rem 0.55rem; border-radius:999px; text-transform:uppercase; white-space:nowrap; }
+        .status-draft { background:#f3f4f6; color:#374151; }
+        .status-sent { background:#dbeafe; color:#1e40af; }
+        .status-viewed { background:#fef3c7; color:#92400e; }
+        .status-signed { background:#d1fae5; color:#065f46; }
+        .status-declined { background:#fee2e2; color:#991b1b; }
+        .status-voided { background:#f3f4f6; color:#6b7280; text-decoration:line-through; }
+        .doc-row-date { font-size:0.75rem; color:var(--text-light); white-space:nowrap; }
+        .doc-row-actions { display:flex; gap:0.35rem; }
+        .doc-row-actions button { padding:0.3rem 0.55rem; border:1px solid var(--border-color); border-radius:4px; background:white; cursor:pointer; font-size:0.7rem; }
+        .doc-row-actions button:hover { background:var(--bg-light); }
+
+        .empty-state { text-align:center; padding:3rem 1rem; color:var(--text-light); }
+        .empty-state svg { margin-bottom:0.75rem; opacity:0.4; }
+
+        .summary-row { display:flex; gap:1rem; margin-bottom:1rem; flex-wrap:wrap; }
+        .summary-box { background:white; border:1px solid var(--border-color); border-radius:10px; padding:0.75rem 1rem; flex:1; min-width:130px; }
+        .summary-box-label { font-size:0.75rem; color:var(--text-light); margin-bottom:0.15rem; }
+        .summary-box-value { font-size:1.1rem; font-weight:700; }
+
+        .top-actions { display:flex; gap:0.5rem; }
+        .btn-secondary { padding:0.55rem 1rem; border:1px solid var(--border-color); border-radius:6px; background:white; cursor:pointer; font-size:0.85rem; font-family:inherit; color:var(--text-dark); text-decoration:none; display:inline-flex; align-items:center; gap:0.35rem; }
+        .btn-secondary:hover { background:var(--bg-light); }
+        .btn-secondary svg { width:16px; height:16px; }
+    </style>
+</head>
+<body>
+    <div class="admin-topbar">
+        <div class="admin-topbar-left">
+            <button class="mobile-sidebar-toggle" id="sidebarToggle">&#9776;</button>
+            <h1>H&amp;W <span>Admin</span></h1>
+        </div>
+        <div class="admin-topbar-right">
+            <span class="admin-user" id="adminUser"></span>
+            <button class="btn-logout" id="logoutBtn">Logout</button>
+        </div>
+    </div>
+
+    <aside class="admin-sidebar" id="adminSidebar">
+        <ul class="admin-nav">
+            <li><a href="/admin/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Dashboard</a></li>
+            <li><a href="/admin/jobs.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Jobs</a></li>
+            <li><a href="/admin/clients.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Clients</a></li>
+            <li><a href="/admin/invoices.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Invoices</a></li>
+            <li><a href="/admin/documents.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Documents</a></li>
+            <li><a href="/admin/esign.html" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.7 7.7l-1.4-1.4a1 1 0 0 0-1.4 0L4 20.2V22h1.8L19.3 8.5a1 1 0 0 0 0-1.4z"/><path d="M14 6l4 4"/><path d="M3 22c2-3 4-5 7-5"/></svg>eSign</a></li>
+            <li><a href="/admin/receipts.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>Receipts</a></li>
+            <li><a href="/admin/accounting.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Accounting</a></li>
+            <li><a href="/admin/payment-methods.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Payment Methods</a></li>
+            <li><a href="/admin/reimbursements.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h16v13H2z"/><path d="M22 7l-4 4v5l4 4V7z"/><line x1="6" y1="12" x2="14" y2="12"/><line x1="10" y1="9" x2="10" y2="15"/></svg>Reimbursements</a></li>
+            <li><a href="/admin/mileage.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Mileage</a></li>
+            <li><div class="nav-divider"></div></li>
+            <li><a href="/" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>View Site</a></li>
+        </ul>
+    </aside>
+
+    <main class="admin-main">
+        <div class="admin-page-header">
+            <h2>eSign</h2>
+            <div class="top-actions">
+                <a href="/admin/esign-signatures.html" class="btn-secondary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.7 7.7l-1.4-1.4a1 1 0 0 0-1.4 0L4 20.2V22h1.8L19.3 8.5a1 1 0 0 0 0-1.4z"/><path d="M14 6l4 4"/></svg>
+                    My Signatures
+                </a>
+                <a href="/admin/esign-prepare.html" class="btn-primary">+ New Document</a>
+            </div>
+        </div>
+        <p style="color:var(--text-light);font-size:0.85rem;margin:-0.5rem 0 1rem;">Upload a PDF, place signature fields, and either self-sign or send a signing link to your customer.</p>
+
+        <div class="summary-row" id="summaryRow" style="display:none;">
+            <div class="summary-box">
+                <div class="summary-box-label">Total</div>
+                <div class="summary-box-value" id="summTotal">0</div>
+            </div>
+            <div class="summary-box">
+                <div class="summary-box-label">Awaiting signature</div>
+                <div class="summary-box-value" style="color:#92400e;" id="summPending">0</div>
+            </div>
+            <div class="summary-box">
+                <div class="summary-box-label">Signed</div>
+                <div class="summary-box-value" style="color:#065f46;" id="summSigned">0</div>
+            </div>
+        </div>
+
+        <div class="admin-card">
+            <div class="admin-card-header">
+                <h3>Documents <span style="font-weight:400;font-size:0.85rem;color:var(--text-light);" id="docCount"></span></h3>
+            </div>
+            <div style="padding:0.75rem 1.25rem;">
+                <div class="filter-bar" id="filterBar">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="draft">Draft</button>
+                    <button class="filter-btn" data-filter="pending">Awaiting</button>
+                    <button class="filter-btn" data-filter="signed">Signed</button>
+                    <button class="filter-btn" data-filter="voided">Voided</button>
+                </div>
+                <div id="docListArea">
+                    <div class="loading"><div class="spinner"></div></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const sb = window.supabase.createClient(
+            'https://mxxabikquupnwvlspzyz.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14eGFiaWtxdXVwbnd2bHNwenl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDMwNTgsImV4cCI6MjA3NzIxOTA1OH0.WC_mupqYMneJnYmr9vmDZd0vXroBnaLwZlYX44J_HFQ'
+        );
+
+        function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function showToast(msg, type = 'success') {
+            let c = document.querySelector('.toast-container');
+            if (!c) { c = document.createElement('div'); c.className = 'toast-container'; document.body.appendChild(c); }
+            const t = document.createElement('div'); t.className = 'toast toast-' + type; t.textContent = msg; c.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
+        }
+
+        let allDocs = [];
+        let currentFilter = 'all';
+
+        (async () => {
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) { window.location.href = '/admin/login.html'; return; }
+            document.getElementById('adminUser').textContent = session.user.email;
+            document.getElementById('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); window.location.href = '/admin/login.html'; });
+
+            const sidebar = document.getElementById('adminSidebar');
+            const toggle = document.getElementById('sidebarToggle');
+            toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+            document.addEventListener('click', (e) => { if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggle.contains(e.target)) sidebar.classList.remove('open'); });
+
+            setupFilters();
+            await loadDocs();
+        })();
+
+        async function loadDocs() {
+            const { data, error } = await sb.from('hw_esign_documents')
+                .select('*, hw_jobs(name), hw_customers(name), hw_esign_signers(id, name, email, status, kind)')
+                .order('created_at', { ascending: false });
+            if (error) { showToast('Failed to load: ' + error.message, 'error'); return; }
+            allDocs = data || [];
+            render();
+        }
+
+        function setupFilters() {
+            document.getElementById('filterBar').addEventListener('click', e => {
+                const btn = e.target.closest('.filter-btn');
+                if (!btn) return;
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.filter;
+                render();
+            });
+        }
+
+        function render() {
+            const list = applyFilter(allDocs, currentFilter);
+
+            // Summary
+            const summRow = document.getElementById('summaryRow');
+            if (allDocs.length > 0) {
+                summRow.style.display = 'flex';
+                document.getElementById('summTotal').textContent = allDocs.length;
+                document.getElementById('summPending').textContent = allDocs.filter(d => ['sent', 'viewed'].includes(d.status)).length;
+                document.getElementById('summSigned').textContent = allDocs.filter(d => d.status === 'signed').length;
+            } else {
+                summRow.style.display = 'none';
+            }
+
+            document.getElementById('docCount').textContent = list.length ? '(' + list.length + ')' : '';
+            const area = document.getElementById('docListArea');
+            if (list.length === 0) {
+                area.innerHTML = '<div class="empty-state">' +
+                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="56" height="56"><path d="M20.7 7.7l-1.4-1.4a1 1 0 0 0-1.4 0L4 20.2V22h1.8L19.3 8.5a1 1 0 0 0 0-1.4z"/><path d="M14 6l4 4"/></svg>' +
+                    '<div>' + (allDocs.length === 0 ? 'No eSign documents yet. Click "+ New Document" to get started.' : 'No documents match this filter.') + '</div>' +
+                '</div>';
+                return;
+            }
+
+            const statusLabels = { draft: 'Draft', sent: 'Sent', viewed: 'Viewed', signed: 'Signed', declined: 'Declined', voided: 'Voided' };
+            area.innerHTML = '<div class="doc-list">' + list.map(d => {
+                const signer = (d.hw_esign_signers || [])[0];
+                const dateStr = new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                const jobName = d.hw_jobs ? d.hw_jobs.name : '';
+                const customerName = d.hw_customers ? d.hw_customers.name : (signer ? signer.name : '');
+                const subParts = [];
+                if (customerName) subParts.push(customerName);
+                if (jobName) subParts.push(jobName);
+                if (signer && signer.kind === 'customer' && d.status === 'sent') subParts.push('waiting on ' + (signer.email || signer.name));
+                return '<div class="doc-row" data-id="' + d.id + '">' +
+                    '<div>' +
+                        '<div class="doc-row-title">' + escapeHtml(d.title) + '</div>' +
+                        '<div class="doc-row-sub">' + escapeHtml(subParts.join(' · ')) + '</div>' +
+                    '</div>' +
+                    '<span class="doc-row-status status-' + d.status + '">' + (statusLabels[d.status] || d.status) + '</span>' +
+                    '<span class="doc-row-date">' + dateStr + '</span>' +
+                    '<div class="doc-row-actions">' +
+                        (d.status === 'draft' ? '<button data-act="prepare">Continue</button>' : '<button data-act="view">View</button>') +
+                    '</div>' +
+                '</div>';
+            }).join('') + '</div>';
+
+            area.querySelectorAll('.doc-row').forEach(row => {
+                row.querySelectorAll('button[data-act]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const act = btn.dataset.act;
+                        if (act === 'prepare') window.location.href = '/admin/esign-prepare.html?id=' + row.dataset.id;
+                        else window.location.href = '/admin/esign-view.html?id=' + row.dataset.id;
+                    });
+                });
+                row.addEventListener('click', () => {
+                    const d = allDocs.find(x => x.id === row.dataset.id);
+                    if (d && d.status === 'draft') window.location.href = '/admin/esign-prepare.html?id=' + row.dataset.id;
+                    else window.location.href = '/admin/esign-view.html?id=' + row.dataset.id;
+                });
+            });
+        }
+
+        function applyFilter(docs, filter) {
+            if (filter === 'all') return docs;
+            if (filter === 'pending') return docs.filter(d => ['sent', 'viewed'].includes(d.status));
+            return docs.filter(d => d.status === filter);
+        }
+    </script>
+</body>
+</html>
