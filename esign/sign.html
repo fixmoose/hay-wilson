@@ -115,6 +115,12 @@
         .error-screen svg { width:64px; height:64px; color:#dc2626; margin-bottom:1rem; }
         .error-screen h2 { font-size:1.25rem; margin-bottom:0.5rem; }
 
+        .saved-sig-option { margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid #e5e7eb; }
+        .saved-sig-label { font-size:0.75rem; color:#6b7280; margin-bottom:0.35rem; font-weight:500; }
+        .saved-sig-preview { background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; padding:0.5rem; margin-bottom:0.5rem; text-align:center; max-height:80px; display:flex; align-items:center; justify-content:center; }
+        .saved-sig-preview img { max-width:100%; max-height:60px; object-fit:contain; }
+        .saved-sig-or { font-size:0.75rem; color:#9ca3af; margin-top:0.5rem; text-align:center; }
+
         .sign-zoom-bar { display:flex; align-items:center; gap:0.35rem; padding:0.4rem 0.65rem; background:white; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.06); position:sticky; top:56px; z-index:12; width:fit-content; margin:0 auto 0.75rem; }
         .sign-zoom-bar button { display:flex; align-items:center; justify-content:center; width:32px; height:32px; border:1px solid #e5e7eb; border-radius:6px; background:white; cursor:pointer; font-size:1.1rem; font-weight:600; color:#1f2937; font-family:inherit; padding:0; line-height:1; transition:background 0.12s; }
         .sign-zoom-bar button:hover { background:#f3f4f6; }
@@ -202,6 +208,7 @@
         const TOKEN = params.get('token');
         let docRow = null, signer = null, fieldRows = [];
         let fieldValues = {};  // { fieldId: dataUrl or string }
+        let savedSigs = {};   // { 'signature': dataUrl, 'initial': dataUrl } — reuse last drawn
         let pdfDoc = null;
         let ip = '', ua = navigator.userAgent;
         let currentField = null;
@@ -340,6 +347,25 @@
         }
 
         function openFieldModal(field) {
+            // Auto-apply: if we already have a saved sig for this type and this field is empty, apply instantly
+            if (['signature', 'initial', 'stamp'].includes(field.type) && savedSigs[field.type] && !fieldValues[field.id]) {
+                fieldValues[field.id] = savedSigs[field.type];
+                sb.rpc('hw_esign_signer_event', { p_token: TOKEN, p_event: 'field_filled', p_ip: ip, p_user_agent: ua, p_meta: { field_type: field.type, reused: true } });
+                renderFields();
+                updateProgress();
+                showToast('Signature applied', 'success');
+                return;
+            }
+            // Auto-apply date fields without modal
+            if (field.type === 'date' && !fieldValues[field.id]) {
+                const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                fieldValues[field.id] = today;
+                sb.rpc('hw_esign_signer_event', { p_token: TOKEN, p_event: 'field_filled', p_ip: ip, p_user_agent: ua, p_meta: { field_type: 'date' } });
+                renderFields();
+                updateProgress();
+                return;
+            }
+
             currentField = field;
             const modal = document.getElementById('fieldModal');
             const title = document.getElementById('fieldModalTitle');
@@ -348,7 +374,10 @@
             title.textContent = titles[field.type] || 'Fill field';
 
             if (['signature', 'initial', 'stamp'].includes(field.type)) {
+                // If there's a previously saved sig for this type, show it as an option
+                const hasSaved = savedSigs[field.type];
                 body.innerHTML =
+                    (hasSaved ? '<div class="saved-sig-option"><div class="saved-sig-label">Your current ' + field.type + ':</div><div class="saved-sig-preview"><img src="' + savedSigs[field.type] + '"></div><button class="btn-secondary btn-sm" id="reuseSavedBtn" type="button">Keep this one</button><div class="saved-sig-or">or draw a new one below:</div></div>' : '') +
                     '<div class="tab-bar">' +
                         '<button class="tab-btn active" data-tab="draw">Draw</button>' +
                         '<button class="tab-btn" data-tab="type">Type</button>' +
@@ -368,11 +397,20 @@
                         '</div>' +
                     '</div>';
                 modal.classList.add('active');
+                if (hasSaved) {
+                    document.getElementById('reuseSavedBtn').addEventListener('click', () => {
+                        fieldValues[field.id] = savedSigs[field.type];
+                        sb.rpc('hw_esign_signer_event', { p_token: TOKEN, p_event: 'field_filled', p_ip: ip, p_user_agent: ua, p_meta: { field_type: field.type, reused: true } });
+                        renderFields();
+                        updateProgress();
+                        closeFieldModal();
+                    });
+                }
                 setTimeout(initSignatureUI, 50);
             } else if (field.type === 'date') {
                 const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
                 body.innerHTML = '<p style="font-size:0.85rem;color:#6b7280;margin-bottom:0.75rem;">Today\'s date will be stamped into the document.</p>' +
-                    '<input type="text" class="text-input" id="dateInput" value="' + escapeHtml(today) + '">';
+                    '<input type="text" class="text-input" id="dateInput" value="' + escapeHtml(fieldValues[field.id] || today) + '">';
                 modal.classList.add('active');
             } else if (field.type === 'text') {
                 body.innerHTML = '<input type="text" class="text-input" id="textInput" placeholder="Type here..." value="' + escapeHtml(fieldValues[field.id] || '') + '">';
@@ -473,6 +511,21 @@
             if (!value) { showToast('Please fill in a value', 'error'); return; }
 
             fieldValues[currentField.id] = value;
+            // Cache this signature so it auto-applies to remaining fields of the same type
+            if (['signature', 'initial', 'stamp'].includes(type)) {
+                savedSigs[type] = value;
+                // Auto-fill all other empty fields of the same type
+                const autoFilled = [];
+                fieldRows.forEach(f => {
+                    if (f.id !== currentField.id && f.type === type && !fieldValues[f.id]) {
+                        fieldValues[f.id] = value;
+                        autoFilled.push(f.id);
+                    }
+                });
+                if (autoFilled.length > 0) {
+                    showToast('Applied to ' + (autoFilled.length + 1) + ' ' + type + ' fields', 'success');
+                }
+            }
             sb.rpc('hw_esign_signer_event', { p_token: TOKEN, p_event: 'field_filled', p_ip: ip, p_user_agent: ua, p_meta: { field_type: type } });
             renderFields();
             updateProgress();
