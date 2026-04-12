@@ -295,18 +295,42 @@
             }
         }
 
-        async function renderPdf(which) {
-            const path = which === 'signed' ? doc.signed_pdf_path : doc.original_pdf_path;
-            if (!path) return;
+        const VIEW_DEFAULT_SCALE = 1.2;
+        let viewScale = VIEW_DEFAULT_SCALE;
+        let viewPdfObj = null;
+        let viewWhich = 'signed';
+
+        function buildViewZoomBar(container) {
+            const bar = document.createElement('div');
+            bar.className = 'pdf-zoom-bar';
+            bar.id = 'viewZoomBar';
+            bar.innerHTML = '<button title="Zoom out" id="vZoomOut">−</button>' +
+                '<span class="pdf-zoom-label" id="vZoomLabel">100%</span>' +
+                '<button title="Zoom in" id="vZoomIn">+</button>' +
+                '<span class="zoom-divider"></span>' +
+                '<button title="Reset zoom" id="vZoomReset">Reset</button>';
+            container.prepend(bar);
+            document.getElementById('vZoomOut').addEventListener('click', () => { viewScale = Math.max(0.5, viewScale - 0.2); rerenderViewPdf(); });
+            document.getElementById('vZoomIn').addEventListener('click', () => { viewScale = Math.max(0.5, Math.min(3.0, viewScale + 0.2)); rerenderViewPdf(); });
+            document.getElementById('vZoomReset').addEventListener('click', () => { viewScale = VIEW_DEFAULT_SCALE; rerenderViewPdf(); });
+        }
+
+        function updateViewZoomLabel() {
+            const el = document.getElementById('vZoomLabel');
+            if (el) el.textContent = Math.round(viewScale / VIEW_DEFAULT_SCALE * 100) + '%';
+        }
+
+        async function rerenderViewPdf() {
+            if (!viewPdfObj) return;
             const content = document.getElementById('pdfContent');
-            content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-            const { data: su } = await sb.storage.from('hw-esign').createSignedUrl(path, 3600);
-            if (!su) { content.innerHTML = '<div style="color:var(--text-light);padding:2rem;">Could not load PDF</div>'; return; }
-            const pdf = await pdfjsLib.getDocument(su.signedUrl).promise;
+            const bar = document.getElementById('viewZoomBar');
             content.innerHTML = '';
-            for (let p = 1; p <= pdf.numPages; p++) {
-                const page = await pdf.getPage(p);
-                const viewport = page.getViewport({ scale: 1.2 });
+            if (bar) content.prepend(bar);
+            else buildViewZoomBar(content);
+            updateViewZoomLabel();
+            for (let p = 1; p <= viewPdfObj.numPages; p++) {
+                const page = await viewPdfObj.getPage(p);
+                const viewport = page.getViewport({ scale: viewScale });
                 const wrap = document.createElement('div');
                 wrap.className = 'pdf-page-wrap';
                 const canvas = document.createElement('canvas');
@@ -316,6 +340,19 @@
                 content.appendChild(wrap);
                 await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
             }
+        }
+
+        async function renderPdf(which) {
+            viewWhich = which;
+            viewScale = VIEW_DEFAULT_SCALE;
+            const path = which === 'signed' ? doc.signed_pdf_path : doc.original_pdf_path;
+            if (!path) return;
+            const content = document.getElementById('pdfContent');
+            content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+            const { data: su } = await sb.storage.from('hw-esign').createSignedUrl(path, 3600);
+            if (!su) { content.innerHTML = '<div style="color:var(--text-light);padding:2rem;">Could not load PDF</div>'; return; }
+            viewPdfObj = await pdfjsLib.getDocument(su.signedUrl).promise;
+            await rerenderViewPdf();
         }
 
         function setupActions() {

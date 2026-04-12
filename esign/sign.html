@@ -115,6 +115,14 @@
         .error-screen svg { width:64px; height:64px; color:#dc2626; margin-bottom:1rem; }
         .error-screen h2 { font-size:1.25rem; margin-bottom:0.5rem; }
 
+        .sign-zoom-bar { display:flex; align-items:center; gap:0.35rem; padding:0.4rem 0.65rem; background:white; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.06); position:sticky; top:56px; z-index:12; width:fit-content; margin:0 auto 0.75rem; }
+        .sign-zoom-bar button { display:flex; align-items:center; justify-content:center; width:32px; height:32px; border:1px solid #e5e7eb; border-radius:6px; background:white; cursor:pointer; font-size:1.1rem; font-weight:600; color:#1f2937; font-family:inherit; padding:0; line-height:1; transition:background 0.12s; }
+        .sign-zoom-bar button:hover { background:#f3f4f6; }
+        .sign-zoom-bar button:active { transform:translateY(1px); }
+        .sign-zoom-label { min-width:48px; text-align:center; font-size:0.8rem; font-weight:600; color:#1f2937; user-select:none; }
+        .szoom-div { width:1px; height:20px; background:#e5e7eb; margin:0 0.15rem; }
+        .sign-zoom-bar .reset-btn { width:auto; padding:0 0.5rem; font-size:0.72rem; font-weight:500; text-transform:uppercase; letter-spacing:0.03em; }
+
         @media (max-width: 640px) {
             .bottom-bar-inner { flex-wrap:wrap; }
             .progress-text { flex-basis:100%; margin-bottom:0.5rem; }
@@ -232,22 +240,40 @@
             document.getElementById('bottomBar').style.display = '';
         })();
 
-        async function renderDocument() {
-            const { data: su } = await sb.storage.from('hw-esign').createSignedUrl(docRow.original_pdf_path, 3600);
-            if (!su) { showError('Could not load PDF', 'Please contact us.'); return; }
-            pdfDoc = await pdfjsLib.getDocument(su.signedUrl).promise;
+        const SIGN_DEFAULT_SCALE = Math.min(2, window.innerWidth < 768 ? window.innerWidth / 600 : 1.3);
+        let signScale = SIGN_DEFAULT_SCALE;
+        let welcomeHtml = '';
 
+        function buildSignZoomBar() {
+            const bar = document.createElement('div');
+            bar.className = 'sign-zoom-bar';
+            bar.id = 'signZoomBar';
+            bar.innerHTML = '<button title="Zoom out" id="sZoomOut">−</button>' +
+                '<span class="sign-zoom-label" id="sZoomLabel">100%</span>' +
+                '<button title="Zoom in" id="sZoomIn">+</button>' +
+                '<span class="szoom-div"></span>' +
+                '<button title="Reset zoom" id="sZoomReset" class="reset-btn">Reset</button>';
+            return bar;
+        }
+
+        function updateSignZoomLabel() {
+            const el = document.getElementById('sZoomLabel');
+            if (el) el.textContent = Math.round(signScale / SIGN_DEFAULT_SCALE * 100) + '%';
+        }
+
+        async function rerenderSignPages() {
             const main = document.getElementById('main');
-            main.innerHTML = '<div class="welcome-card">' +
-                '<h2>' + escapeHtml(docRow.title) + '</h2>' +
-                '<p>Hi ' + escapeHtml(signer.name || 'there') + ', please review and sign the document below. Tap each yellow field to fill it in, then click <strong>Finish &amp; Sign</strong>.</p>' +
-                '<span class="progress-pill">' + fieldRows.length + ' field' + (fieldRows.length !== 1 ? 's' : '') + ' to complete</span>' +
-            '</div>';
+            main.innerHTML = welcomeHtml;
+            const bar = buildSignZoomBar();
+            main.appendChild(bar);
+            document.getElementById('sZoomOut').addEventListener('click', () => { signScale = Math.max(0.5, signScale - 0.2); rerenderSignPages(); });
+            document.getElementById('sZoomIn').addEventListener('click', () => { signScale = Math.min(3.0, signScale + 0.2); rerenderSignPages(); });
+            document.getElementById('sZoomReset').addEventListener('click', () => { signScale = SIGN_DEFAULT_SCALE; rerenderSignPages(); });
+            updateSignZoomLabel();
 
-            const scale = Math.min(2, window.innerWidth < 768 ? window.innerWidth / 600 : 1.3);
             for (let p = 1; p <= pdfDoc.numPages; p++) {
                 const page = await pdfDoc.getPage(p);
-                const viewport = page.getViewport({ scale });
+                const viewport = page.getViewport({ scale: signScale });
                 const wrap = document.createElement('div');
                 wrap.className = 'pdf-page-wrap';
                 wrap.dataset.page = p;
@@ -261,6 +287,20 @@
                 await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
             }
             renderFields();
+        }
+
+        async function renderDocument() {
+            const { data: su } = await sb.storage.from('hw-esign').createSignedUrl(docRow.original_pdf_path, 3600);
+            if (!su) { showError('Could not load PDF', 'Please contact us.'); return; }
+            pdfDoc = await pdfjsLib.getDocument(su.signedUrl).promise;
+
+            welcomeHtml = '<div class="welcome-card">' +
+                '<h2>' + escapeHtml(docRow.title) + '</h2>' +
+                '<p>Hi ' + escapeHtml(signer.name || 'there') + ', please review and sign the document below. Tap each yellow field to fill it in, then click <strong>Finish &amp; Sign</strong>.</p>' +
+                '<span class="progress-pill">' + fieldRows.length + ' field' + (fieldRows.length !== 1 ? 's' : '') + ' to complete</span>' +
+            '</div>';
+
+            await rerenderSignPages();
         }
 
         function renderFields() {

@@ -292,7 +292,8 @@
         let pdfDoc = null;            // pdf.js document
         let currentTool = 'signature';// selected field type
         let session = null;
-        const PAGE_SCALE = 1.3;       // render scale
+        const DEFAULT_SCALE = 1.3;
+        let currentScale = DEFAULT_SCALE;
 
         // Default field sizes by type, as % of page
         const FIELD_DEFAULTS = {
@@ -661,13 +662,43 @@
             updateLibraryCard();
         }
 
+        // ==================== Zoom ====================
+        function buildZoomBar(container) {
+            const bar = document.createElement('div');
+            bar.className = 'pdf-zoom-bar';
+            bar.id = 'zoomBar';
+            bar.innerHTML = '<button title="Zoom out" id="zoomOut">−</button>' +
+                '<span class="pdf-zoom-label" id="zoomLabel">100%</span>' +
+                '<button title="Zoom in" id="zoomIn">+</button>' +
+                '<span class="zoom-divider"></span>' +
+                '<button title="Reset zoom" id="zoomReset">Reset</button>';
+            container.prepend(bar);
+            document.getElementById('zoomOut').addEventListener('click', () => changeZoom(-0.2));
+            document.getElementById('zoomIn').addEventListener('click', () => changeZoom(0.2));
+            document.getElementById('zoomReset').addEventListener('click', () => { currentScale = DEFAULT_SCALE; renderPages(); });
+            updateZoomLabel();
+        }
+        function changeZoom(delta) {
+            currentScale = Math.max(0.5, Math.min(3.0, currentScale + delta));
+            renderPages();
+        }
+        function updateZoomLabel() {
+            const el = document.getElementById('zoomLabel');
+            if (el) el.textContent = Math.round(currentScale / DEFAULT_SCALE * 100) + '%';
+        }
+
         // ==================== Render PDF pages ====================
         async function renderPages() {
             const area = document.getElementById('pdfArea');
+            // Preserve zoom bar if already present
+            const existingBar = document.getElementById('zoomBar');
             area.innerHTML = '';
+            if (!existingBar) buildZoomBar(area);
+            else area.prepend(existingBar);
+            updateZoomLabel();
             for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
                 const page = await pdfDoc.getPage(pageNum);
-                const viewport = page.getViewport({ scale: PAGE_SCALE });
+                const viewport = page.getViewport({ scale: currentScale });
                 const wrap = document.createElement('div');
                 wrap.className = 'pdf-page-wrap';
                 wrap.dataset.page = pageNum;
