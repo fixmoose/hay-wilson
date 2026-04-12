@@ -365,7 +365,9 @@
 
         function setupActions() {
             document.getElementById('fieldModalClose').addEventListener('click', closeFieldModal);
-            document.getElementById('fieldModal').addEventListener('click', (e) => { if (e.target.id === 'fieldModal') closeFieldModal(); });
+            let fieldMouseDownOnOverlay = false;
+            document.getElementById('fieldModal').addEventListener('mousedown', (e) => { fieldMouseDownOnOverlay = (e.target.id === 'fieldModal'); });
+            document.getElementById('fieldModal').addEventListener('click', (e) => { if (e.target.id === 'fieldModal' && fieldMouseDownOnOverlay) closeFieldModal(); });
             document.getElementById('fieldModalClear').addEventListener('click', () => {
                 if (signaturePad) signaturePad.clear();
                 const t = document.getElementById('typeText'); if (t) { t.value = ''; document.getElementById('typePreview').textContent = 'Your Name'; }

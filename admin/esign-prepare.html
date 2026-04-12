@@ -787,7 +787,9 @@
         function setupSendModal() {
             const modal = document.getElementById('sendModal');
             document.getElementById('sendClose').addEventListener('click', () => modal.classList.remove('active'));
-            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+            let mouseDownOnOverlay = false;
+            modal.addEventListener('mousedown', (e) => { mouseDownOnOverlay = (e.target === modal); });
+            modal.addEventListener('click', (e) => { if (e.target === modal && mouseDownOnOverlay) modal.classList.remove('active'); });
             document.getElementById('copyLinkBtn').addEventListener('click', async () => {
                 await navigator.clipboard.writeText(document.getElementById('linkDisplay').textContent);
                 showToast('Link copied');

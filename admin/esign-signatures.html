@@ -387,7 +387,9 @@
             openBtn.addEventListener('click', () => openModal(modal));
             closeBtn.addEventListener('click', () => closeModal(modal));
             cancelBtn.addEventListener('click', () => closeModal(modal));
-            modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(modal); });
+            let mouseDownOnOverlay = false;
+            modal.addEventListener('mousedown', (e) => { mouseDownOnOverlay = (e.target === modal); });
+            modal.addEventListener('click', (e) => { if (e.target === modal && mouseDownOnOverlay) closeModal(modal); });
 
             // Tab switching
             document.querySelectorAll('.tab-btn').forEach(btn => {
