@@ -342,23 +342,26 @@
         }
 
         function populateSelfIdentities() {
-            // Deduplicate identities by (name + email + company)
-            const seen = new Map();
-            library.forEach(l => {
-                if (!l.signer_name) return;
-                const key = (l.signer_name || '') + '|' + (l.signer_email || '') + '|' + (l.signer_company || '');
-                if (!seen.has(key)) seen.set(key, l);
-            });
+            // Show EVERY library entry that has a signer_name set — one option per signature.
+            // This way multiple signatures with different names/emails/companies all show up.
+            const items = library.filter(l => l.signer_name);
             const sel = document.getElementById('selfIdentitySel');
             sel.innerHTML = '';
-            if (seen.size === 0) {
+            if (items.length === 0) {
                 sel.innerHTML = '<option value="">(No identities saved — create one on My Signatures)</option>';
                 return;
             }
-            [...seen.values()].forEach(l => {
+            const kindLabels = { signature: 'Signature', initial: 'Initial', stamp: 'Stamp' };
+            items.forEach(l => {
                 const o = document.createElement('option');
                 o.value = l.id;
-                o.textContent = l.signer_name + (l.signer_company ? ' · ' + l.signer_company : '');
+                // Format: "Signature label — Name <email> · Company"
+                const parts = [];
+                parts.push(l.signer_name);
+                if (l.signer_email) parts.push('<' + l.signer_email + '>');
+                if (l.signer_company) parts.push('· ' + l.signer_company);
+                const kindTag = '[' + (kindLabels[l.kind] || l.kind) + ']';
+                o.textContent = kindTag + ' ' + l.name + ' — ' + parts.join(' ');
                 sel.appendChild(o);
             });
         }
@@ -370,7 +373,18 @@
             signer.name = lib.signer_name || signer.name;
             signer.email = lib.signer_email || signer.email;
             sb.from('hw_esign_signers').update({ name: signer.name, email: signer.email }).eq('id', signer.id);
+
+            // Also re-point same-kind fields to this library entry so the previews + stamps update
+            fields.forEach(async f => {
+                if (f.type === lib.kind && f.signer_id === signer.id) {
+                    f.library_signature_id = lib.id;
+                    await sb.from('hw_esign_fields').update({ library_signature_id: lib.id }).eq('id', f.id);
+                }
+            });
+
             renderSignerList();
+            renderFields();
+            updateLibraryCard();
         }
 
         // ==================== Upload new PDF ====================
@@ -462,9 +476,14 @@
                     document.getElementById('signerName').value = signer.name || '';
                     document.getElementById('signerEmail').value = signer.email || '';
                 } else {
-                    // Auto-select the matching identity in the Sign As dropdown
-                    const match = library.find(l => l.signer_name === signer.name && (l.signer_email || '') === (signer.email || ''));
-                    if (match) document.getElementById('selfIdentitySel').value = match.id;
+                    // Auto-select the Sign As dropdown — prefer the library entry a field actually points to
+                    const usedFieldLib = fields.map(f => library.find(l => l.id === f.library_signature_id)).find(l => l && l.signer_name);
+                    if (usedFieldLib) {
+                        document.getElementById('selfIdentitySel').value = usedFieldLib.id;
+                    } else {
+                        const match = library.find(l => l.signer_name === signer.name && (l.signer_email || '') === (signer.email || ''));
+                        if (match) document.getElementById('selfIdentitySel').value = match.id;
+                    }
                 }
             }
 
