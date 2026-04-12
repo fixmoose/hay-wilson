@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eSign Document - H&amp;W Admin</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/admin/admin-styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        .view-layout { display:grid; grid-template-columns:320px 1fr; gap:1rem; margin-top:0.5rem; }
+        @media (max-width: 960px) { .view-layout { grid-template-columns:1fr; } }
+
+        .view-sidebar { position:sticky; top:72px; align-self:start; display:flex; flex-direction:column; gap:0.75rem; max-height:calc(100vh - 100px); overflow-y:auto; }
+        .view-card { background:white; border:1px solid var(--border-color); border-radius:10px; padding:0.85rem 1rem; }
+        .view-card h4 { font-size:0.75rem; font-weight:600; text-transform:uppercase; color:var(--text-light); margin-bottom:0.5rem; letter-spacing:0.03em; }
+        .kv { display:grid; grid-template-columns:auto 1fr; gap:0.25rem 0.75rem; font-size:0.8rem; }
+        .kv dt { color:var(--text-light); }
+        .kv dd { color:var(--text-dark); word-break:break-word; }
+        .hash-val { font-family:monospace; font-size:0.65rem; word-break:break-all; color:var(--text-light); }
+
+        .status-badge-lg { display:inline-block; padding:0.3rem 0.7rem; border-radius:999px; font-size:0.75rem; font-weight:600; text-transform:uppercase; }
+        .status-draft { background:#f3f4f6; color:#374151; }
+        .status-sent { background:#dbeafe; color:#1e40af; }
+        .status-viewed { background:#fef3c7; color:#92400e; }
+        .status-signed { background:#d1fae5; color:#065f46; }
+        .status-declined { background:#fee2e2; color:#991b1b; }
+        .status-voided { background:#f3f4f6; color:#6b7280; }
+
+        .signer-block { padding:0.5rem 0; border-bottom:1px solid var(--border-color); }
+        .signer-block:last-child { border-bottom:none; }
+        .signer-name { font-weight:600; font-size:0.85rem; }
+        .signer-email { font-size:0.75rem; color:var(--text-light); }
+        .signer-timestamps { font-size:0.7rem; color:var(--text-light); margin-top:0.2rem; display:flex; flex-direction:column; gap:0.1rem; }
+        .signer-status { display:inline-block; padding:0.1rem 0.4rem; border-radius:999px; font-size:0.65rem; font-weight:600; text-transform:uppercase; margin-left:0.35rem; }
+
+        .audit-log { font-size:0.78rem; max-height:400px; overflow-y:auto; }
+        .audit-entry { padding:0.5rem 0; border-bottom:1px solid var(--border-color); }
+        .audit-entry:last-child { border-bottom:none; }
+        .audit-event { font-weight:600; text-transform:uppercase; font-size:0.7rem; color:var(--primary-light); letter-spacing:0.03em; }
+        .audit-time { color:var(--text-light); font-size:0.7rem; margin-left:0.4rem; }
+        .audit-meta { color:var(--text-light); font-size:0.7rem; margin-top:0.15rem; word-break:break-all; }
+
+        .pdf-area { background:white; border:1px solid var(--border-color); border-radius:10px; padding:1rem; text-align:center; }
+        .pdf-page-wrap { display:inline-block; box-shadow:0 2px 8px rgba(0,0,0,0.08); border-radius:4px; margin-bottom:1rem; max-width:100%; }
+        .pdf-page-wrap canvas { display:block; max-width:100%; height:auto; }
+
+        .btn-row { display:flex; gap:0.5rem; flex-wrap:wrap; }
+        .btn-row button, .btn-row a { flex:1; min-width:120px; text-align:center; text-decoration:none; }
+        .btn-secondary { padding:0.55rem 0.9rem; border:1px solid var(--border-color); border-radius:6px; background:white; cursor:pointer; font-size:0.8rem; font-family:inherit; color:var(--text-dark); display:inline-flex; align-items:center; justify-content:center; gap:0.35rem; }
+        .btn-secondary:hover { background:var(--bg-light); }
+        .btn-primary { padding:0.55rem 0.9rem; font-size:0.8rem; }
+        .btn-danger { color:#dc2626; border-color:#fca5a5; }
+        .btn-danger:hover { background:#fef2f2; }
+
+        .tab-pdf { display:flex; gap:0; border-bottom:1px solid var(--border-color); margin-bottom:0.75rem; }
+        .tab-pdf-btn { padding:0.55rem 1rem; border:none; background:none; cursor:pointer; font-size:0.85rem; font-weight:500; color:var(--text-light); border-bottom:2px solid transparent; font-family:inherit; }
+        .tab-pdf-btn.active { color:var(--primary-light); border-bottom-color:var(--primary-light); }
+        .tab-pdf-btn:disabled { color:#d1d5db; cursor:not-allowed; }
+
+        .link-display { background:var(--bg-light); border:1px solid var(--border-color); border-radius:6px; padding:0.5rem 0.65rem; font-family:monospace; font-size:0.65rem; word-break:break-all; color:var(--text-light); }
+    </style>
+</head>
+<body>
+    <div class="admin-topbar">
+        <div class="admin-topbar-left">
+            <button class="mobile-sidebar-toggle" id="sidebarToggle">&#9776;</button>
+            <h1>H&amp;W <span>Admin</span></h1>
+        </div>
+        <div class="admin-topbar-right">
+            <span class="admin-user" id="adminUser"></span>
+            <button class="btn-logout" id="logoutBtn">Logout</button>
+        </div>
+    </div>
+
+    <aside class="admin-sidebar" id="adminSidebar">
+        <ul class="admin-nav">
+            <li><a href="/admin/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Dashboard</a></li>
+            <li><a href="/admin/jobs.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Jobs</a></li>
+            <li><a href="/admin/clients.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Clients</a></li>
+            <li><a href="/admin/invoices.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Invoices</a></li>
+            <li><a href="/admin/documents.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Documents</a></li>
+            <li><a href="/admin/esign.html" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.7 7.7l-1.4-1.4a1 1 0 0 0-1.4 0L4 20.2V22h1.8L19.3 8.5a1 1 0 0 0 0-1.4z"/><path d="M14 6l4 4"/><path d="M3 22c2-3 4-5 7-5"/></svg>eSign</a></li>
+            <li><a href="/admin/receipts.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>Receipts</a></li>
+            <li><a href="/admin/accounting.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Accounting</a></li>
+            <li><a href="/admin/payment-methods.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Payment Methods</a></li>
+            <li><a href="/admin/reimbursements.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h16v13H2z"/><path d="M22 7l-4 4v5l4 4V7z"/><line x1="6" y1="12" x2="14" y2="12"/><line x1="10" y1="9" x2="10" y2="15"/></svg>Reimbursements</a></li>
+            <li><a href="/admin/mileage.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Mileage</a></li>
+            <li><div class="nav-divider"></div></li>
+            <li><a href="/" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>View Site</a></li>
+        </ul>
+    </aside>
+
+    <main class="admin-main">
+        <div class="admin-page-header">
+            <h2 id="pageTitle">Document</h2>
+            <a href="/admin/esign.html" class="btn-secondary">← Back to eSign</a>
+        </div>
+
+        <div id="viewLayout" class="view-layout" style="display:none;">
+            <div class="view-sidebar">
+                <div class="view-card">
+                    <h4>Status</h4>
+                    <span class="status-badge-lg" id="statusBadge"></span>
+                    <dl class="kv" style="margin-top:0.5rem;">
+                        <dt>Created</dt><dd id="dCreated"></dd>
+                        <dt>Customer</dt><dd id="dCustomer"></dd>
+                        <dt>Job</dt><dd id="dJob"></dd>
+                        <dt>Pages</dt><dd id="dPages"></dd>
+                    </dl>
+                </div>
+
+                <div class="view-card">
+                    <h4>Signer</h4>
+                    <div id="signerInfo"></div>
+                </div>
+
+                <div class="view-card" id="linkCard" style="display:none;">
+                    <h4>Signing Link</h4>
+                    <div class="link-display" id="signingLink"></div>
+                    <div class="btn-row" style="margin-top:0.5rem;">
+                        <button class="btn-secondary" id="copyLinkBtn">Copy link</button>
+                        <button class="btn-secondary" id="openLinkBtn">Open</button>
+                    </div>
+                </div>
+
+                <div class="view-card">
+                    <h4>Actions</h4>
+                    <div class="btn-row" style="flex-direction:column;">
+                        <button class="btn-secondary" id="downloadOrigBtn">Download original</button>
+                        <button class="btn-secondary" id="downloadSignedBtn" style="display:none;background:#ecfdf5;border-color:#a7f3d0;color:#065f46;">Download signed copy</button>
+                        <button class="btn-secondary btn-danger" id="voidBtn">Void document</button>
+                    </div>
+                </div>
+
+                <div class="view-card">
+                    <h4>Integrity</h4>
+                    <div style="font-size:0.7rem;color:var(--text-light);margin-bottom:0.25rem;">Original SHA-256</div>
+                    <div class="hash-val" id="origHash"></div>
+                    <div id="signedHashBlock" style="display:none;">
+                        <div style="font-size:0.7rem;color:var(--text-light);margin:0.5rem 0 0.25rem;">Signed SHA-256</div>
+                        <div class="hash-val" id="signedHash"></div>
+                    </div>
+                </div>
+
+                <div class="view-card">
+                    <h4>Audit Trail</h4>
+                    <div class="audit-log" id="auditLog"></div>
+                </div>
+            </div>
+
+            <div class="pdf-area">
+                <div class="tab-pdf">
+                    <button class="tab-pdf-btn active" data-src="signed">Signed copy</button>
+                    <button class="tab-pdf-btn" data-src="original">Original</button>
+                </div>
+                <div id="pdfContent"><div class="loading"><div class="spinner"></div></div></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        const sb = window.supabase.createClient(
+            'https://mxxabikquupnwvlspzyz.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14eGFiaWtxdXVwbnd2bHNwenl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDMwNTgsImV4cCI6MjA3NzIxOTA1OH0.WC_mupqYMneJnYmr9vmDZd0vXroBnaLwZlYX44J_HFQ'
+        );
+
+        function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function showToast(msg, type = 'success') {
+            let c = document.querySelector('.toast-container');
+            if (!c) { c = document.createElement('div'); c.className = 'toast-container'; document.body.appendChild(c); }
+            const t = document.createElement('div'); t.className = 'toast toast-' + type; t.textContent = msg; c.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
+        }
+
+        const docId = new URLSearchParams(location.search).get('id');
+        let doc = null, signers = [], logs = [];
+
+        (async () => {
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) { window.location.href = '/admin/login.html'; return; }
+            document.getElementById('adminUser').textContent = session.user.email;
+            document.getElementById('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); window.location.href = '/admin/login.html'; });
+
+            const sidebar = document.getElementById('adminSidebar');
+            const toggle = document.getElementById('sidebarToggle');
+            toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+            document.addEventListener('click', (e) => { if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggle.contains(e.target)) sidebar.classList.remove('open'); });
+
+            if (!docId) { showToast('Missing document id', 'error'); return; }
+            await loadAll();
+            setupActions();
+        })();
+
+        async function loadAll() {
+            const [dResp, sResp, lResp] = await Promise.all([
+                sb.from('hw_esign_documents').select('*, hw_jobs(name), hw_customers(name)').eq('id', docId).single(),
+                sb.from('hw_esign_signers').select('*').eq('document_id', docId).order('sign_order'),
+                sb.from('hw_esign_audit_log').select('*').eq('document_id', docId).order('at')
+            ]);
+            if (dResp.error || !dResp.data) { showToast('Not found', 'error'); return; }
+            doc = dResp.data;
+            signers = sResp.data || [];
+            logs = lResp.data || [];
+
+            renderInfo();
+            document.getElementById('viewLayout').style.display = 'grid';
+            await renderPdf(doc.signed_pdf_path ? 'signed' : 'original');
+        }
+
+        function renderInfo() {
+            document.getElementById('pageTitle').textContent = doc.title;
+            const statusLabels = { draft: 'Draft', sent: 'Sent', viewed: 'Viewed', signed: 'Signed', declined: 'Declined', voided: 'Voided' };
+            const badge = document.getElementById('statusBadge');
+            badge.textContent = statusLabels[doc.status] || doc.status;
+            badge.className = 'status-badge-lg status-' + doc.status;
+
+            document.getElementById('dCreated').textContent = new Date(doc.created_at).toLocaleString();
+            document.getElementById('dCustomer').textContent = doc.hw_customers ? doc.hw_customers.name : '—';
+            document.getElementById('dJob').textContent = doc.hw_jobs ? doc.hw_jobs.name : '—';
+            document.getElementById('dPages').textContent = doc.page_count || '—';
+
+            // Signers
+            const signerEl = document.getElementById('signerInfo');
+            signerEl.innerHTML = signers.map(s => {
+                const statusColors = { pending: 'status-sent', viewed: 'status-viewed', signed: 'status-signed', declined: 'status-declined' };
+                return '<div class="signer-block">' +
+                    '<div class="signer-name">' + escapeHtml(s.name || '(unnamed)') +
+                        '<span class="signer-status ' + (statusColors[s.status] || 'status-draft') + '">' + s.status + '</span>' +
+                    '</div>' +
+                    (s.email ? '<div class="signer-email">' + escapeHtml(s.email) + '</div>' : '') +
+                    '<div class="signer-timestamps">' +
+                        (s.sent_at ? '<div>Sent: ' + new Date(s.sent_at).toLocaleString() + '</div>' : '') +
+                        (s.viewed_at ? '<div>Viewed: ' + new Date(s.viewed_at).toLocaleString() + '</div>' : '') +
+                        (s.signed_at ? '<div>Signed: ' + new Date(s.signed_at).toLocaleString() + '</div>' : '') +
+                        (s.signed_ip ? '<div>IP: ' + escapeHtml(s.signed_ip) + '</div>' : '') +
+                    '</div>' +
+                '</div>';
+            }).join('');
+
+            // Signing link (customer signers in sent/viewed state)
+            const customerSigner = signers.find(s => s.kind === 'customer' && s.token && ['pending', 'viewed'].includes(s.status));
+            if (customerSigner) {
+                document.getElementById('linkCard').style.display = '';
+                const link = location.origin + '/esign/sign.html?token=' + customerSigner.token;
+                document.getElementById('signingLink').textContent = link;
+                document.getElementById('copyLinkBtn').onclick = async () => { await navigator.clipboard.writeText(link); showToast('Link copied'); };
+                document.getElementById('openLinkBtn').onclick = () => window.open(link, '_blank');
+            }
+
+            // Hashes
+            document.getElementById('origHash').textContent = doc.original_sha256 || '(not recorded)';
+            if (doc.signed_sha256) {
+                document.getElementById('signedHashBlock').style.display = '';
+                document.getElementById('signedHash').textContent = doc.signed_sha256;
+            }
+
+            // Download signed button visibility
+            if (doc.signed_pdf_path) document.getElementById('downloadSignedBtn').style.display = '';
+
+            // Void button only if not already signed/voided
+            if (['signed', 'voided', 'declined'].includes(doc.status)) document.getElementById('voidBtn').style.display = 'none';
+
+            // Audit log
+            const logEl = document.getElementById('auditLog');
+            if (logs.length === 0) { logEl.innerHTML = '<div style="color:var(--text-light);font-size:0.75rem;padding:0.5rem 0;">No events yet</div>'; }
+            else {
+                logEl.innerHTML = logs.map(l => {
+                    let metaStr = '';
+                    if (l.meta) {
+                        const parts = [];
+                        if (l.ip) parts.push('IP: ' + l.ip);
+                        if (l.meta.reason) parts.push('Reason: ' + l.meta.reason);
+                        if (l.meta.mode) parts.push('Mode: ' + l.meta.mode);
+                        if (l.meta.signed_sha256) parts.push('Hash: ' + l.meta.signed_sha256.substring(0, 16) + '…');
+                        metaStr = parts.join(' · ');
+                    } else if (l.ip) {
+                        metaStr = 'IP: ' + l.ip;
+                    }
+                    return '<div class="audit-entry">' +
+                        '<span class="audit-event">' + l.event + '</span>' +
+                        '<span class="audit-time">' + new Date(l.at).toLocaleString() + '</span>' +
+                        (metaStr ? '<div class="audit-meta">' + escapeHtml(metaStr) + '</div>' : '') +
+                    '</div>';
+                }).join('');
+            }
+
+            // PDF tab — disable signed tab if no signed version
+            const signedTab = document.querySelector('.tab-pdf-btn[data-src="signed"]');
+            if (!doc.signed_pdf_path) {
+                signedTab.disabled = true;
+                signedTab.classList.remove('active');
+                document.querySelector('.tab-pdf-btn[data-src="original"]').classList.add('active');
+            }
+        }
+
+        async function renderPdf(which) {
+            const path = which === 'signed' ? doc.signed_pdf_path : doc.original_pdf_path;
+            if (!path) return;
+            const content = document.getElementById('pdfContent');
+            content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+            const { data: su } = await sb.storage.from('hw-esign').createSignedUrl(path, 3600);
+            if (!su) { content.innerHTML = '<div style="color:var(--text-light);padding:2rem;">Could not load PDF</div>'; return; }
+            const pdf = await pdfjsLib.getDocument(su.signedUrl).promise;
+            content.innerHTML = '';
+            for (let p = 1; p <= pdf.numPages; p++) {
+                const page = await pdf.getPage(p);
+                const viewport = page.getViewport({ scale: 1.2 });
+                const wrap = document.createElement('div');
+                wrap.className = 'pdf-page-wrap';
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                wrap.appendChild(canvas);
+                content.appendChild(wrap);
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+            }
+        }
+
+        function setupActions() {
+            document.querySelectorAll('.tab-pdf-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (btn.disabled) return;
+                    document.querySelectorAll('.tab-pdf-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderPdf(btn.dataset.src);
+                });
+            });
+
+            document.getElementById('downloadOrigBtn').addEventListener('click', async () => {
+                const { data: su } = await sb.storage.from('hw-esign').createSignedUrl(doc.original_pdf_path, 600);
+                if (su) window.open(su.signedUrl, '_blank');
+            });
+            document.getElementById('downloadSignedBtn').addEventListener('click', async () => {
+                const { data: su } = await sb.storage.from('hw-esign').createSignedUrl(doc.signed_pdf_path, 600);
+                if (su) window.open(su.signedUrl, '_blank');
+            });
+
+            document.getElementById('voidBtn').addEventListener('click', async () => {
+                const reason = prompt('Reason for voiding? (optional)');
+                if (reason === null) return;
+                await sb.from('hw_esign_documents').update({ status: 'voided', voided_at: new Date().toISOString(), voided_reason: reason }).eq('id', doc.id);
+                await sb.from('hw_esign_audit_log').insert({ document_id: doc.id, event: 'voided', meta: { reason } });
+                showToast('Voided');
+                setTimeout(() => window.location.reload(), 400);
+            });
+        }
+    </script>
+</body>
+</html>

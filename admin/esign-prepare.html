@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prepare Document - H&amp;W eSign</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/admin/admin-styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <style>
+        .prep-layout { display:grid; grid-template-columns:280px 1fr; gap:1rem; margin-top:0.5rem; }
+        @media (max-width: 960px) { .prep-layout { grid-template-columns:1fr; } }
+
+        .prep-sidebar { position:sticky; top:72px; align-self:start; display:flex; flex-direction:column; gap:0.75rem; max-height:calc(100vh - 100px); overflow-y:auto; }
+        .prep-card { background:white; border:1px solid var(--border-color); border-radius:10px; padding:0.85rem 1rem; }
+        .prep-card h4 { font-size:0.8rem; font-weight:600; text-transform:uppercase; color:var(--text-light); margin-bottom:0.5rem; letter-spacing:0.03em; }
+        .prep-card input, .prep-card select, .prep-card textarea { width:100%; padding:0.45rem 0.6rem; border:1px solid var(--border-color); border-radius:6px; font-size:0.85rem; font-family:inherit; }
+        .prep-card label { display:block; font-size:0.7rem; color:var(--text-light); margin-bottom:0.2rem; font-weight:500; }
+        .prep-card .form-field { margin-bottom:0.5rem; }
+
+        .field-palette { display:grid; grid-template-columns:repeat(2, 1fr); gap:0.4rem; }
+        .palette-btn { padding:0.55rem 0.4rem; border:2px solid var(--border-color); border-radius:6px; background:white; cursor:pointer; font-size:0.72rem; font-weight:500; color:var(--text-dark); text-align:center; transition:all 0.15s; display:flex; flex-direction:column; align-items:center; gap:0.2rem; }
+        .palette-btn:hover { border-color:var(--primary-light); }
+        .palette-btn.active { border-color:var(--primary-light); background:#eff6ff; color:var(--primary-light); }
+        .palette-btn svg { width:16px; height:16px; }
+
+        .prep-actions { display:flex; flex-direction:column; gap:0.4rem; }
+        .prep-actions button { width:100%; }
+
+        .pdf-area { background:white; border:1px solid var(--border-color); border-radius:10px; padding:1rem; }
+        .pdf-empty { text-align:center; padding:3rem 1rem; color:var(--text-light); }
+        .pdf-empty svg { margin-bottom:0.5rem; opacity:0.4; }
+
+        .pdf-page-wrap { position:relative; margin-bottom:1rem; box-shadow:0 2px 8px rgba(0,0,0,0.08); border-radius:4px; overflow:hidden; display:inline-block; cursor:crosshair; max-width:100%; }
+        .pdf-page-wrap canvas { display:block; max-width:100%; height:auto; }
+        .pdf-page-label { position:absolute; top:6px; left:6px; background:rgba(0,0,0,0.6); color:white; padding:0.1rem 0.45rem; border-radius:3px; font-size:0.65rem; font-weight:600; pointer-events:none; }
+
+        .field-box { position:absolute; border:2px dashed var(--primary-light); background:rgba(59,130,246,0.08); border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:0.7rem; color:var(--primary-light); cursor:move; user-select:none; overflow:hidden; }
+        .field-box.for-customer { border-color:#f59e0b; background:rgba(245,158,11,0.12); color:#92400e; }
+        .field-box.has-value { border-style:solid; background:rgba(255,255,255,0.85); }
+        .field-box:hover { background:rgba(59,130,246,0.18); }
+        .field-box.for-customer:hover { background:rgba(245,158,11,0.22); }
+        .field-box img { max-width:100%; max-height:100%; object-fit:contain; pointer-events:none; }
+        .field-box-del { position:absolute; top:-10px; right:-10px; width:20px; height:20px; border-radius:50%; background:#dc2626; color:white; border:none; font-size:0.75rem; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700; z-index:10; }
+        .field-box-handle { position:absolute; bottom:-6px; right:-6px; width:12px; height:12px; background:var(--primary-light); border:2px solid white; border-radius:50%; cursor:se-resize; z-index:10; }
+        .field-box-label { position:absolute; top:-18px; left:0; background:rgba(0,0,0,0.75); color:white; padding:0.08rem 0.35rem; border-radius:2px; font-size:0.6rem; white-space:nowrap; }
+
+        .signer-row { display:flex; gap:0.5rem; align-items:center; padding:0.45rem 0.6rem; border:1px solid var(--border-color); border-radius:6px; margin-bottom:0.4rem; }
+        .signer-row.active { border-color:var(--primary-light); background:#eff6ff; }
+        .signer-row .signer-dot { width:10px; height:10px; border-radius:50%; background:var(--primary-light); flex-shrink:0; }
+        .signer-row.kind-customer .signer-dot { background:#f59e0b; }
+        .signer-row .signer-info { flex:1; font-size:0.78rem; overflow:hidden; }
+        .signer-row .signer-name { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .signer-row .signer-email { color:var(--text-light); font-size:0.7rem; }
+
+        .btn-secondary { padding:0.45rem 0.8rem; border:1px solid var(--border-color); border-radius:6px; background:white; cursor:pointer; font-size:0.8rem; font-family:inherit; }
+        .btn-secondary:hover { background:var(--bg-light); }
+        .btn-primary { padding:0.55rem 1rem; font-size:0.85rem; }
+        .hint { font-size:0.7rem; color:var(--text-light); line-height:1.35; }
+
+        .library-picker { display:grid; grid-template-columns:repeat(2, 1fr); gap:0.4rem; margin-top:0.5rem; }
+        .library-pick-item { border:2px solid var(--border-color); border-radius:6px; padding:0.3rem; cursor:pointer; background:white; height:48px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
+        .library-pick-item:hover { border-color:var(--primary-light); }
+        .library-pick-item.selected { border-color:var(--primary-light); background:#eff6ff; }
+        .library-pick-item img { max-width:100%; max-height:100%; object-fit:contain; }
+        .library-pick-empty { grid-column:1 / -1; text-align:center; font-size:0.7rem; color:var(--text-light); padding:0.75rem; }
+
+        .upload-dz { border:2px dashed var(--border-color); border-radius:10px; padding:2.5rem 1rem; text-align:center; cursor:pointer; transition:all 0.15s; background:white; }
+        .upload-dz:hover, .upload-dz.dragover { border-color:var(--primary-light); background:rgba(37,99,235,0.04); }
+        .upload-dz input { display:none; }
+        .upload-dz svg { margin-bottom:0.5rem; opacity:0.6; }
+
+        .customer-picker { display:flex; gap:0.4rem; }
+        .customer-picker select { flex:1; }
+
+        .send-modal .modal { max-width:520px; }
+        .link-display { background:var(--bg-light); border:1px solid var(--border-color); border-radius:6px; padding:0.6rem 0.75rem; font-family:monospace; font-size:0.72rem; word-break:break-all; margin:0.5rem 0; }
+    </style>
+</head>
+<body>
+    <div class="admin-topbar">
+        <div class="admin-topbar-left">
+            <button class="mobile-sidebar-toggle" id="sidebarToggle">&#9776;</button>
+            <h1>H&amp;W <span>Admin</span></h1>
+        </div>
+        <div class="admin-topbar-right">
+            <span class="admin-user" id="adminUser"></span>
+            <button class="btn-logout" id="logoutBtn">Logout</button>
+        </div>
+    </div>
+
+    <aside class="admin-sidebar" id="adminSidebar">
+        <ul class="admin-nav">
+            <li><a href="/admin/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Dashboard</a></li>
+            <li><a href="/admin/jobs.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Jobs</a></li>
+            <li><a href="/admin/clients.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Clients</a></li>
+            <li><a href="/admin/invoices.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Invoices</a></li>
+            <li><a href="/admin/documents.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Documents</a></li>
+            <li><a href="/admin/esign.html" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.7 7.7l-1.4-1.4a1 1 0 0 0-1.4 0L4 20.2V22h1.8L19.3 8.5a1 1 0 0 0 0-1.4z"/><path d="M14 6l4 4"/><path d="M3 22c2-3 4-5 7-5"/></svg>eSign</a></li>
+            <li><a href="/admin/receipts.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>Receipts</a></li>
+            <li><a href="/admin/accounting.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Accounting</a></li>
+            <li><a href="/admin/payment-methods.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Payment Methods</a></li>
+            <li><a href="/admin/reimbursements.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h16v13H2z"/><path d="M22 7l-4 4v5l4 4V7z"/><line x1="6" y1="12" x2="14" y2="12"/><line x1="10" y1="9" x2="10" y2="15"/></svg>Reimbursements</a></li>
+            <li><a href="/admin/mileage.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Mileage</a></li>
+            <li><div class="nav-divider"></div></li>
+            <li><a href="/" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>View Site</a></li>
+        </ul>
+    </aside>
+
+    <main class="admin-main">
+        <div class="admin-page-header">
+            <h2 id="pageTitle">Prepare Document</h2>
+            <a href="/admin/esign.html" class="btn-secondary">← Back to eSign</a>
+        </div>
+
+        <div id="uploadView" style="display:none;">
+            <div class="upload-dz" id="uploadDz">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="44" height="44"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <div style="font-weight:600;">Drop a PDF here or click to choose</div>
+                <div class="hint" style="margin-top:0.25rem;">Max 20MB. PDF only.</div>
+                <input type="file" id="fileInput" accept="application/pdf">
+            </div>
+        </div>
+
+        <div id="prepView" style="display:none;" class="prep-layout">
+            <div class="prep-sidebar">
+                <div class="prep-card">
+                    <h4>Document</h4>
+                    <div class="form-field">
+                        <label>Title</label>
+                        <input type="text" id="docTitle" placeholder="e.g. Service Agreement">
+                    </div>
+                    <div class="form-field">
+                        <label>Customer (optional)</label>
+                        <div class="customer-picker">
+                            <select id="customerSel"><option value="">— None —</option></select>
+                        </div>
+                    </div>
+                    <div class="form-field">
+                        <label>Job (optional)</label>
+                        <select id="jobSel"><option value="">— None —</option></select>
+                    </div>
+                </div>
+
+                <div class="prep-card">
+                    <h4>Signer</h4>
+                    <div id="signerList"></div>
+                    <div style="margin-top:0.5rem;">
+                        <label style="font-size:0.7rem;color:var(--text-light);font-weight:500;">Who signs this?</label>
+                        <select id="signerKind" style="margin-top:0.2rem;">
+                            <option value="self">Me (self-sign)</option>
+                            <option value="customer">Customer (email link)</option>
+                        </select>
+                    </div>
+                    <div id="customerSignerFields" style="display:none;margin-top:0.4rem;">
+                        <div class="form-field">
+                            <label>Customer name</label>
+                            <input type="text" id="signerName" placeholder="John Smith">
+                        </div>
+                        <div class="form-field">
+                            <label>Customer email</label>
+                            <input type="email" id="signerEmail" placeholder="john@example.com">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="prep-card">
+                    <h4>Add Field</h4>
+                    <div class="hint" style="margin-bottom:0.45rem;">Pick a type, then click on the page to place it.</div>
+                    <div class="field-palette" id="palette">
+                        <button class="palette-btn active" data-type="signature"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.7 7.7l-1.4-1.4a1 1 0 0 0-1.4 0L4 20.2V22h1.8L19.3 8.5a1 1 0 0 0 0-1.4z"/></svg>Signature</button>
+                        <button class="palette-btn" data-type="initial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Initial</button>
+                        <button class="palette-btn" data-type="stamp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>Stamp</button>
+                        <button class="palette-btn" data-type="date"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Date</button>
+                        <button class="palette-btn" data-type="text" style="grid-column:1 / -1;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="14" y2="18"/></svg>Text</button>
+                    </div>
+                </div>
+
+                <div class="prep-card" id="libraryCard" style="display:none;">
+                    <h4 id="libraryTitle">Your Signature</h4>
+                    <div class="hint">Will auto-apply when you self-sign. Click to change.</div>
+                    <div class="library-picker" id="libraryPicker"></div>
+                </div>
+
+                <div class="prep-card prep-actions">
+                    <button class="btn-primary" id="saveDraftBtn">Save draft</button>
+                    <button class="btn-primary" id="selfSignBtn" style="display:none;background:var(--success);">Self-sign now</button>
+                    <button class="btn-primary" id="sendBtn" style="display:none;">Send for signature</button>
+                    <button class="btn-secondary" id="voidBtn" style="color:#dc2626;display:none;">Void document</button>
+                </div>
+            </div>
+
+            <div class="pdf-area" id="pdfArea">
+                <div class="pdf-empty"><div class="spinner"></div></div>
+            </div>
+        </div>
+    </main>
+
+    <div class="modal-overlay send-modal" id="sendModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Send for signature</h3>
+                <button class="modal-close" id="sendClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:0.85rem;margin-bottom:0.5rem;">Share this link with the customer. They'll open it in any browser — no account needed — and sign.</p>
+                <div class="link-display" id="linkDisplay"></div>
+                <div class="hint">We generated a unique token. Each open/view/sign is recorded in the audit log.</div>
+                <p style="font-size:0.8rem;margin-top:0.75rem;">Suggested email body:</p>
+                <textarea id="emailBody" rows="6" style="width:100%;padding:0.5rem 0.65rem;border:1px solid var(--border-color);border-radius:6px;font-size:0.8rem;font-family:inherit;"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="copyLinkBtn">Copy link</button>
+                <button class="btn-secondary" id="copyEmailBtn">Copy email</button>
+                <button class="btn-primary" id="mailtoBtn">Open in mail app</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        const sb = window.supabase.createClient(
+            'https://mxxabikquupnwvlspzyz.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14eGFiaWtxdXVwbnd2bHNwenl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDMwNTgsImV4cCI6MjA3NzIxOTA1OH0.WC_mupqYMneJnYmr9vmDZd0vXroBnaLwZlYX44J_HFQ'
+        );
+
+        function escapeHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function showToast(msg, type = 'success') {
+            let c = document.querySelector('.toast-container');
+            if (!c) { c = document.createElement('div'); c.className = 'toast-container'; document.body.appendChild(c); }
+            const t = document.createElement('div'); t.className = 'toast toast-' + type; t.textContent = msg; c.appendChild(t);
+            setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
+        }
+
+        // ==================== State ====================
+        const params = new URLSearchParams(location.search);
+        let docId = params.get('id');
+        let doc = null;               // document row
+        let signer = null;            // current (single) signer row
+        let fields = [];              // field rows
+        let customers = [], jobs = [], library = [];
+        let pdfDoc = null;            // pdf.js document
+        let currentTool = 'signature';// selected field type
+        let session = null;
+        const PAGE_SCALE = 1.3;       // render scale
+
+        // Default field sizes by type, as % of page
+        const FIELD_DEFAULTS = {
+            signature: { width: 26, height: 7 },
+            initial:   { width: 10, height: 5 },
+            stamp:     { width: 18, height: 9 },
+            date:      { width: 14, height: 4 },
+            text:      { width: 20, height: 4 }
+        };
+
+        (async () => {
+            const { data: { session: s } } = await sb.auth.getSession();
+            if (!s) { window.location.href = '/admin/login.html'; return; }
+            session = s;
+            document.getElementById('adminUser').textContent = s.user.email;
+            document.getElementById('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); window.location.href = '/admin/login.html'; });
+
+            const sidebar = document.getElementById('adminSidebar');
+            const toggle = document.getElementById('sidebarToggle');
+            toggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+            document.addEventListener('click', (e) => { if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggle.contains(e.target)) sidebar.classList.remove('open'); });
+
+            setupUpload();
+            setupPalette();
+            setupActions();
+            setupSendModal();
+
+            await loadAux();
+
+            if (docId) {
+                await loadExisting();
+            } else {
+                document.getElementById('uploadView').style.display = '';
+            }
+        })();
+
+        // ==================== Load customers, jobs, library ====================
+        async function loadAux() {
+            const [cResp, jResp, lResp] = await Promise.all([
+                sb.from('hw_customers').select('id, name, email').order('name'),
+                sb.from('hw_jobs').select('id, name, customer_id').order('created_at', { ascending: false }),
+                sb.from('hw_esign_signature_library').select('*').order('default_for_kind', { ascending: false }).order('created_at', { ascending: false })
+            ]);
+            customers = cResp.data || [];
+            jobs = jResp.data || [];
+            library = lResp.data || [];
+            const cSel = document.getElementById('customerSel');
+            customers.forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; cSel.appendChild(o); });
+            const jSel = document.getElementById('jobSel');
+            jobs.forEach(j => { const o = document.createElement('option'); o.value = j.id; o.textContent = j.name; jSel.appendChild(o); });
+
+            document.getElementById('customerSel').addEventListener('change', () => {
+                const cid = document.getElementById('customerSel').value;
+                const c = customers.find(x => x.id === cid);
+                if (c && document.getElementById('signerKind').value === 'customer') {
+                    document.getElementById('signerName').value = c.name || '';
+                    document.getElementById('signerEmail').value = c.email || '';
+                }
+                // Filter jobs by customer
+                const jSel = document.getElementById('jobSel');
+                jSel.innerHTML = '<option value="">— None —</option>';
+                const list = cid ? jobs.filter(j => j.customer_id === cid) : jobs;
+                list.forEach(j => { const o = document.createElement('option'); o.value = j.id; o.textContent = j.name; jSel.appendChild(o); });
+            });
+
+            document.getElementById('signerKind').addEventListener('change', () => {
+                const kind = document.getElementById('signerKind').value;
+                document.getElementById('customerSignerFields').style.display = kind === 'customer' ? '' : 'none';
+                updateActionButtons();
+                renderFields(); // re-color fields
+            });
+        }
+
+        // ==================== Upload new PDF ====================
+        function setupUpload() {
+            const dz = document.getElementById('uploadDz');
+            const fi = document.getElementById('fileInput');
+            dz.addEventListener('click', () => fi.click());
+            dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+            dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+            dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('dragover'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+            fi.addEventListener('change', () => { if (fi.files[0]) handleFile(fi.files[0]); });
+        }
+
+        async function handleFile(file) {
+            if (file.type !== 'application/pdf') { showToast('PDF only', 'error'); return; }
+            if (file.size > 20 * 1024 * 1024) { showToast('Max 20MB', 'error'); return; }
+            document.getElementById('uploadView').style.display = 'none';
+            document.getElementById('prepView').style.display = 'grid';
+            document.getElementById('pdfArea').innerHTML = '<div class="pdf-empty"><div class="spinner"></div><div>Uploading and processing...</div></div>';
+
+            // Hash the original
+            const buf = await file.arrayBuffer();
+            const hash = await sha256Hex(buf);
+
+            // Upload to Storage
+            const filePath = 'originals/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const { error: upErr } = await sb.storage.from('hw-esign').upload(filePath, file);
+            if (upErr) { showToast('Upload failed: ' + upErr.message, 'error'); return; }
+
+            // Determine page count
+            const tmpPdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+            const pageCount = tmpPdf.numPages;
+
+            // Create doc record
+            const title = file.name.replace(/\.pdf$/i, '');
+            const { data: created, error: dErr } = await sb.from('hw_esign_documents').insert({
+                title, original_pdf_path: filePath, original_sha256: hash,
+                page_count: pageCount, status: 'draft', created_by: session.user.email
+            }).select().single();
+            if (dErr) { showToast('Create failed: ' + dErr.message, 'error'); return; }
+            doc = created;
+            docId = doc.id;
+            history.replaceState(null, '', '?id=' + docId);
+
+            // Create initial signer (defaults to self)
+            const { data: s } = await sb.from('hw_esign_signers').insert({
+                document_id: docId, kind: 'self', name: session.user.email, sign_order: 1, status: 'pending'
+            }).select().single();
+            signer = s;
+
+            await sb.from('hw_esign_audit_log').insert({ document_id: docId, event: 'created', meta: { title } });
+            document.getElementById('docTitle').value = title;
+            pdfDoc = tmpPdf;
+            await renderPages();
+            renderSignerList();
+            updateActionButtons();
+            updateLibraryCard();
+        }
+
+        // ==================== Load existing ====================
+        async function loadExisting() {
+            document.getElementById('prepView').style.display = 'grid';
+            document.getElementById('pdfArea').innerHTML = '<div class="pdf-empty"><div class="spinner"></div><div>Loading...</div></div>';
+
+            const { data: d, error } = await sb.from('hw_esign_documents').select('*').eq('id', docId).single();
+            if (error || !d) { showToast('Document not found', 'error'); return; }
+            doc = d;
+
+            const { data: sigs } = await sb.from('hw_esign_signers').select('*').eq('document_id', docId).order('sign_order');
+            signer = (sigs || [])[0];
+
+            const { data: fs } = await sb.from('hw_esign_fields').select('*').eq('document_id', docId);
+            fields = fs || [];
+
+            // Populate form
+            document.getElementById('docTitle').value = d.title || '';
+            document.getElementById('customerSel').value = d.customer_id || '';
+            document.getElementById('customerSel').dispatchEvent(new Event('change'));
+            document.getElementById('jobSel').value = d.job_id || '';
+            if (signer) {
+                document.getElementById('signerKind').value = signer.kind;
+                document.getElementById('customerSignerFields').style.display = signer.kind === 'customer' ? '' : 'none';
+                if (signer.kind === 'customer') {
+                    document.getElementById('signerName').value = signer.name || '';
+                    document.getElementById('signerEmail').value = signer.email || '';
+                }
+            }
+
+            // Download the PDF for rendering
+            const { data: signed } = await sb.storage.from('hw-esign').createSignedUrl(d.original_pdf_path, 3600);
+            if (!signed) { document.getElementById('pdfArea').innerHTML = '<div class="pdf-empty">Failed to load PDF</div>'; return; }
+            pdfDoc = await pdfjsLib.getDocument(signed.signedUrl).promise;
+            await renderPages();
+            renderSignerList();
+            updateActionButtons();
+            updateLibraryCard();
+        }
+
+        // ==================== Render PDF pages ====================
+        async function renderPages() {
+            const area = document.getElementById('pdfArea');
+            area.innerHTML = '';
+            for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                const page = await pdfDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: PAGE_SCALE });
+                const wrap = document.createElement('div');
+                wrap.className = 'pdf-page-wrap';
+                wrap.dataset.page = pageNum;
+                wrap.style.width = viewport.width + 'px';
+                wrap.style.height = viewport.height + 'px';
+
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                wrap.appendChild(canvas);
+
+                const label = document.createElement('div');
+                label.className = 'pdf-page-label';
+                label.textContent = 'Page ' + pageNum + ' / ' + pdfDoc.numPages;
+                wrap.appendChild(label);
+
+                area.appendChild(wrap);
+
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+                wrap.addEventListener('click', (e) => handlePageClick(e, pageNum));
+            }
+            renderFields();
+        }
+
+        // ==================== Palette (field type selection) ====================
+        function setupPalette() {
+            document.querySelectorAll('.palette-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentTool = btn.dataset.type;
+                    updateLibraryCard();
+                });
+            });
+        }
+
+        // ==================== Place a new field ====================
+        async function handlePageClick(e, pageNum) {
+            // If the click landed on an existing field or its handles, ignore
+            if (e.target.closest('.field-box')) return;
+            const wrap = e.currentTarget;
+            const rect = wrap.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 100;
+            const y = ((e.clientY - rect.top) / rect.height) * 100;
+            const def = FIELD_DEFAULTS[currentTool];
+
+            // Pre-fill library_signature_id for self-sign signature/initial/stamp
+            let libraryId = null;
+            if (signer && signer.kind === 'self' && ['signature', 'initial', 'stamp'].includes(currentTool)) {
+                const defaultLib = library.find(l => l.kind === currentTool && l.default_for_kind);
+                libraryId = defaultLib ? defaultLib.id : null;
+            }
+
+            const { data: f, error } = await sb.from('hw_esign_fields').insert({
+                document_id: docId, signer_id: signer.id, page: pageNum,
+                x: Math.max(0, Math.min(100 - def.width, x - def.width / 2)),
+                y: Math.max(0, Math.min(100 - def.height, y - def.height / 2)),
+                width: def.width, height: def.height,
+                type: currentTool, required: true,
+                library_signature_id: libraryId
+            }).select().single();
+            if (error) { showToast('Failed to add field: ' + error.message, 'error'); return; }
+            fields.push(f);
+            renderFields();
+        }
+
+        // ==================== Render placed fields ====================
+        function renderFields() {
+            document.querySelectorAll('.field-box').forEach(el => el.remove());
+            fields.forEach(f => {
+                const wrap = document.querySelector('.pdf-page-wrap[data-page="' + f.page + '"]');
+                if (!wrap) return;
+                const box = document.createElement('div');
+                box.className = 'field-box' + (signer && signer.kind === 'customer' ? ' for-customer' : '');
+                box.dataset.id = f.id;
+                box.style.left = f.x + '%';
+                box.style.top = f.y + '%';
+                box.style.width = f.width + '%';
+                box.style.height = f.height + '%';
+
+                // Content preview
+                const libSig = f.library_signature_id ? library.find(l => l.id === f.library_signature_id) : null;
+                if (libSig && libSig.image_data) {
+                    box.classList.add('has-value');
+                    const img = document.createElement('img');
+                    img.src = libSig.image_data;
+                    box.appendChild(img);
+                } else {
+                    const label = { signature: 'Signature', initial: 'Initial', stamp: 'Stamp', date: 'Date', text: 'Text' }[f.type];
+                    box.textContent = label;
+                }
+
+                // Field-type badge
+                const badge = document.createElement('div');
+                badge.className = 'field-box-label';
+                badge.textContent = f.type;
+                box.appendChild(badge);
+
+                // Delete button
+                const del = document.createElement('button');
+                del.className = 'field-box-del';
+                del.textContent = '×';
+                del.title = 'Delete';
+                del.addEventListener('click', (e) => { e.stopPropagation(); deleteField(f.id); });
+                box.appendChild(del);
+
+                // Resize handle
+                const handle = document.createElement('div');
+                handle.className = 'field-box-handle';
+                box.appendChild(handle);
+
+                wrap.appendChild(box);
+                setupFieldDrag(box, f, handle);
+            });
+        }
+
+        function setupFieldDrag(box, field, handle) {
+            let mode = null, startX = 0, startY = 0, startW = 0, startH = 0;
+            const wrap = box.parentElement;
+
+            box.addEventListener('mousedown', (e) => {
+                if (e.target === handle || e.target.classList.contains('field-box-del')) return;
+                e.stopPropagation();
+                mode = 'move';
+                startX = e.clientX; startY = e.clientY;
+                startW = field.x; startH = field.y;
+                e.preventDefault();
+            });
+            handle.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                mode = 'resize';
+                startX = e.clientX; startY = e.clientY;
+                startW = field.width; startH = field.height;
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', (e) => {
+                if (!mode) return;
+                const rect = wrap.getBoundingClientRect();
+                const dx = ((e.clientX - startX) / rect.width) * 100;
+                const dy = ((e.clientY - startY) / rect.height) * 100;
+                if (mode === 'move') {
+                    field.x = Math.max(0, Math.min(100 - field.width, startW + dx));
+                    field.y = Math.max(0, Math.min(100 - field.height, startH + dy));
+                    box.style.left = field.x + '%';
+                    box.style.top = field.y + '%';
+                } else if (mode === 'resize') {
+                    field.width = Math.max(3, Math.min(100 - field.x, startW + dx));
+                    field.height = Math.max(2, Math.min(100 - field.y, startH + dy));
+                    box.style.width = field.width + '%';
+                    box.style.height = field.height + '%';
+                }
+            });
+            document.addEventListener('mouseup', async () => {
+                if (!mode) return;
+                mode = null;
+                await sb.from('hw_esign_fields').update({
+                    x: field.x, y: field.y, width: field.width, height: field.height
+                }).eq('id', field.id);
+            });
+        }
+
+        async function deleteField(id) {
+            await sb.from('hw_esign_fields').delete().eq('id', id);
+            fields = fields.filter(f => f.id !== id);
+            renderFields();
+        }
+
+        // ==================== Library card for self-sign ====================
+        function updateLibraryCard() {
+            const card = document.getElementById('libraryCard');
+            const kind = document.getElementById('signerKind').value;
+            if (kind !== 'self' || !['signature', 'initial', 'stamp'].includes(currentTool)) {
+                card.style.display = 'none';
+                return;
+            }
+            card.style.display = '';
+            document.getElementById('libraryTitle').textContent = 'Your ' + (currentTool.charAt(0).toUpperCase() + currentTool.slice(1));
+            const picker = document.getElementById('libraryPicker');
+            const items = library.filter(l => l.kind === currentTool);
+            if (items.length === 0) {
+                picker.innerHTML = '<div class="library-pick-empty">No ' + currentTool + 's yet. <a href="/admin/esign-signatures.html">Create one</a> to auto-apply.</div>';
+                return;
+            }
+            picker.innerHTML = items.map(l =>
+                '<div class="library-pick-item' + (l.default_for_kind ? ' selected' : '') + '" data-id="' + l.id + '"><img src="' + l.image_data + '"></div>'
+            ).join('');
+            picker.querySelectorAll('.library-pick-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    picker.querySelectorAll('.library-pick-item').forEach(x => x.classList.remove('selected'));
+                    el.classList.add('selected');
+                    // Assign this library signature to all fields of this type belonging to this signer
+                    const libId = el.dataset.id;
+                    fields.forEach(async f => {
+                        if (f.type === currentTool && f.signer_id === signer.id) {
+                            f.library_signature_id = libId;
+                            await sb.from('hw_esign_fields').update({ library_signature_id: libId }).eq('id', f.id);
+                        }
+                    });
+                    renderFields();
+                });
+            });
+        }
+
+        // ==================== Render signer list ====================
+        function renderSignerList() {
+            const el = document.getElementById('signerList');
+            if (!signer) { el.innerHTML = ''; return; }
+            el.innerHTML = '<div class="signer-row active kind-' + signer.kind + '">' +
+                '<div class="signer-dot"></div>' +
+                '<div class="signer-info">' +
+                    '<div class="signer-name">' + escapeHtml(signer.name || '(unnamed)') + '</div>' +
+                    '<div class="signer-email">' + escapeHtml(signer.email || signer.kind) + '</div>' +
+                '</div>' +
+            '</div>';
+        }
+
+        // ==================== Save / Sign / Send actions ====================
+        function setupActions() {
+            document.getElementById('saveDraftBtn').addEventListener('click', saveDoc);
+            document.getElementById('selfSignBtn').addEventListener('click', selfSign);
+            document.getElementById('sendBtn').addEventListener('click', sendForSignature);
+            document.getElementById('voidBtn').addEventListener('click', voidDoc);
+        }
+
+        function updateActionButtons() {
+            const kind = document.getElementById('signerKind').value;
+            document.getElementById('selfSignBtn').style.display = kind === 'self' ? '' : 'none';
+            document.getElementById('sendBtn').style.display = kind === 'customer' ? '' : 'none';
+            document.getElementById('voidBtn').style.display = doc ? '' : 'none';
+        }
+
+        async function saveDoc(silent) {
+            if (!doc) return;
+            const title = document.getElementById('docTitle').value.trim() || doc.title;
+            const customerId = document.getElementById('customerSel').value || null;
+            const jobId = document.getElementById('jobSel').value || null;
+            const kind = document.getElementById('signerKind').value;
+            const name = kind === 'customer' ? document.getElementById('signerName').value.trim() : session.user.email;
+            const email = kind === 'customer' ? document.getElementById('signerEmail').value.trim() : null;
+
+            const { error: dErr } = await sb.from('hw_esign_documents').update({
+                title, customer_id: customerId, job_id: jobId
+            }).eq('id', doc.id);
+            if (dErr) { showToast('Save failed: ' + dErr.message, 'error'); return false; }
+
+            const { error: sErr } = await sb.from('hw_esign_signers').update({
+                kind, name: name || signer.name, email
+            }).eq('id', signer.id);
+            if (sErr) { showToast('Save failed: ' + sErr.message, 'error'); return false; }
+            signer.kind = kind; signer.name = name || signer.name; signer.email = email;
+            renderSignerList();
+
+            if (!silent) showToast('Draft saved');
+            return true;
+        }
+
+        async function selfSign() {
+            if (!(await saveDoc(true))) return;
+            if (fields.length === 0) { showToast('Add at least one field first', 'error'); return; }
+
+            // Ensure every signature/initial/stamp field has a library assignment
+            const missing = fields.filter(f => ['signature', 'initial', 'stamp'].includes(f.type) && !f.library_signature_id);
+            if (missing.length > 0) {
+                showToast(missing.length + ' field(s) have no signature assigned. Pick one from the sidebar.', 'error');
+                return;
+            }
+
+            showToast('Signing...', 'info');
+            try {
+                // Fetch original PDF
+                const { data: sUrl } = await sb.storage.from('hw-esign').createSignedUrl(doc.original_pdf_path, 600);
+                const pdfBytes = new Uint8Array(await (await fetch(sUrl.signedUrl)).arrayBuffer());
+
+                const ip = await getClientIp();
+                const ua = navigator.userAgent;
+
+                // Prepare field values (for self-sign, fill current date for date fields, library signature data URL otherwise)
+                const now = new Date();
+                const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                const fieldValues = fields.map(f => {
+                    let value = '';
+                    if (f.type === 'date') value = dateStr;
+                    else if (f.type === 'text') value = session.user.email;
+                    else if (['signature', 'initial', 'stamp'].includes(f.type)) {
+                        const lib = library.find(l => l.id === f.library_signature_id);
+                        value = lib ? lib.image_data : '';
+                    }
+                    return { id: f.id, value };
+                });
+
+                // Stamp fields onto PDF and append certificate page
+                const finalBytes = await stampAndCertify(pdfBytes, fields, fieldValues, {
+                    signerName: session.user.email,
+                    signerEmail: session.user.email,
+                    signedAt: now.toISOString(),
+                    ip, userAgent: ua,
+                    originalSha256: doc.original_sha256,
+                    documentId: doc.id,
+                    documentTitle: doc.title
+                });
+
+                const finalHash = await sha256Hex(finalBytes);
+                const signedPath = 'signed/' + doc.id + '_' + Date.now() + '.pdf';
+                const { error: upErr } = await sb.storage.from('hw-esign').upload(signedPath, new Blob([finalBytes], { type: 'application/pdf' }));
+                if (upErr) throw upErr;
+
+                // Save field values
+                for (const fv of fieldValues) {
+                    await sb.from('hw_esign_fields').update({ value: fv.value, filled_at: new Date().toISOString() }).eq('id', fv.id);
+                }
+                // Update signer + doc
+                await sb.from('hw_esign_signers').update({
+                    status: 'signed', signed_at: new Date().toISOString(), signed_ip: ip, signed_user_agent: ua
+                }).eq('id', signer.id);
+                await sb.from('hw_esign_documents').update({
+                    status: 'signed', signed_pdf_path: signedPath, signed_sha256: finalHash
+                }).eq('id', doc.id);
+                await sb.from('hw_esign_audit_log').insert({
+                    document_id: doc.id, signer_id: signer.id, event: 'signed', ip, user_agent: ua,
+                    meta: { mode: 'self', signed_sha256: finalHash }
+                });
+
+                showToast('Signed!');
+                setTimeout(() => { window.location.href = '/admin/esign-view.html?id=' + doc.id; }, 400);
+            } catch (e) {
+                showToast('Sign failed: ' + e.message, 'error');
+            }
+        }
+
+        async function sendForSignature() {
+            if (!(await saveDoc(true))) return;
+            if (fields.length === 0) { showToast('Add at least one field first', 'error'); return; }
+            if (!signer.email) { showToast('Customer email required', 'error'); return; }
+
+            // Generate token if not already present
+            let token = signer.token;
+            if (!token) {
+                token = generateToken();
+                await sb.from('hw_esign_signers').update({ token, sent_at: new Date().toISOString() }).eq('id', signer.id);
+                signer.token = token;
+            }
+
+            await sb.from('hw_esign_documents').update({ status: 'sent' }).eq('id', doc.id);
+            await sb.from('hw_esign_audit_log').insert({ document_id: doc.id, signer_id: signer.id, event: 'sent', meta: { email: signer.email } });
+            doc.status = 'sent';
+
+            const link = location.origin + '/esign/sign.html?token=' + token;
+            document.getElementById('linkDisplay').textContent = link;
+            document.getElementById('emailBody').value =
+                'Hi ' + (signer.name || 'there') + ',\n\n' +
+                'Please review and sign "' + doc.title + '" at the link below:\n\n' +
+                link + '\n\n' +
+                'No account needed — it opens in your browser and takes about a minute.\n\n' +
+                'Thanks,\nHay & Wilson Electric';
+
+            document.getElementById('sendModal').classList.add('active');
+        }
+
+        function setupSendModal() {
+            const modal = document.getElementById('sendModal');
+            document.getElementById('sendClose').addEventListener('click', () => modal.classList.remove('active'));
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+            document.getElementById('copyLinkBtn').addEventListener('click', async () => {
+                await navigator.clipboard.writeText(document.getElementById('linkDisplay').textContent);
+                showToast('Link copied');
+            });
+            document.getElementById('copyEmailBtn').addEventListener('click', async () => {
+                await navigator.clipboard.writeText(document.getElementById('emailBody').value);
+                showToast('Email copied');
+            });
+            document.getElementById('mailtoBtn').addEventListener('click', () => {
+                const subject = encodeURIComponent('Please sign: ' + doc.title);
+                const body = encodeURIComponent(document.getElementById('emailBody').value);
+                window.location.href = 'mailto:' + encodeURIComponent(signer.email || '') + '?subject=' + subject + '&body=' + body;
+            });
+        }
+
+        async function voidDoc() {
+            const reason = prompt('Reason for voiding? (optional)');
+            if (reason === null) return;
+            await sb.from('hw_esign_documents').update({ status: 'voided', voided_at: new Date().toISOString(), voided_reason: reason }).eq('id', doc.id);
+            await sb.from('hw_esign_audit_log').insert({ document_id: doc.id, event: 'voided', meta: { reason } });
+            showToast('Voided');
+            setTimeout(() => window.location.href = '/admin/esign.html', 500);
+        }
+
+        // ==================== Helpers ====================
+        async function sha256Hex(buf) {
+            const h = await crypto.subtle.digest('SHA-256', buf);
+            return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        function generateToken() {
+            const bytes = new Uint8Array(32);
+            crypto.getRandomValues(bytes);
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function getClientIp() {
+            try {
+                const r = await fetch('https://api.ipify.org?format=json');
+                const j = await r.json();
+                return j.ip || '';
+            } catch (e) { return ''; }
+        }
+
+        // ==================== Stamp fields onto PDF + append certificate ====================
+        async function stampAndCertify(pdfBytes, fieldRows, fieldValues, audit) {
+            const { PDFDocument, StandardFonts, rgb } = PDFLib;
+            const pdfDocLib = await PDFDocument.load(pdfBytes);
+            const pages = pdfDocLib.getPages();
+            const font = await pdfDocLib.embedFont(StandardFonts.Helvetica);
+            const fontBold = await pdfDocLib.embedFont(StandardFonts.HelveticaBold);
+
+            // Stamp each field
+            for (const f of fieldRows) {
+                const fv = fieldValues.find(v => v.id === f.id);
+                if (!fv || !fv.value) continue;
+                const page = pages[f.page - 1];
+                if (!page) continue;
+                const { width: pw, height: ph } = page.getSize();
+                // pdf-lib origin is bottom-left; our x/y is top-left %.
+                const boxX = (parseFloat(f.x) / 100) * pw;
+                const boxW = (parseFloat(f.width) / 100) * pw;
+                const boxH = (parseFloat(f.height) / 100) * ph;
+                const boxY = ph - (parseFloat(f.y) / 100) * ph - boxH;
+
+                if (['signature', 'initial', 'stamp'].includes(f.type)) {
+                    // Embed image (data URL PNG)
+                    const b64 = fv.value.split(',')[1];
+                    const imgBytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+                    const img = await pdfDocLib.embedPng(imgBytes);
+                    const iw = img.width, ih = img.height;
+                    const scale = Math.min(boxW / iw, boxH / ih);
+                    const dw = iw * scale, dh = ih * scale;
+                    page.drawImage(img, { x: boxX + (boxW - dw) / 2, y: boxY + (boxH - dh) / 2, width: dw, height: dh });
+                } else {
+                    // Text
+                    const fontSize = Math.min(boxH * 0.7, 14);
+                    page.drawText(fv.value, {
+                        x: boxX + 2, y: boxY + (boxH - fontSize) / 2 + 2,
+                        size: fontSize, font, color: rgb(0.05, 0.1, 0.2)
+                    });
+                }
+            }
+
+            // Append Certificate of Completion page
+            const certPage = pdfDocLib.addPage([612, 792]); // US Letter
+            let y = 750;
+            const drawLine = (text, size = 10, bold = false, color = rgb(0.1, 0.1, 0.1)) => {
+                certPage.drawText(text, { x: 50, y, size, font: bold ? fontBold : font, color });
+                y -= size + 4;
+            };
+            drawLine('Certificate of Completion', 18, true, rgb(0.05, 0.1, 0.4));
+            y -= 6;
+            drawLine('Hay & Wilson Electric Company LLC', 11, true);
+            drawLine('Electronic signature audit trail', 9, false, rgb(0.4, 0.4, 0.4));
+            y -= 10;
+
+            drawLine('DOCUMENT', 10, true);
+            drawLine('Title:    ' + audit.documentTitle);
+            drawLine('Doc ID:   ' + audit.documentId);
+            drawLine('Original SHA-256: ' + (audit.originalSha256 || '(not recorded)'), 8);
+            y -= 8;
+
+            drawLine('SIGNER', 10, true);
+            drawLine('Name:     ' + audit.signerName);
+            drawLine('Email:    ' + audit.signerEmail);
+            drawLine('Signed at:' + new Date(audit.signedAt).toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'long' }));
+            drawLine('IP:       ' + (audit.ip || '(not recorded)'));
+            drawLine('User agent: ' + (audit.userAgent || '').slice(0, 80), 8);
+            y -= 8;
+
+            // Fetch full audit log for this document
+            try {
+                const { data: logs } = await sb.from('hw_esign_audit_log').select('event, at, ip, user_agent')
+                    .eq('document_id', audit.documentId).order('at');
+                if (logs) {
+                    drawLine('AUDIT TRAIL', 10, true);
+                    logs.forEach(l => {
+                        const at = new Date(l.at).toLocaleString('en-US');
+                        drawLine('• ' + at + '  ' + l.event.toUpperCase() + (l.ip ? '  ' + l.ip : ''), 8);
+                    });
+                }
+            } catch (e) { /* ignore */ }
+
+            y -= 10;
+            drawLine('This certificate is generated by Hay & Wilson eSign and embedded into the signed PDF.', 7, false, rgb(0.5, 0.5, 0.5));
+            drawLine('The original document hash is recorded above; any modification after signing invalidates the seal.', 7, false, rgb(0.5, 0.5, 0.5));
+
+            return await pdfDocLib.save();
+        }
+    </script>
+</body>
+</html>
