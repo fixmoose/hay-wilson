@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="/admin/admin-styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
     <style>
         .prep-layout { display:grid; grid-template-columns:280px 1fr; gap:1rem; margin-top:0.5rem; }
         @media (max-width: 960px) { .prep-layout { grid-template-columns:1fr; } }
@@ -63,10 +64,17 @@
         .hint { font-size:0.7rem; color:var(--text-light); line-height:1.35; }
 
         .library-picker { display:grid; grid-template-columns:repeat(2, 1fr); gap:0.4rem; margin-top:0.5rem; }
-        .library-pick-item { border:2px solid var(--border-color); border-radius:6px; padding:0.3rem; cursor:pointer; background:white; height:48px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
+        .library-picker { grid-template-columns:1fr !important; }
+        .library-pick-item { border:2px solid var(--border-color); border-radius:6px; padding:0.4rem 0.5rem; cursor:pointer; background:white; display:flex; align-items:center; gap:0.5rem; transition:all 0.15s; }
         .library-pick-item:hover { border-color:var(--primary-light); }
         .library-pick-item.selected { border-color:var(--primary-light); background:#eff6ff; }
-        .library-pick-item img { max-width:100%; max-height:100%; object-fit:contain; }
+        .library-pick-thumb { width:56px; height:36px; flex-shrink:0; background:#f9fafb; border-radius:4px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+        .library-pick-thumb img { max-width:100%; max-height:100%; object-fit:contain; }
+        .library-pick-text { flex:1; min-width:0; }
+        .library-pick-name { font-size:0.78rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .library-pick-identity { font-size:0.68rem; color:var(--text-light); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .library-pick-check { color:var(--primary-light); flex-shrink:0; display:none; }
+        .library-pick-item.selected .library-pick-check { display:block; }
         .library-pick-empty { grid-column:1 / -1; text-align:center; font-size:0.7rem; color:var(--text-light); padding:0.75rem; }
 
         .upload-dz { border:2px dashed var(--border-color); border-radius:10px; padding:2.5rem 1rem; text-align:center; cursor:pointer; transition:all 0.15s; background:white; }
@@ -155,6 +163,12 @@
                             <option value="self">Me (self-sign)</option>
                             <option value="customer">Customer (email link)</option>
                         </select>
+                    </div>
+                    <div id="selfIdentityField" style="margin-top:0.4rem;">
+                        <div class="form-field">
+                            <label>Sign as</label>
+                            <select id="selfIdentitySel"></select>
+                        </div>
                     </div>
                     <div id="customerSignerFields" style="display:none;margin-top:0.4rem;">
                         <div class="form-field">
@@ -252,11 +266,11 @@
 
         // Default field sizes by type, as % of page
         const FIELD_DEFAULTS = {
-            signature: { width: 26, height: 7 },
-            initial:   { width: 10, height: 5 },
-            stamp:     { width: 18, height: 9 },
-            date:      { width: 14, height: 4 },
-            text:      { width: 20, height: 4 }
+            signature: { width: 32, height: 9 },
+            initial:   { width: 13, height: 6 },
+            stamp:     { width: 24, height: 11 },
+            date:      { width: 18, height: 4 },
+            text:      { width: 22, height: 4 }
         };
 
         (async () => {
@@ -300,6 +314,8 @@
             const jSel = document.getElementById('jobSel');
             jobs.forEach(j => { const o = document.createElement('option'); o.value = j.id; o.textContent = j.name; jSel.appendChild(o); });
 
+            populateSelfIdentities();
+
             document.getElementById('customerSel').addEventListener('change', () => {
                 const cid = document.getElementById('customerSel').value;
                 const c = customers.find(x => x.id === cid);
@@ -317,9 +333,44 @@
             document.getElementById('signerKind').addEventListener('change', () => {
                 const kind = document.getElementById('signerKind').value;
                 document.getElementById('customerSignerFields').style.display = kind === 'customer' ? '' : 'none';
+                document.getElementById('selfIdentityField').style.display = kind === 'self' ? '' : 'none';
                 updateActionButtons();
-                renderFields(); // re-color fields
+                renderFields();
             });
+
+            document.getElementById('selfIdentitySel').addEventListener('change', applySelfIdentity);
+        }
+
+        function populateSelfIdentities() {
+            // Deduplicate identities by (name + email + company)
+            const seen = new Map();
+            library.forEach(l => {
+                if (!l.signer_name) return;
+                const key = (l.signer_name || '') + '|' + (l.signer_email || '') + '|' + (l.signer_company || '');
+                if (!seen.has(key)) seen.set(key, l);
+            });
+            const sel = document.getElementById('selfIdentitySel');
+            sel.innerHTML = '';
+            if (seen.size === 0) {
+                sel.innerHTML = '<option value="">(No identities saved — create one on My Signatures)</option>';
+                return;
+            }
+            [...seen.values()].forEach(l => {
+                const o = document.createElement('option');
+                o.value = l.id;
+                o.textContent = l.signer_name + (l.signer_company ? ' · ' + l.signer_company : '');
+                sel.appendChild(o);
+            });
+        }
+
+        function applySelfIdentity() {
+            const libId = document.getElementById('selfIdentitySel').value;
+            const lib = library.find(l => l.id === libId);
+            if (!lib || !signer) return;
+            signer.name = lib.signer_name || signer.name;
+            signer.email = lib.signer_email || signer.email;
+            sb.from('hw_esign_signers').update({ name: signer.name, email: signer.email }).eq('id', signer.id);
+            renderSignerList();
         }
 
         // ==================== Upload new PDF ====================
@@ -364,11 +415,15 @@
             docId = doc.id;
             history.replaceState(null, '', '?id=' + docId);
 
-            // Create initial signer (defaults to self)
+            // Create initial signer (defaults to self). Auto-apply first available identity from library.
+            const firstIdentity = library.find(l => l.signer_name);
+            const initName = firstIdentity ? firstIdentity.signer_name : session.user.email;
+            const initEmail = firstIdentity ? (firstIdentity.signer_email || session.user.email) : session.user.email;
             const { data: s } = await sb.from('hw_esign_signers').insert({
-                document_id: docId, kind: 'self', name: session.user.email, sign_order: 1, status: 'pending'
+                document_id: docId, kind: 'self', name: initName, email: initEmail, sign_order: 1, status: 'pending'
             }).select().single();
             signer = s;
+            if (firstIdentity) document.getElementById('selfIdentitySel').value = firstIdentity.id;
 
             await sb.from('hw_esign_audit_log').insert({ document_id: docId, event: 'created', meta: { title } });
             document.getElementById('docTitle').value = title;
@@ -402,9 +457,14 @@
             if (signer) {
                 document.getElementById('signerKind').value = signer.kind;
                 document.getElementById('customerSignerFields').style.display = signer.kind === 'customer' ? '' : 'none';
+                document.getElementById('selfIdentityField').style.display = signer.kind === 'self' ? '' : 'none';
                 if (signer.kind === 'customer') {
                     document.getElementById('signerName').value = signer.name || '';
                     document.getElementById('signerEmail').value = signer.email || '';
+                } else {
+                    // Auto-select the matching identity in the Sign As dropdown
+                    const match = library.find(l => l.signer_name === signer.name && (l.signer_email || '') === (signer.email || ''));
+                    if (match) document.getElementById('selfIdentitySel').value = match.id;
                 }
             }
 
@@ -609,9 +669,19 @@
                 picker.innerHTML = '<div class="library-pick-empty">No ' + currentTool + 's yet. <a href="/admin/esign-signatures.html">Create one</a> to auto-apply.</div>';
                 return;
             }
-            picker.innerHTML = items.map(l =>
-                '<div class="library-pick-item' + (l.default_for_kind ? ' selected' : '') + '" data-id="' + l.id + '"><img src="' + l.image_data + '"></div>'
-            ).join('');
+            picker.innerHTML = items.map(l => {
+                const identity = l.signer_name
+                    ? escapeHtml(l.signer_name) + (l.signer_company ? ' · ' + escapeHtml(l.signer_company) : '')
+                    : 'No identity set';
+                return '<div class="library-pick-item' + (l.default_for_kind ? ' selected' : '') + '" data-id="' + l.id + '">' +
+                    '<div class="library-pick-thumb"><img src="' + escapeHtml(l.image_data) + '"></div>' +
+                    '<div class="library-pick-text">' +
+                        '<div class="library-pick-name">' + escapeHtml(l.name) + '</div>' +
+                        '<div class="library-pick-identity">' + identity + '</div>' +
+                    '</div>' +
+                    '<svg class="library-pick-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>' +
+                '</div>';
+            }).join('');
             picker.querySelectorAll('.library-pick-item').forEach(el => {
                 el.addEventListener('click', () => {
                     picker.querySelectorAll('.library-pick-item').forEach(x => x.classList.remove('selected'));
@@ -702,24 +772,37 @@
                 const ip = await getClientIp();
                 const ua = navigator.userAgent;
 
-                // Resolve signer identity from the library signature used (falls back to auth email)
-                const primarySig = fields.map(f => library.find(l => l.id === f.library_signature_id)).find(l => l && l.signer_name);
-                const identityName = primarySig ? primarySig.signer_name : session.user.email;
-                const identityEmail = primarySig ? (primarySig.signer_email || session.user.email) : session.user.email;
-                const identityCompany = primarySig ? (primarySig.signer_company || '') : '';
+                // Resolve signer identity: prefer the signer row (updated by "Sign as" picker).
+                // Derive company from a matching library entry, if any.
+                const identityName = signer.name || session.user.email;
+                const identityEmail = signer.email || session.user.email;
+                const matchLib = library.find(l => l.signer_name === signer.name && (l.signer_email || '') === (signer.email || ''));
+                const identityCompany = matchLib ? (matchLib.signer_company || '') : '';
 
                 // Prepare field values (for self-sign, fill current date for date fields, library signature data URL otherwise)
                 const now = new Date();
                 const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
                 const fieldValues = fields.map(f => {
                     let value = '';
+                    let digitalTemplate = null;
+                    let digitalIdentity = null;
                     if (f.type === 'date') value = dateStr;
                     else if (f.type === 'text') value = identityName;
                     else if (['signature', 'initial', 'stamp'].includes(f.type)) {
                         const lib = library.find(l => l.id === f.library_signature_id);
-                        value = lib ? lib.image_data : '';
+                        if (lib) {
+                            value = lib.image_data;
+                            if (lib.digital_template) {
+                                digitalTemplate = lib.digital_template;
+                                digitalIdentity = {
+                                    name: lib.signer_name || identityName,
+                                    email: lib.signer_email || identityEmail,
+                                    company: lib.signer_company || identityCompany
+                                };
+                            }
+                        }
                     }
-                    return { id: f.id, value };
+                    return { id: f.id, value, digitalTemplate, digitalIdentity };
                 });
 
                 // Stamp fields onto PDF and append certificate page
@@ -842,13 +925,91 @@
             } catch (e) { return ''; }
         }
 
+        // ==================== Digital (eSigned block) native draw ====================
+        function drawDigitalBlock(page, box, tpl, identity, signedAtIso, font, fontBold, rgb) {
+            const { x, y, w, h } = box;
+            const style = (tpl && tpl.style) || 'box';
+            // Background + border
+            if (style !== 'minimal') {
+                page.drawRectangle({ x, y, width: w, height: h,
+                    borderColor: rgb(0.1, 0.3, 0.65), borderWidth: 1,
+                    color: rgb(0.96, 0.98, 1) });
+            }
+            // Checkmark badge on left
+            const pad = 4;
+            const badge = Math.min(h - pad * 2, 22);
+            const badgeY = y + (h - badge) / 2;
+            page.drawRectangle({ x: x + pad, y: badgeY, width: badge, height: badge,
+                color: rgb(0.06, 0.6, 0.36) });
+            // Checkmark glyph (requires Unicode font)
+            try {
+                page.drawText('\u2713', {
+                    x: x + pad + badge * 0.2, y: badgeY + badge * 0.2,
+                    size: badge * 0.7, font: fontBold, color: rgb(1, 1, 1)
+                });
+            } catch (e) {
+                page.drawText('OK', {
+                    x: x + pad + badge * 0.1, y: badgeY + badge * 0.25,
+                    size: badge * 0.45, font: fontBold, color: rgb(1, 1, 1)
+                });
+            }
+            // Text lines
+            const textX = x + pad + badge + 6;
+            const maxTextWidth = w - (pad + badge + 6 + pad);
+            const fit = (str, size, fnt) => {
+                if (!str) return '';
+                let s = str;
+                while (fnt.widthOfTextAtSize(s, size) > maxTextWidth && s.length > 3) {
+                    s = s.slice(0, -1);
+                }
+                return s === str ? s : s.slice(0, -1) + '…';
+            };
+
+            // Vertical layout: label / name / company? / date
+            const lines = [];
+            lines.push({ text: 'Digitally signed by', size: Math.max(5, Math.min(h * 0.15, 7)), font, color: rgb(0.45, 0.45, 0.45) });
+            lines.push({ text: identity.name || '', size: Math.max(7, Math.min(h * 0.28, 11)), font: fontBold, color: rgb(0.05, 0.1, 0.3) });
+            if (identity.company) lines.push({ text: identity.company, size: Math.max(5, Math.min(h * 0.18, 8)), font, color: rgb(0.3, 0.3, 0.35) });
+            const d = new Date(signedAtIso);
+            const dateStr = d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+            lines.push({ text: 'Date: ' + dateStr, size: Math.max(5, Math.min(h * 0.15, 7)), font, color: rgb(0.5, 0.5, 0.55) });
+
+            const totalH = lines.reduce((s, l) => s + l.size + 2, 0);
+            let ty = y + (h + totalH) / 2 - lines[0].size;
+            lines.forEach(l => {
+                page.drawText(fit(l.text, l.size, l.font), { x: textX, y: ty, size: l.size, font: l.font, color: l.color });
+                ty -= l.size + 2;
+            });
+        }
+
         // ==================== Stamp fields onto PDF + append certificate ====================
         async function stampAndCertify(pdfBytes, fieldRows, fieldValues, audit) {
             const { PDFDocument, StandardFonts, rgb } = PDFLib;
             const pdfDocLib = await PDFDocument.load(pdfBytes);
             const pages = pdfDocLib.getPages();
-            const font = await pdfDocLib.embedFont(StandardFonts.Helvetica);
-            const fontBold = await pdfDocLib.embedFont(StandardFonts.HelveticaBold);
+
+            // Register fontkit and try to embed a Unicode TTF so names with ć/ž/š/etc. render
+            let font, fontBold;
+            try {
+                if (window.fontkit) pdfDocLib.registerFontkit(window.fontkit);
+                const [rBytes, bBytes] = await Promise.all([
+                    fetch('https://pdf-lib.js.org/assets/ubuntu/Ubuntu-R.ttf').then(r => r.arrayBuffer()),
+                    fetch('https://pdf-lib.js.org/assets/ubuntu/Ubuntu-B.ttf').then(r => r.arrayBuffer())
+                ]);
+                font = await pdfDocLib.embedFont(rBytes, { subset: true });
+                fontBold = await pdfDocLib.embedFont(bBytes, { subset: true });
+            } catch (e) {
+                // Fallback to Helvetica (WinAnsi) — strip diacritics so we don't crash
+                console.warn('Unicode font load failed, falling back:', e);
+                font = await pdfDocLib.embedFont(StandardFonts.Helvetica);
+                fontBold = await pdfDocLib.embedFont(StandardFonts.HelveticaBold);
+                const strip = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                audit.signerName = strip(audit.signerName);
+                audit.signerEmail = strip(audit.signerEmail);
+                audit.signerCompany = strip(audit.signerCompany);
+                audit.documentTitle = strip(audit.documentTitle);
+                fieldValues = fieldValues.map(v => ({ ...v, value: typeof v.value === 'string' ? strip(v.value) : v.value }));
+            }
 
             // Stamp each field
             for (const f of fieldRows) {
@@ -862,6 +1023,14 @@
                 const boxW = (parseFloat(f.width) / 100) * pw;
                 const boxH = (parseFloat(f.height) / 100) * ph;
                 const boxY = ph - (parseFloat(f.y) / 100) * ph - boxH;
+
+                // Digital block: render natively (never as raster) with live date
+                if (fv.digitalTemplate) {
+                    drawDigitalBlock(page, { x: boxX, y: boxY, w: boxW, h: boxH },
+                        fv.digitalTemplate, fv.digitalIdentity || { name: audit.signerName, email: audit.signerEmail, company: audit.signerCompany },
+                        audit.signedAt, font, fontBold, rgb);
+                    continue;
+                }
 
                 if (['signature', 'initial', 'stamp'].includes(f.type)) {
                     // Embed image (data URL PNG)

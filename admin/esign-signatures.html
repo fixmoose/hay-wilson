@@ -220,13 +220,34 @@
                 </div>
 
                 <div class="tab-bar">
-                    <button class="tab-btn active" data-tab="draw">Draw</button>
+                    <button class="tab-btn active" data-tab="digital">eSigned Block</button>
+                    <button class="tab-btn" data-tab="draw">Draw</button>
                     <button class="tab-btn" data-tab="type">Type</button>
                     <button class="tab-btn" data-tab="upload">Upload</button>
                     <button class="tab-btn" data-tab="stamp">Build Stamp</button>
                 </div>
 
-                <div class="tab-pane active" data-pane="draw">
+                <div class="tab-pane active" data-pane="digital">
+                    <div class="canvas-hint" style="text-align:left;margin-bottom:0.5rem;">A styled digital signature block — the date fills in automatically every time you sign.</div>
+                    <div class="stamp-preview">
+                        <canvas id="digitalCanvas" width="460" height="120"></canvas>
+                    </div>
+                    <div class="form-row" style="margin-top:0.75rem;">
+                        <div>
+                            <label>Style</label>
+                            <select id="digitalStyle">
+                                <option value="box" selected>Boxed (blue)</option>
+                                <option value="minimal">Minimal (no border)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>&nbsp;</label>
+                            <div style="font-size:0.72rem;color:var(--text-light);padding:0.5rem 0 0;">Uses the Identity fields above</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane" data-pane="draw">
                     <div class="sig-canvas-wrap">
                         <canvas id="drawCanvas"></canvas>
                     </div>
@@ -446,6 +467,7 @@
                     document.querySelector('[data-pane="' + btn.dataset.tab + '"]').classList.add('active');
                     if (btn.dataset.tab === 'draw') initDrawCanvas();
                     if (btn.dataset.tab === 'stamp') renderStamp();
+                    if (btn.dataset.tab === 'digital') renderDigital();
                 });
             });
 
@@ -483,6 +505,15 @@
                 document.getElementById(id).addEventListener('change', renderStamp);
             });
 
+            // Digital block — re-render when identity or style changes
+            ['sigSignerName', 'sigSignerEmail', 'sigSignerCompany', 'digitalStyle'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', renderDigital);
+                    el.addEventListener('change', renderDigital);
+                }
+            });
+
             // Auto-populate name from kind change
             document.querySelectorAll('input[name="sigKind"]').forEach(r => {
                 r.addEventListener('change', () => {
@@ -508,12 +539,13 @@
             document.getElementById('sigSignerEmail').value = lastWithIdentity ? (lastWithIdentity.signer_email || '') : '';
             document.getElementById('sigSignerCompany').value = lastWithIdentity ? (lastWithIdentity.signer_company || '') : '';
             document.querySelector('input[name="sigKind"][value="signature"]').checked = true;
-            document.querySelector('.tab-btn[data-tab="draw"]').click();
-            setTimeout(initDrawCanvas, 50);
+            // Default to Digital tab (DocuSign-style)
+            document.querySelector('.tab-btn[data-tab="digital"]').click();
             document.getElementById('typeText').value = '';
             document.getElementById('typePreview').textContent = 'Your Name';
             document.getElementById('uploadPreview').style.display = 'none';
             uploadedImageDataUrl = null;
+            setTimeout(renderDigital, 50);
         }
 
         function closeModal(modal) { modal.classList.remove('active'); }
@@ -616,6 +648,72 @@
             }
         }
 
+        // Render the Digital block preview on canvas. This mirrors the native pdf-lib draw
+        // in esign-prepare.html so the preview matches what gets stamped.
+        function renderDigital() {
+            const canvas = document.getElementById('digitalCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width, h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            const name = document.getElementById('sigSignerName').value.trim() || 'Your Name';
+            const email = document.getElementById('sigSignerEmail').value.trim();
+            const company = document.getElementById('sigSignerCompany').value.trim();
+            const style = document.getElementById('digitalStyle').value;
+
+            if (style !== 'minimal') {
+                ctx.fillStyle = '#f5f8ff';
+                ctx.fillRect(1, 1, w - 2, h - 2);
+                ctx.strokeStyle = '#1a4ba8';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(1, 1, w - 2, h - 2);
+            }
+
+            // Checkmark badge
+            const pad = 10;
+            const badge = Math.min(h - pad * 2, 42);
+            const badgeY = (h - badge) / 2;
+            ctx.fillStyle = '#0f9e5a';
+            ctx.fillRect(pad, badgeY, badge, badge);
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(pad + badge * 0.25, badgeY + badge * 0.55);
+            ctx.lineTo(pad + badge * 0.45, badgeY + badge * 0.72);
+            ctx.lineTo(pad + badge * 0.78, badgeY + badge * 0.32);
+            ctx.stroke();
+
+            // Text
+            const textX = pad + badge + 12;
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'left';
+
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '11px Inter, sans-serif';
+            ctx.fillText('Digitally signed by', textX, 14);
+
+            ctx.fillStyle = '#0b1932';
+            ctx.font = 'bold 22px Inter, sans-serif';
+            ctx.fillText(name, textX, 30);
+
+            let ty = 58;
+            if (company) {
+                ctx.fillStyle = '#4b5563';
+                ctx.font = '13px Inter, sans-serif';
+                ctx.fillText(company, textX, ty);
+                ty += 18;
+            }
+
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '11px Inter, sans-serif';
+            const d = new Date();
+            const dateStr = d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+            ctx.fillText('Date: ' + dateStr + '  (auto-filled at sign time)', textX, ty);
+        }
+
         async function handleSave() {
             const name = document.getElementById('sigName').value.trim();
             if (!name) { showToast('Name is required', 'error'); return; }
@@ -624,6 +722,7 @@
 
             let dataUrl = '';
             let source = '';
+            let digitalTemplate = null;
             try {
                 if (activeTab === 'draw') {
                     if (!signaturePad || signaturePad.isEmpty()) { showToast('Draw something first', 'error'); return; }
@@ -645,6 +744,16 @@
                     if (!line1) { showToast('Enter stamp text first', 'error'); return; }
                     dataUrl = document.getElementById('stampCanvas').toDataURL('image/png');
                     source = 'built';
+                } else if (activeTab === 'digital') {
+                    const signerNameReq = document.getElementById('sigSignerName').value.trim();
+                    if (!signerNameReq) { showToast('Signer name is required for the digital block', 'error'); return; }
+                    renderDigital(); // make sure the preview reflects current inputs
+                    dataUrl = document.getElementById('digitalCanvas').toDataURL('image/png');
+                    source = 'built';
+                    digitalTemplate = {
+                        style: document.getElementById('digitalStyle').value,
+                        version: 1
+                    };
                 }
             } catch (e) {
                 showToast('Error: ' + e.message, 'error');
@@ -657,7 +766,8 @@
 
             const { error } = await sb.from('hw_esign_signature_library').insert({
                 name, kind, source, image_data: dataUrl,
-                signer_name: signerName, signer_email: signerEmail, signer_company: signerCompany
+                signer_name: signerName, signer_email: signerEmail, signer_company: signerCompany,
+                digital_template: digitalTemplate
             });
             if (error) { showToast('Save failed: ' + error.message, 'error'); return; }
             showToast('Saved');

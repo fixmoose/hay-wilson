@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Caveat:wght@500;700&family=Dancing+Script:wght@500;700&family=Great+Vibes&family=Homemade+Apple&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
@@ -571,8 +572,28 @@
             const { PDFDocument, StandardFonts, rgb } = PDFLib;
             const pdfDocLib = await PDFDocument.load(pdfBytes);
             const pages = pdfDocLib.getPages();
-            const font = await pdfDocLib.embedFont(StandardFonts.Helvetica);
-            const fontBold = await pdfDocLib.embedFont(StandardFonts.HelveticaBold);
+
+            let font, fontBold;
+            try {
+                if (window.fontkit) pdfDocLib.registerFontkit(window.fontkit);
+                const [rBytes, bBytes] = await Promise.all([
+                    fetch('https://pdf-lib.js.org/assets/ubuntu/Ubuntu-R.ttf').then(r => r.arrayBuffer()),
+                    fetch('https://pdf-lib.js.org/assets/ubuntu/Ubuntu-B.ttf').then(r => r.arrayBuffer())
+                ]);
+                font = await pdfDocLib.embedFont(rBytes, { subset: true });
+                fontBold = await pdfDocLib.embedFont(bBytes, { subset: true });
+            } catch (e) {
+                console.warn('Unicode font load failed, falling back:', e);
+                font = await pdfDocLib.embedFont(StandardFonts.Helvetica);
+                fontBold = await pdfDocLib.embedFont(StandardFonts.HelveticaBold);
+                const strip = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                audit.signerName = strip(audit.signerName);
+                audit.signerEmail = strip(audit.signerEmail);
+                audit.documentTitle = strip(audit.documentTitle);
+                const stripped = {};
+                Object.keys(fValues).forEach(k => { stripped[k] = typeof fValues[k] === 'string' && !fValues[k].startsWith('data:') ? strip(fValues[k]) : fValues[k]; });
+                fValues = stripped;
+            }
 
             for (const f of fRows) {
                 const value = fValues[f.id];
