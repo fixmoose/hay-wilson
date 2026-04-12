@@ -773,11 +773,12 @@
                 const ua = navigator.userAgent;
 
                 // Resolve signer identity: prefer the signer row (updated by "Sign as" picker).
-                // Derive company from a matching library entry, if any.
+                // Derive company + location from a matching library entry, if any.
                 const identityName = signer.name || session.user.email;
                 const identityEmail = signer.email || session.user.email;
                 const matchLib = library.find(l => l.signer_name === signer.name && (l.signer_email || '') === (signer.email || ''));
                 const identityCompany = matchLib ? (matchLib.signer_company || '') : '';
+                const identityLocation = matchLib ? (matchLib.signer_location || '') : '';
 
                 // Prepare field values (for self-sign, fill current date for date fields, library signature data URL otherwise)
                 const now = new Date();
@@ -797,7 +798,8 @@
                                 digitalIdentity = {
                                     name: lib.signer_name || identityName,
                                     email: lib.signer_email || identityEmail,
-                                    company: lib.signer_company || identityCompany
+                                    company: lib.signer_company || identityCompany,
+                                    location: lib.signer_location || identityLocation
                                 };
                             }
                         }
@@ -810,6 +812,7 @@
                     signerName: identityName,
                     signerEmail: identityEmail,
                     signerCompany: identityCompany,
+                    signerLocation: identityLocation,
                     signedAt: now.toISOString(),
                     ip, userAgent: ua,
                     originalSha256: doc.original_sha256,
@@ -926,36 +929,112 @@
         }
 
         // ==================== Digital (eSigned block) native draw ====================
+        // Hex "#1a4ba8" → pdf-lib rgb(0..1)
+        function hexToRgbObj(hex, rgb) {
+            const h = (hex || '#1a4ba8').replace('#', '');
+            const r = parseInt(h.slice(0, 2), 16) / 255;
+            const g = parseInt(h.slice(2, 4), 16) / 255;
+            const b = parseInt(h.slice(4, 6), 16) / 255;
+            return rgb(r, g, b);
+        }
+
         function drawDigitalBlock(page, box, tpl, identity, signedAtIso, font, fontBold, rgb) {
             const { x, y, w, h } = box;
             const style = (tpl && tpl.style) || 'box';
-            // Background + border
-            if (style !== 'minimal') {
-                page.drawRectangle({ x, y, width: w, height: h,
-                    borderColor: rgb(0.1, 0.3, 0.65), borderWidth: 1,
-                    color: rgb(0.96, 0.98, 1) });
+            const colorHex = (tpl && tpl.color) || '#1a4ba8';
+            const accent = hexToRgbObj(colorHex, rgb);
+            const fillBg = rgb(
+                Math.min(1, 0.93 + (accent.red - 0.5) * 0.06),
+                Math.min(1, 0.95 + (accent.green - 0.5) * 0.06),
+                Math.min(1, 0.98 + (accent.blue - 0.5) * 0.06)
+            );
+
+            // ---- Frame ----
+            if (style === 'box') {
+                page.drawRectangle({ x, y, width: w, height: h, color: fillBg, borderColor: accent, borderWidth: 1.2 });
+            } else if (style === 'double') {
+                page.drawRectangle({ x, y, width: w, height: h, color: fillBg, borderColor: accent, borderWidth: 1.2 });
+                page.drawRectangle({ x: x + 3, y: y + 3, width: w - 6, height: h - 6, borderColor: accent, borderWidth: 0.6 });
+            } else if (style === 'rounded') {
+                // Approximate rounded corners by drawing base + 4 corner "notches" over the outside.
+                // Since pdf-lib lacks true rounded rects, we use a single filled rect + subtle inner border.
+                page.drawRectangle({ x, y, width: w, height: h, color: fillBg });
+                // Small inset border so it still reads as a block
+                page.drawRectangle({ x: x + 2, y: y + 2, width: w - 4, height: h - 4, borderColor: accent, borderWidth: 1.2 });
+            } else if (style === 'ornate') {
+                page.drawRectangle({ x, y, width: w, height: h, color: fillBg, borderColor: accent, borderWidth: 1.2 });
+                page.drawRectangle({ x: x + 4, y: y + 4, width: w - 8, height: h - 8, borderColor: accent, borderWidth: 0.4 });
+                // Corner diamonds
+                const ds = 3;
+                const corners = [[x + 2, y + 2], [x + w - 2, y + 2], [x + 2, y + h - 2], [x + w - 2, y + h - 2]];
+                corners.forEach(([cx, cy]) => {
+                    // Can't draw a filled polygon cheaply; use small filled rects rotated 45°... use 2 diagonal lines
+                    page.drawLine({ start: { x: cx - ds, y: cy }, end: { x: cx, y: cy + ds }, thickness: 1.5, color: accent });
+                    page.drawLine({ start: { x: cx, y: cy + ds }, end: { x: cx + ds, y: cy }, thickness: 1.5, color: accent });
+                    page.drawLine({ start: { x: cx + ds, y: cy }, end: { x: cx, y: cy - ds }, thickness: 1.5, color: accent });
+                    page.drawLine({ start: { x: cx, y: cy - ds }, end: { x: cx - ds, y: cy }, thickness: 1.5, color: accent });
+                });
+            } else if (style === 'seal') {
+                page.drawRectangle({ x, y, width: w, height: h, color: fillBg });
+                // Thick left bar in accent color
+                page.drawRectangle({ x, y, width: 5, height: h, color: accent });
+                // Bottom hairline
+                page.drawLine({ start: { x, y: y }, end: { x: x + w, y: y }, thickness: 0.5, color: accent });
+            } else if (style === 'ring') {
+                page.drawRectangle({ x, y, width: w, height: h, color: fillBg, borderColor: accent, borderWidth: 1.2 });
+                // Dotted-ish inner border: many short dashes as line segments
+                const insetX = x + 3, insetY = y + 3, insetW = w - 6, insetH = h - 6;
+                const dashLen = 2, gap = 2;
+                let px = insetX;
+                while (px < insetX + insetW) {
+                    const ex = Math.min(px + dashLen, insetX + insetW);
+                    page.drawLine({ start: { x: px, y: insetY }, end: { x: ex, y: insetY }, thickness: 0.4, color: accent });
+                    page.drawLine({ start: { x: px, y: insetY + insetH }, end: { x: ex, y: insetY + insetH }, thickness: 0.4, color: accent });
+                    px += dashLen + gap;
+                }
+                let py = insetY;
+                while (py < insetY + insetH) {
+                    const ey = Math.min(py + dashLen, insetY + insetH);
+                    page.drawLine({ start: { x: insetX, y: py }, end: { x: insetX, y: ey }, thickness: 0.4, color: accent });
+                    page.drawLine({ start: { x: insetX + insetW, y: py }, end: { x: insetX + insetW, y: ey }, thickness: 0.4, color: accent });
+                    py += dashLen + gap;
+                }
+                // Corner circles (small filled rects as pseudo-dots)
+                [[x + 4, y + 4], [x + w - 4, y + 4], [x + 4, y + h - 4], [x + w - 4, y + h - 4]].forEach(([cx, cy]) => {
+                    page.drawCircle({ x: cx, y: cy, size: 1.2, color: accent });
+                });
+            } else if (style === 'classic') {
+                page.drawRectangle({ x, y, width: w, height: h, borderColor: rgb(0.07, 0.1, 0.15), borderWidth: 0.5 });
             }
-            // Checkmark badge on left
+            // 'minimal' intentionally draws no frame
+
+            // ---- Badge / left seal ----
             const pad = 4;
-            const badge = Math.min(h - pad * 2, 22);
-            const badgeY = y + (h - badge) / 2;
-            page.drawRectangle({ x: x + pad, y: badgeY, width: badge, height: badge,
-                color: rgb(0.06, 0.6, 0.36) });
-            // Checkmark glyph (requires Unicode font)
-            try {
-                page.drawText('\u2713', {
-                    x: x + pad + badge * 0.2, y: badgeY + badge * 0.2,
-                    size: badge * 0.7, font: fontBold, color: rgb(1, 1, 1)
-                });
-            } catch (e) {
-                page.drawText('OK', {
-                    x: x + pad + badge * 0.1, y: badgeY + badge * 0.25,
-                    size: badge * 0.45, font: fontBold, color: rgb(1, 1, 1)
-                });
+            let contentX = x + pad;
+
+            if (style === 'seal') {
+                contentX = x + 10;
+            } else {
+                const badge = Math.min(h - pad * 2, 22);
+                const badgeY = y + (h - badge) / 2;
+                page.drawRectangle({ x: x + pad, y: badgeY, width: badge, height: badge, color: rgb(0.06, 0.6, 0.36) });
+                try {
+                    page.drawText('\u2713', {
+                        x: x + pad + badge * 0.2, y: badgeY + badge * 0.2,
+                        size: badge * 0.72, font: fontBold, color: rgb(1, 1, 1)
+                    });
+                } catch (e) {
+                    page.drawText('OK', {
+                        x: x + pad + badge * 0.12, y: badgeY + badge * 0.27,
+                        size: badge * 0.42, font: fontBold, color: rgb(1, 1, 1)
+                    });
+                }
+                contentX = x + pad + badge + 6;
             }
-            // Text lines
-            const textX = x + pad + badge + 6;
-            const maxTextWidth = w - (pad + badge + 6 + pad);
+
+            // ---- Text ----
+            const textX = contentX;
+            const maxTextWidth = x + w - textX - pad;
             const fit = (str, size, fnt) => {
                 if (!str) return '';
                 let s = str;
@@ -965,20 +1044,26 @@
                 return s === str ? s : s.slice(0, -1) + '…';
             };
 
-            // Vertical layout: label / name / company? / date
             const lines = [];
-            lines.push({ text: 'Digitally signed by', size: Math.max(5, Math.min(h * 0.15, 7)), font, color: rgb(0.45, 0.45, 0.45) });
-            lines.push({ text: identity.name || '', size: Math.max(7, Math.min(h * 0.28, 11)), font: fontBold, color: rgb(0.05, 0.1, 0.3) });
-            if (identity.company) lines.push({ text: identity.company, size: Math.max(5, Math.min(h * 0.18, 8)), font, color: rgb(0.3, 0.3, 0.35) });
+            const labelSize = Math.max(4, Math.min(h * 0.11, 6));
+            const nameSize = Math.max(7, Math.min(h * 0.22, 11));
+            const subSize = Math.max(4, Math.min(h * 0.13, 7));
+
+            lines.push({ text: 'Digitally signed by', size: labelSize, font, color: rgb(0.42, 0.42, 0.46) });
+            lines.push({ text: identity.name || '', size: nameSize, font: fontBold, color: rgb(0.05, 0.1, 0.3) });
+            if (identity.company) lines.push({ text: identity.company, size: subSize, font, color: rgb(0.25, 0.3, 0.35) });
+            if (identity.email) lines.push({ text: identity.email, size: subSize, font, color: rgb(0.4, 0.45, 0.5) });
+            if (identity.location) lines.push({ text: 'Location: ' + identity.location, size: subSize, font, color: rgb(0.4, 0.45, 0.5) });
             const d = new Date(signedAtIso);
             const dateStr = d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-            lines.push({ text: 'Date: ' + dateStr, size: Math.max(5, Math.min(h * 0.15, 7)), font, color: rgb(0.5, 0.5, 0.55) });
+            lines.push({ text: 'Date: ' + dateStr, size: subSize, font, color: rgb(0.45, 0.5, 0.55) });
 
-            const totalH = lines.reduce((s, l) => s + l.size + 2, 0);
+            const gap = 1.5;
+            const totalH = lines.reduce((s, l) => s + l.size + gap, 0);
             let ty = y + (h + totalH) / 2 - lines[0].size;
             lines.forEach(l => {
                 page.drawText(fit(l.text, l.size, l.font), { x: textX, y: ty, size: l.size, font: l.font, color: l.color });
-                ty -= l.size + 2;
+                ty -= l.size + gap;
             });
         }
 
@@ -1007,6 +1092,7 @@
                 audit.signerName = strip(audit.signerName);
                 audit.signerEmail = strip(audit.signerEmail);
                 audit.signerCompany = strip(audit.signerCompany);
+                audit.signerLocation = strip(audit.signerLocation);
                 audit.documentTitle = strip(audit.documentTitle);
                 fieldValues = fieldValues.map(v => ({ ...v, value: typeof v.value === 'string' ? strip(v.value) : v.value }));
             }
@@ -1074,6 +1160,7 @@
             drawLine('Name:     ' + audit.signerName);
             drawLine('Email:    ' + audit.signerEmail);
             if (audit.signerCompany) drawLine('Company:  ' + audit.signerCompany);
+            if (audit.signerLocation) drawLine('Location: ' + audit.signerLocation);
             drawLine('Signed at:' + new Date(audit.signedAt).toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'long' }));
             drawLine('IP:       ' + (audit.ip || '(not recorded)'));
             drawLine('User agent: ' + (audit.userAgent || '').slice(0, 80), 8);
