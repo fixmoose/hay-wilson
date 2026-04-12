@@ -1046,17 +1046,18 @@
                 const badge = Math.min(h - pad * 2, 22);
                 const badgeY = y + (h - badge) / 2;
                 page.drawRectangle({ x: x + pad, y: badgeY, width: badge, height: badge, color: rgb(0.06, 0.6, 0.36) });
-                try {
-                    page.drawText('\u2713', {
-                        x: x + pad + badge * 0.2, y: badgeY + badge * 0.2,
-                        size: badge * 0.72, font: fontBold, color: rgb(1, 1, 1)
-                    });
-                } catch (e) {
-                    page.drawText('OK', {
-                        x: x + pad + badge * 0.12, y: badgeY + badge * 0.27,
-                        size: badge * 0.42, font: fontBold, color: rgb(1, 1, 1)
-                    });
-                }
+                // Draw checkmark as two line segments — not a glyph — so it always renders.
+                // pdf-lib origin is bottom-left, so y values are inverted from canvas.
+                const bx = x + pad;
+                const by = badgeY;
+                const strokeW = Math.max(1.5, badge * 0.14);
+                const p1 = { x: bx + badge * 0.22, y: by + badge * 0.52 };
+                const p2 = { x: bx + badge * 0.44, y: by + badge * 0.28 };
+                const p3 = { x: bx + badge * 0.80, y: by + badge * 0.70 };
+                const white = rgb(1, 1, 1);
+                const cap = (PDFLib.LineCapStyle && PDFLib.LineCapStyle.Round) || undefined;
+                page.drawLine({ start: p1, end: p2, thickness: strokeW, color: white, lineCap: cap });
+                page.drawLine({ start: p2, end: p3, thickness: strokeW, color: white, lineCap: cap });
                 contentX = x + pad + badge + 6;
             }
 
