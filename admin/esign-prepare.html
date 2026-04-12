@@ -1142,28 +1142,83 @@
             if (fields.length === 0) { showToast('Add at least one field first', 'error'); return; }
             if (!signer.email) { showToast('Customer email required', 'error'); return; }
 
-            // Generate token if not already present
-            let token = signer.token;
-            if (!token) {
-                token = generateToken();
-                await sb.from('hw_esign_signers').update({ token, sent_at: new Date().toISOString() }).eq('id', signer.id);
-                signer.token = token;
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+
+            try {
+                // Generate token if not already present
+                let token = signer.token;
+                if (!token) {
+                    token = generateToken();
+                    await sb.from('hw_esign_signers').update({ token, sent_at: new Date().toISOString() }).eq('id', signer.id);
+                    signer.token = token;
+                }
+
+                const link = location.origin + '/esign/sign.html?token=' + token;
+                const signerName = signer.name || 'there';
+
+                const htmlBody =
+                    '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">' +
+                        '<div style="background:#1e293b;color:white;padding:16px 24px;border-radius:10px 10px 0 0;">' +
+                            '<h2 style="margin:0;font-size:18px;">Document ready for your signature</h2>' +
+                        '</div>' +
+                        '<div style="background:#ffffff;border:1px solid #e5e7eb;border-top:none;padding:24px;border-radius:0 0 10px 10px;">' +
+                            '<p style="margin:0 0 12px;color:#374151;">Hi ' + signerName + ',</p>' +
+                            '<p style="margin:0 0 20px;color:#374151;">You\'ve been asked to review and sign <strong>"' + escapeHtml(doc.title) + '"</strong>.</p>' +
+                            '<div style="text-align:center;margin:24px 0;">' +
+                                '<a href="' + link + '" style="background:linear-gradient(180deg,#3b82f6,#2563eb);color:white;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;font-size:16px;display:inline-block;">Review &amp; Sign</a>' +
+                            '</div>' +
+                            '<p style="margin:0 0 8px;color:#6b7280;font-size:14px;">No account needed — the link opens in your browser and takes about a minute.</p>' +
+                            '<p style="margin:20px 0 0;color:#9ca3af;font-size:12px;border-top:1px solid #e5e7eb;padding-top:16px;">If you didn\'t expect this email, you can safely ignore it.<br>Sent via Hay &amp; Wilson Electric eSign</p>' +
+                        '</div>' +
+                    '</div>';
+
+                // Try sending via API
+                const { data: { session: s } } = await sb.auth.getSession();
+                const apiResp = await fetch('/api/send-esign-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + s.access_token },
+                    body: JSON.stringify({
+                        to: signer.email,
+                        to_name: signer.name || '',
+                        subject: 'Please sign: ' + doc.title,
+                        html_body: htmlBody,
+                        document_id: doc.id
+                    })
+                });
+                const apiResult = await apiResp.json();
+
+                if (apiResp.ok && apiResult.success) {
+                    await sb.from('hw_esign_documents').update({ status: 'sent' }).eq('id', doc.id);
+                    doc.status = 'sent';
+                    showToast('Email sent to ' + signer.email);
+
+                    // Show link in modal as a backup / confirmation
+                    document.getElementById('linkDisplay').textContent = link;
+                    document.getElementById('emailBody').value = 'Email already sent automatically.\n\nSigning link: ' + link;
+                    document.getElementById('sendModal').classList.add('active');
+                } else {
+                    // API failed — fall back to manual copy/paste
+                    console.warn('Email API failed:', apiResult.error);
+                    await sb.from('hw_esign_documents').update({ status: 'sent' }).eq('id', doc.id);
+                    doc.status = 'sent';
+
+                    document.getElementById('linkDisplay').textContent = link;
+                    document.getElementById('emailBody').value =
+                        'Hi ' + signerName + ',\n\n' +
+                        'Please review and sign "' + doc.title + '" at the link below:\n\n' +
+                        link + '\n\n' +
+                        'No account needed — it opens in your browser and takes about a minute.\n\n' +
+                        'Thanks,\nHay & Wilson Electric';
+                    document.getElementById('sendModal').classList.add('active');
+                    showToast('Auto-email failed (' + (apiResult.error || 'unknown') + ') — copy the link manually', 'error');
+                }
+            } catch (e) {
+                showToast('Send failed: ' + e.message, 'error');
             }
-
-            await sb.from('hw_esign_documents').update({ status: 'sent' }).eq('id', doc.id);
-            await sb.from('hw_esign_audit_log').insert({ document_id: doc.id, signer_id: signer.id, event: 'sent', meta: { email: signer.email } });
-            doc.status = 'sent';
-
-            const link = location.origin + '/esign/sign.html?token=' + token;
-            document.getElementById('linkDisplay').textContent = link;
-            document.getElementById('emailBody').value =
-                'Hi ' + (signer.name || 'there') + ',\n\n' +
-                'Please review and sign "' + doc.title + '" at the link below:\n\n' +
-                link + '\n\n' +
-                'No account needed — it opens in your browser and takes about a minute.\n\n' +
-                'Thanks,\nHay & Wilson Electric';
-
-            document.getElementById('sendModal').classList.add('active');
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send for signature';
         }
 
         function setupSendModal() {
