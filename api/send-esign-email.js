@@ -28,7 +28,7 @@ module.exports = async (req, res) => {
         const payload = {
             api_key: UNIONE_KEY,
             message: {
-                recipients: [{ address: to, name: to_name || '' }],
+                recipients: [{ email: to, name: to_name || '' }],
                 subject,
                 from_email: fromEmail,
                 from_name: fromName,
