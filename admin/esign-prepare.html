@@ -702,13 +702,19 @@
                 const ip = await getClientIp();
                 const ua = navigator.userAgent;
 
+                // Resolve signer identity from the library signature used (falls back to auth email)
+                const primarySig = fields.map(f => library.find(l => l.id === f.library_signature_id)).find(l => l && l.signer_name);
+                const identityName = primarySig ? primarySig.signer_name : session.user.email;
+                const identityEmail = primarySig ? (primarySig.signer_email || session.user.email) : session.user.email;
+                const identityCompany = primarySig ? (primarySig.signer_company || '') : '';
+
                 // Prepare field values (for self-sign, fill current date for date fields, library signature data URL otherwise)
                 const now = new Date();
                 const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
                 const fieldValues = fields.map(f => {
                     let value = '';
                     if (f.type === 'date') value = dateStr;
-                    else if (f.type === 'text') value = session.user.email;
+                    else if (f.type === 'text') value = identityName;
                     else if (['signature', 'initial', 'stamp'].includes(f.type)) {
                         const lib = library.find(l => l.id === f.library_signature_id);
                         value = lib ? lib.image_data : '';
@@ -718,8 +724,9 @@
 
                 // Stamp fields onto PDF and append certificate page
                 const finalBytes = await stampAndCertify(pdfBytes, fields, fieldValues, {
-                    signerName: session.user.email,
-                    signerEmail: session.user.email,
+                    signerName: identityName,
+                    signerEmail: identityEmail,
+                    signerCompany: identityCompany,
                     signedAt: now.toISOString(),
                     ip, userAgent: ua,
                     originalSha256: doc.original_sha256,
@@ -736,8 +743,9 @@
                 for (const fv of fieldValues) {
                     await sb.from('hw_esign_fields').update({ value: fv.value, filled_at: new Date().toISOString() }).eq('id', fv.id);
                 }
-                // Update signer + doc
+                // Update signer + doc (persist library identity so audit view shows correct name/email)
                 await sb.from('hw_esign_signers').update({
+                    name: identityName, email: identityEmail,
                     status: 'signed', signed_at: new Date().toISOString(), signed_ip: ip, signed_user_agent: ua
                 }).eq('id', signer.id);
                 await sb.from('hw_esign_documents').update({
@@ -745,7 +753,7 @@
                 }).eq('id', doc.id);
                 await sb.from('hw_esign_audit_log').insert({
                     document_id: doc.id, signer_id: signer.id, event: 'signed', ip, user_agent: ua,
-                    meta: { mode: 'self', signed_sha256: finalHash }
+                    meta: { mode: 'self', signed_sha256: finalHash, company: identityCompany }
                 });
 
                 showToast('Signed!');
@@ -896,6 +904,7 @@
             drawLine('SIGNER', 10, true);
             drawLine('Name:     ' + audit.signerName);
             drawLine('Email:    ' + audit.signerEmail);
+            if (audit.signerCompany) drawLine('Company:  ' + audit.signerCompany);
             drawLine('Signed at:' + new Date(audit.signedAt).toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'long' }));
             drawLine('IP:       ' + (audit.ip || '(not recorded)'));
             drawLine('User agent: ' + (audit.userAgent || '').slice(0, 80), 8);
