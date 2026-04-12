@@ -47,8 +47,21 @@
         .field-box.for-customer:hover { background:rgba(245,158,11,0.22); }
         .field-box img { max-width:100%; max-height:100%; object-fit:contain; pointer-events:none; }
         .field-box-del { position:absolute; top:-10px; right:-10px; width:20px; height:20px; border-radius:50%; background:#dc2626; color:white; border:none; font-size:0.75rem; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:700; z-index:10; }
-        .field-box-handle { position:absolute; bottom:-6px; right:-6px; width:12px; height:12px; background:var(--primary-light); border:2px solid white; border-radius:50%; cursor:se-resize; z-index:10; }
+        .field-box-handle { position:absolute; width:10px; height:10px; background:var(--primary-light); border:2px solid white; border-radius:2px; z-index:10; box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+        .field-box-handle.h-se { bottom:-5px; right:-5px; cursor:se-resize; }
+        .field-box-handle.h-sw { bottom:-5px; left:-5px; cursor:sw-resize; }
+        .field-box-handle.h-ne { top:-5px; right:-5px; cursor:ne-resize; }
+        .field-box-handle.h-nw { top:-5px; left:-5px; cursor:nw-resize; }
+        .field-box-handle.h-n { top:-5px; left:50%; transform:translateX(-50%); cursor:n-resize; width:20px; height:6px; border-radius:3px; }
+        .field-box-handle.h-s { bottom:-5px; left:50%; transform:translateX(-50%); cursor:s-resize; width:20px; height:6px; border-radius:3px; }
+        .field-box-handle.h-e { right:-5px; top:50%; transform:translateY(-50%); cursor:e-resize; width:6px; height:20px; border-radius:3px; }
+        .field-box-handle.h-w { left:-5px; top:50%; transform:translateY(-50%); cursor:w-resize; width:6px; height:20px; border-radius:3px; }
+        .field-box:hover .field-box-handle { opacity:1; }
+        .field-box .field-box-handle { opacity:0; transition:opacity 0.15s; }
+        .field-box.resizing .field-box-handle { opacity:1; }
         .field-box-label { position:absolute; top:-18px; left:0; background:rgba(0,0,0,0.75); color:white; padding:0.08rem 0.35rem; border-radius:2px; font-size:0.6rem; white-space:nowrap; }
+        .field-box-size { position:absolute; bottom:-18px; right:0; background:rgba(0,0,0,0.75); color:white; padding:0.08rem 0.35rem; border-radius:2px; font-size:0.55rem; white-space:nowrap; display:none; }
+        .field-box.resizing .field-box-size { display:block; }
 
         .signer-row { display:flex; gap:0.5rem; align-items:center; padding:0.45rem 0.6rem; border:1px solid var(--border-color); border-radius:6px; margin-bottom:0.4rem; }
         .signer-row.active { border-color:var(--primary-light); background:#eff6ff; }
@@ -806,55 +819,107 @@
                 del.addEventListener('click', (e) => { e.stopPropagation(); deleteField(f.id); });
                 box.appendChild(del);
 
-                // Resize handle
-                const handle = document.createElement('div');
-                handle.className = 'field-box-handle';
-                box.appendChild(handle);
+                // Resize handles: 4 corners + 4 edges
+                ['se', 'sw', 'ne', 'nw', 'n', 's', 'e', 'w'].forEach(dir => {
+                    const h = document.createElement('div');
+                    h.className = 'field-box-handle h-' + dir;
+                    h.dataset.dir = dir;
+                    box.appendChild(h);
+                });
+
+                // Size tooltip (shown while resizing)
+                const sizeEl = document.createElement('div');
+                sizeEl.className = 'field-box-size';
+                box.appendChild(sizeEl);
 
                 wrap.appendChild(box);
-                setupFieldDrag(box, f, handle);
+                setupFieldDrag(box, f);
             });
         }
 
-        function setupFieldDrag(box, field, handle) {
-            let mode = null, startX = 0, startY = 0, startW = 0, startH = 0;
+        function setupFieldDrag(box, field) {
+            let mode = null, dir = null;
+            let startMX = 0, startMY = 0;
+            let startX = 0, startY = 0, startW = 0, startH = 0;
             const wrap = box.parentElement;
+            const sizeEl = box.querySelector('.field-box-size');
+            const MIN_W = 2, MIN_H = 1.5;
 
+            function updateSizeTooltip() {
+                if (!sizeEl) return;
+                const wrapRect = wrap.getBoundingClientRect();
+                const pxW = Math.round(field.width / 100 * wrapRect.width);
+                const pxH = Math.round(field.height / 100 * wrapRect.height);
+                sizeEl.textContent = pxW + ' × ' + pxH + 'px';
+            }
+
+            // Move: mousedown on the box itself (not on handles or delete btn)
             box.addEventListener('mousedown', (e) => {
-                if (e.target === handle || e.target.classList.contains('field-box-del')) return;
+                if (e.target.classList.contains('field-box-handle') || e.target.classList.contains('field-box-del')) return;
                 e.stopPropagation();
                 mode = 'move';
-                startX = e.clientX; startY = e.clientY;
-                startW = field.x; startH = field.y;
+                startMX = e.clientX; startMY = e.clientY;
+                startX = field.x; startY = field.y;
+                box.classList.add('resizing');
+                updateSizeTooltip();
                 e.preventDefault();
             });
-            handle.addEventListener('mousedown', (e) => {
-                e.stopPropagation();
-                mode = 'resize';
-                startX = e.clientX; startY = e.clientY;
-                startW = field.width; startH = field.height;
-                e.preventDefault();
+
+            // Resize: mousedown on any handle
+            box.querySelectorAll('.field-box-handle').forEach(h => {
+                h.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    mode = 'resize';
+                    dir = h.dataset.dir;
+                    startMX = e.clientX; startMY = e.clientY;
+                    startX = field.x; startY = field.y;
+                    startW = field.width; startH = field.height;
+                    box.classList.add('resizing');
+                    updateSizeTooltip();
+                    e.preventDefault();
+                });
             });
+
             document.addEventListener('mousemove', (e) => {
                 if (!mode) return;
-                const rect = wrap.getBoundingClientRect();
-                const dx = ((e.clientX - startX) / rect.width) * 100;
-                const dy = ((e.clientY - startY) / rect.height) * 100;
+                const wrapRect = wrap.getBoundingClientRect();
+                const dx = ((e.clientX - startMX) / wrapRect.width) * 100;
+                const dy = ((e.clientY - startMY) / wrapRect.height) * 100;
+
                 if (mode === 'move') {
-                    field.x = Math.max(0, Math.min(100 - field.width, startW + dx));
-                    field.y = Math.max(0, Math.min(100 - field.height, startH + dy));
+                    field.x = Math.max(0, Math.min(100 - field.width, startX + dx));
+                    field.y = Math.max(0, Math.min(100 - field.height, startY + dy));
                     box.style.left = field.x + '%';
                     box.style.top = field.y + '%';
                 } else if (mode === 'resize') {
-                    field.width = Math.max(3, Math.min(100 - field.x, startW + dx));
-                    field.height = Math.max(2, Math.min(100 - field.y, startH + dy));
-                    box.style.width = field.width + '%';
-                    box.style.height = field.height + '%';
+                    // Each direction affects different edges
+                    let newX = startX, newY = startY, newW = startW, newH = startH;
+
+                    if (dir.includes('e')) newW = Math.max(MIN_W, startW + dx);
+                    if (dir.includes('w')) { newW = Math.max(MIN_W, startW - dx); newX = startX + startW - newW; }
+                    if (dir.includes('s')) newH = Math.max(MIN_H, startH + dy);
+                    if (dir.includes('n')) { newH = Math.max(MIN_H, startH - dy); newY = startY + startH - newH; }
+
+                    // Clamp to page bounds
+                    if (newX < 0) { newW += newX; newX = 0; }
+                    if (newY < 0) { newH += newY; newY = 0; }
+                    if (newX + newW > 100) newW = 100 - newX;
+                    if (newY + newH > 100) newH = 100 - newY;
+
+                    field.x = newX; field.y = newY;
+                    field.width = newW; field.height = newH;
+                    box.style.left = newX + '%';
+                    box.style.top = newY + '%';
+                    box.style.width = newW + '%';
+                    box.style.height = newH + '%';
                 }
+                updateSizeTooltip();
             });
+
             document.addEventListener('mouseup', async () => {
                 if (!mode) return;
-                mode = null;
+                mode = null; dir = null;
+                box.classList.remove('resizing');
                 await sb.from('hw_esign_fields').update({
                     x: field.x, y: field.y, width: field.width, height: field.height
                 }).eq('id', field.id);
