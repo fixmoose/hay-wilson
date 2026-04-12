@@ -752,19 +752,28 @@
             const customerId = document.getElementById('customerSel').value || null;
             const jobId = document.getElementById('jobSel').value || null;
             const kind = document.getElementById('signerKind').value;
-            const name = kind === 'customer' ? document.getElementById('signerName').value.trim() : session.user.email;
-            const email = kind === 'customer' ? document.getElementById('signerEmail').value.trim() : null;
 
             const { error: dErr } = await sb.from('hw_esign_documents').update({
                 title, customer_id: customerId, job_id: jobId
             }).eq('id', doc.id);
             if (dErr) { showToast('Save failed: ' + dErr.message, 'error'); return false; }
 
-            const { error: sErr } = await sb.from('hw_esign_signers').update({
-                kind, name: name || signer.name, email
-            }).eq('id', signer.id);
+            // Build signer updates. IMPORTANT: for self-sign we preserve the
+            // identity already applied by the "Sign as" picker (signer.name /
+            // signer.email). Only customer mode reads from the form inputs.
+            const updates = { kind };
+            if (kind === 'customer') {
+                updates.name = document.getElementById('signerName').value.trim() || signer.name;
+                updates.email = document.getElementById('signerEmail').value.trim() || null;
+            }
+
+            const { error: sErr } = await sb.from('hw_esign_signers').update(updates).eq('id', signer.id);
             if (sErr) { showToast('Save failed: ' + sErr.message, 'error'); return false; }
-            signer.kind = kind; signer.name = name || signer.name; signer.email = email;
+            signer.kind = kind;
+            if (kind === 'customer') {
+                signer.name = updates.name;
+                signer.email = updates.email;
+            }
             renderSignerList();
 
             if (!silent) showToast('Draft saved');
@@ -1185,17 +1194,18 @@
             drawLine('User agent: ' + (audit.userAgent || '').slice(0, 80), 8);
             y -= 8;
 
-            // Fetch full audit log for this document
+            // Fetch full audit log for this document and synthesize the SIGNED event
+            // (the real DB row is inserted AFTER stampAndCertify returns, so it's not in `logs` yet).
             try {
                 const { data: logs } = await sb.from('hw_esign_audit_log').select('event, at, ip, user_agent')
                     .eq('document_id', audit.documentId).order('at');
-                if (logs) {
-                    drawLine('AUDIT TRAIL', 10, true);
-                    logs.forEach(l => {
-                        const at = new Date(l.at).toLocaleString('en-US');
-                        drawLine('• ' + at + '  ' + l.event.toUpperCase() + (l.ip ? '  ' + l.ip : ''), 8);
-                    });
-                }
+                const fullLogs = (logs || []).slice();
+                fullLogs.push({ event: 'signed', at: audit.signedAt, ip: audit.ip, user_agent: audit.userAgent });
+                drawLine('AUDIT TRAIL', 10, true);
+                fullLogs.forEach(l => {
+                    const at = new Date(l.at).toLocaleString('en-US');
+                    drawLine('• ' + at + '  ' + l.event.toUpperCase() + (l.ip ? '  ' + l.ip : ''), 8);
+                });
             } catch (e) { /* ignore */ }
 
             y -= 10;
