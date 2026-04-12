@@ -72,10 +72,28 @@
         .font-option.selected { border-color:#2563eb; background:#eff6ff; }
         .type-input { width:100%; padding:0.6rem 0.75rem; border:1px solid #e5e7eb; border-radius:6px; font-size:1rem; margin-top:0.5rem; font-family:inherit; }
 
-        .btn-primary { padding:0.6rem 1.25rem; background:#2563eb; color:white; border:none; border-radius:6px; cursor:pointer; font-size:0.9rem; font-weight:500; font-family:inherit; }
-        .btn-primary:hover { background:#1d4ed8; }
-        .btn-secondary { padding:0.6rem 1rem; background:white; border:1px solid #e5e7eb; border-radius:6px; cursor:pointer; font-size:0.85rem; font-family:inherit; color:#1f2937; }
-        .btn-secondary:hover { background:#f9fafb; }
+        .btn-primary, .btn-secondary {
+            display:inline-flex; align-items:center; justify-content:center; gap:0.5rem;
+            padding:0.6rem 1.2rem; border-radius:8px; font-size:0.88rem; font-weight:500;
+            font-family:inherit; cursor:pointer; line-height:1.2; border:1px solid transparent;
+            transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+        }
+        .btn-primary:active, .btn-secondary:active { transform:translateY(1px); }
+        .btn-primary {
+            background:linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+            color:white; border-color:#1d4ed8;
+            box-shadow:0 1px 2px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+        .btn-primary:hover {
+            background:linear-gradient(180deg, #4f8bf2 0%, #3b82f6 100%);
+            box-shadow:0 2px 6px rgba(59,130,246,0.35);
+        }
+        .btn-primary:disabled { opacity:0.55; cursor:not-allowed; box-shadow:none; transform:none; }
+        .btn-secondary {
+            background:#ffffff; color:#1f2937; border-color:#e5e7eb;
+            box-shadow:0 1px 2px rgba(15,23,42,0.04);
+        }
+        .btn-secondary:hover { background:#f8fafc; border-color:#cbd5e1; box-shadow:0 2px 6px rgba(15,23,42,0.08); }
 
         .text-input { width:100%; padding:0.75rem; border:1px solid #e5e7eb; border-radius:6px; font-size:1rem; font-family:inherit; }
 
