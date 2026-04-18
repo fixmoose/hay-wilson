@@ -335,6 +335,26 @@
         let currentFilter = 'all';
         let currentStatusFilter = 'all';
         let currentDateFilter = 'all';
+
+        // Module-level receipt→expense lookup (rebuilt on each render)
+        let _expByPath = {}, _expByFname = {};
+        function rebuildExpenseLookup() {
+            _expByPath = {}; _expByFname = {};
+            allExpenses.forEach(e => {
+                if (!e.receipt_path) return;
+                const p = e.receipt_path.replace(/^\/+/, '');
+                if (!_expByPath[p]) _expByPath[p] = [];
+                _expByPath[p].push(e);
+                const fname = p.split('/').pop();
+                if (fname) { if (!_expByFname[fname]) _expByFname[fname] = []; _expByFname[fname].push(e); }
+            });
+        }
+        function getExpenses(path) {
+            const p = (path || '').replace(/^\/+/, '');
+            if (_expByPath[p]) return _expByPath[p];
+            const fname = p.split('/').pop();
+            return (fname && _expByFname[fname]) ? _expByFname[fname] : null;
+        }
         let currentAiPath = null;
         let authToken = null;
         let currentPage = 1;
@@ -404,7 +424,8 @@
             const { data: folders, error } = await sb.storage.from('hw-receipts').list('', { limit: 1000 });
             if (error) { console.error(error); document.getElementById('loadingState').style.display = 'none'; return; }
 
-            const folderNames = (folders || []).filter(f => f.id === null && !f.name.startsWith('_shared')).map(f => f.name);
+            const excludedFolders = ['_shared', '_company_docs', '.emptyFolderPlaceholder'];
+            const folderNames = (folders || []).filter(f => f.id === null && !excludedFolders.includes(f.name) && !f.name.startsWith('.')).map(f => f.name);
             const rootFiles = (folders || []).filter(f => f.id !== null);
 
             rootFiles.forEach(f => {
@@ -431,28 +452,26 @@
             const grid = document.getElementById('receiptGrid');
             const empty = document.getElementById('emptyState');
             const count = document.getElementById('receiptCount');
-            // Build lookup of processed receipt paths
-            const expensesByPath = {};
-            allExpenses.forEach(e => { if (e.receipt_path) { if (!expensesByPath[e.receipt_path]) expensesByPath[e.receipt_path] = []; expensesByPath[e.receipt_path].push(e); } });
+            rebuildExpenseLookup();
 
             // Job filter: use expense job_id (not storage folder)
             let filtered = allReceipts;
             if (currentFilter === '_unassigned') {
                 filtered = filtered.filter(r => {
-                    const exps = expensesByPath[r.path];
+                    const exps = getExpenses(r.path);
                     return !exps || exps.every(e => !e.job_id);
                 });
             } else if (currentFilter !== 'all') {
                 // Build a set of receipt paths for this job from expenses
                 const jobPaths = new Set();
                 allExpenses.forEach(e => { if (e.job_id === currentFilter && e.receipt_path) jobPaths.add(e.receipt_path); });
-                filtered = filtered.filter(r => jobPaths.has(r.path));
+                filtered = filtered.filter(r => jobPaths.has(r.path) || (getExpenses(r.path) || []).some(e => e.job_id === currentFilter));
             }
 
             // Date period filter
             if (currentDateFilter !== 'all') {
                 filtered = filtered.filter(r => {
-                    const exps = expensesByPath[r.path];
+                    const exps = getExpenses(r.path);
                     if (!exps || exps.length === 0) {
                         // Unprocessed: use file created_at
                         return r.created_at && isDateInPeriod(r.created_at, currentDateFilter);
@@ -462,13 +481,13 @@
             }
 
             // Enable PDF button if there are processed receipts in current filter
-            const processedCount = filtered.filter(r => !!expensesByPath[r.path]).length;
+            const processedCount = filtered.filter(r => !!getExpenses(r.path)).length;
             const pdfBtn = document.getElementById('downloadPdfBtn');
             pdfBtn.disabled = processedCount === 0;
             pdfBtn.title = processedCount > 0 ? 'Download ' + processedCount + ' processed receipts as PDF' : 'No processed receipts to download';
 
-            if (currentStatusFilter === 'new') filtered = filtered.filter(r => !expensesByPath[r.path]);
-            else if (currentStatusFilter === 'processed') filtered = filtered.filter(r => !!expensesByPath[r.path]);
+            if (currentStatusFilter === 'new') filtered = filtered.filter(r => !getExpenses(r.path));
+            else if (currentStatusFilter === 'processed') filtered = filtered.filter(r => !!getExpenses(r.path));
 
             const totalCount = filtered.length;
             const totalPages = perPage > 0 ? Math.ceil(totalCount / perPage) : 1;
@@ -495,7 +514,7 @@
             grid.innerHTML = paged.map(r => {
                 const isPdf = r.name.toLowerCase().endsWith('.pdf');
                 const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-                const expenses = expensesByPath[r.path] || [];
+                const expenses = getExpenses(r.path) || [];
                 const isProcessed = expenses.length > 0;
                 // For processed receipts, show job from expenses; otherwise show storage folder
                 const jobName = isProcessed
@@ -747,27 +766,24 @@
             btn.textContent = 'Building PDF...';
 
             try {
-                const expensesByPath = {};
-                allExpenses.forEach(e => { if (e.receipt_path) { if (!expensesByPath[e.receipt_path]) expensesByPath[e.receipt_path] = []; expensesByPath[e.receipt_path].push(e); } });
-
-                // Get currently filtered processed receipts only
+                // Get currently filtered processed receipts only (reuse getExpenses from renderReceipts scope)
                 let filtered = allReceipts;
                 if (currentFilter === '_unassigned') {
-                    filtered = filtered.filter(r => { const exps = expensesByPath[r.path]; return !exps || exps.every(e => !e.job_id); });
+                    filtered = filtered.filter(r => { const exps = getExpenses(r.path); return !exps || exps.every(e => !e.job_id); });
                 } else if (currentFilter !== 'all') {
                     const jobPaths = new Set();
                     allExpenses.forEach(e => { if (e.job_id === currentFilter && e.receipt_path) jobPaths.add(e.receipt_path); });
-                    filtered = filtered.filter(r => jobPaths.has(r.path));
+                    filtered = filtered.filter(r => jobPaths.has(r.path) || (getExpenses(r.path) || []).some(e => e.job_id === currentFilter));
                 }
                 if (currentDateFilter !== 'all') {
                     filtered = filtered.filter(r => {
-                        const exps = expensesByPath[r.path];
+                        const exps = getExpenses(r.path);
                         if (!exps || exps.length === 0) return r.created_at && isDateInPeriod(r.created_at, currentDateFilter);
                         return exps.some(e => e.expense_date && isDateInPeriod(e.expense_date, currentDateFilter));
                     });
                 }
                 // Only include receipts that have been processed (have expense records)
-                filtered = filtered.filter(r => !!expensesByPath[r.path]);
+                filtered = filtered.filter(r => !!getExpenses(r.path));
 
                 if (filtered.length === 0) { showToast('No processed receipts to download', 'error'); return; }
 
