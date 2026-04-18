@@ -40,6 +40,7 @@
         .receipt-status-tag { position:absolute; top:6px; left:6px; padding:0.15rem 0.5rem; border-radius:4px; font-size:0.65rem; font-weight:600; z-index:2; pointer-events:none; }
         .tag-processed { background:#dcfce7; color:#16a34a; }
         .tag-unprocessed { background:#fef9c3; color:#a16207; }
+        .tag-statement { background:#dbeafe; color:#1e40af; }
         .tag-queued { background:#dbeafe; color:#1d4ed8; }
         .receipt-card.queued { border-color:#93c5fd; }
         .receipt-card-actions .btn-edit { border-color:#16a34a; color:#16a34a; }
@@ -183,6 +184,7 @@
                         <option value="all">All</option>
                         <option value="new">New</option>
                         <option value="processed">Processed</option>
+                        <option value="statements">Statements</option>
                     </select>
                     <label style="font-size:0.85rem;color:var(--text-light);">Show:</label>
                     <select id="perPageSelect">
@@ -487,7 +489,8 @@
             pdfBtn.title = processedCount > 0 ? 'Download ' + processedCount + ' processed receipts as PDF' : 'No processed receipts to download';
 
             if (currentStatusFilter === 'new') filtered = filtered.filter(r => !getExpenses(r.path));
-            else if (currentStatusFilter === 'processed') filtered = filtered.filter(r => !!getExpenses(r.path));
+            else if (currentStatusFilter === 'processed') filtered = filtered.filter(r => { const exps = getExpenses(r.path); return exps && !exps.every(e => e.category === 'statement'); });
+            else if (currentStatusFilter === 'statements') filtered = filtered.filter(r => { const exps = getExpenses(r.path); return exps && exps.some(e => e.category === 'statement'); });
 
             const totalCount = filtered.length;
             const totalPages = perPage > 0 ? Math.ceil(totalCount / perPage) : 1;
@@ -516,14 +519,17 @@
                 const dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
                 const expenses = getExpenses(r.path) || [];
                 const isProcessed = expenses.length > 0;
+                const isStatement = expenses.some(e => e.category === 'statement');
                 // For processed receipts, show job from expenses; otherwise show storage folder
                 const jobName = isProcessed
-                    ? [...new Set(expenses.map(e => { const j = allJobs.find(j => j.id === e.job_id); return j ? j.name : ''; }).filter(Boolean))].join(', ') || 'No job'
+                    ? [...new Set(expenses.map(e => { const j = allJobs.find(j => j.id === e.job_id); return j ? j.name : ''; }).filter(Boolean))].join(', ') || (isStatement ? 'Statement' : 'No job')
                     : getJobName(r.folder);
-                const cardClass = isProcessed ? 'processed' : 'unprocessed';
-                const tagHtml = isProcessed
-                    ? '<span class="receipt-status-tag tag-processed">Processed' + (expenses.length > 1 ? ' (' + expenses.length + ')' : '') + '</span>'
-                    : '<span class="receipt-status-tag tag-unprocessed">New</span>';
+                const cardClass = isProcessed ? (isStatement ? 'processed' : 'processed') : 'unprocessed';
+                const tagHtml = isStatement
+                    ? '<span class="receipt-status-tag tag-statement">Statement</span>'
+                    : (isProcessed
+                        ? '<span class="receipt-status-tag tag-processed">Processed' + (expenses.length > 1 ? ' (' + expenses.length + ')' : '') + '</span>'
+                        : '<span class="receipt-status-tag tag-unprocessed">New</span>');
 
                 const MAX_VISIBLE = 5;
                 const expenseLines = expenses.map(exp =>
